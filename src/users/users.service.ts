@@ -6,10 +6,10 @@ import { UsersRepository } from "./users.repository";
 import { UserDocument } from "./user.schema";
 import { UpdateUserDto } from "./_utils/dto/request/update-user.dto";
 import { UserQueryDto } from "./_utils/dto/request/user-query.dto";
-import bcrypt from "bcrypt";
 import { LoginResponseDto } from "src/auth/_utils/dto/response/login-response.dto";
 import { AuthService } from "src/auth/auth.service";
 import { EncryptionService } from "src/encryption/encryption.service";
+import { FunctionPaginatedResponseDto } from "src/_utils/dto/response/function-paginated-response.dto";
 
 @Injectable()
 export class UsersService {
@@ -34,7 +34,7 @@ export class UsersService {
 
   async findPaginated(
     queries: UserQueryDto
-  ): Promise<{ data: GetUserDto[]; totalCount: number }> {
+  ): Promise<FunctionPaginatedResponseDto<GetUserDto>> {
     const { users, totalCount } =
       await this.usersRepository.findPaginated(queries);
     return {
@@ -43,7 +43,7 @@ export class UsersService {
     };
   }
 
-  updateUser = async (
+  updateUser = (
     user: UserDocument,
     body: UpdateUserDto
   ): Promise<GetUserDto> =>

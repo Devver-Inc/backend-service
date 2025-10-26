@@ -115,7 +115,7 @@ export class AuthService {
     }
   }
 
-  logout = async (connectedUser: UserDocument) =>
+  logout = (connectedUser: UserDocument) =>
     this.usersRepository.clearRefreshToken(connectedUser.id);
 
   private async validateUser(
