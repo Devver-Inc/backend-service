@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>[MCR] Création de votre compte MyCotyRoom</title>
+</head>
+<body style="font-family: Lato-Regular, sans-serif">
+<table style="width: 100%; border: none;">
+    <tr>
+        <td style="padding: 20px; border-collapse: collapse; border-spacing: 0;">
+            <table class="content" style="border-collapse: collapse; border: none; width: 600px; margin: auto">
+                <!-- Header -->
+                <tr>
+                    <td class="header" style="background-color: #FF4D4D; padding: 25px; text-align: center; margin: auto; border-collapse: collapse; border-spacing: 0;">
+                        <img src="<%= logo %>" alt="logo" style="display: inline-block; width: 108px;" />
+                    </td>
+                </tr>
+
+                <!-- Body -->
+                <tr>
+                    <td class="body" style="background-color: #FFFFFF; padding: 60px 40px 30px; text-align: left; font-size: 14px; font-weight: 500; line-height: 1.6; border-collapse: collapse; border-spacing: 0;">
+                        Bonjour <%= firstname %>,
+                        <br><br>
+                        Nous venons de créer votre compte sur My Coty Room.
+                        <br><br>
+                        <span style="font-weight: 700">Choisissez votre mot de passe dès maintenant :</span>
+                    </td>
+                </tr>
+
+                <!-- Call to action Button -->
+                <tr>
+                    <td style="background-color: #FFFFFF; padding: 0 40px 60px 40px; text-align: center; border-collapse: collapse; border-spacing: 0;">
+                        <!-- CTA Button -->
+                        <table style="margin: auto;">
+                            <tr>
+                                <td style="background-color: #FF4D4D; padding: 15px 20px; border-radius: 5px; border-collapse: collapse; border-spacing: 0; text-align: center">
+                                    <a href="<%= url %>" target="_blank" style="color: #FFFFFF; text-decoration: none; font-size: 15px; font-weight: 700;">Je choisis mon mot de passe</a>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+                <!-- Footer -->
+                <tr>
+                    <td class="footer" style="background-color: #FF4D4D; padding: 25px; text-align: center; color: white; font-size: 12px; font-weight: 600">
+                        <a href="mailto:<%= contact %>" style="color: #FFFFFF; font-size: 12px; font-weight: 600;"><%= contact %></a>
+                        <br>
+                        © Copyright © 2024 MCR, All Rights Reserved.
+                    </td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>
+</body>
+</html>
