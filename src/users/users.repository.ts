@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
-import { FilterQuery, Model } from "mongoose";
+import { QueryFilter, Model } from "mongoose";
 import { User, UserDocument } from "./user.schema";
 import { CreateUserDto } from "./_utils/dto/request/create-user.dto";
 import { randomStringGenerator } from "@nestjs/common/utils/random-string-generator.util";
@@ -38,7 +38,7 @@ export class UsersRepository {
   async findPaginated(queries: UserQueryDto) {
     const { search, limit, orderBy, role, skip, order } = queries;
 
-    const queryParams: FilterQuery<UserDocument> = {
+    const queryParams: QueryFilter<UserDocument> = {
       deletedAt: null,
       ...(search && {
         $or: [

@@ -6,7 +6,7 @@ import {
   ValidatorConstraintInterface,
   registerDecorator,
 } from "class-validator";
-import { Connection, FilterQuery, isValidObjectId } from "mongoose";
+import { Connection, QueryFilter, isValidObjectId } from "mongoose";
 import { UniqueExistsValidationOptions } from "./options/unique-exists.options";
 
 @ValidatorConstraint({ async: true })
@@ -24,8 +24,8 @@ export class UniqueExistsConstraint implements ValidatorConstraintInterface {
     )
       return false;
 
-    const repository = this.connection.model(entity);
-    const query: FilterQuery<any> = {
+    const repository: any = this.connection.model(entity);
+    const query: any = {
       [options.property || property]: value,
       ...options.queries,
     };
@@ -73,7 +73,7 @@ export function IsExisting<T>(
       propertyName,
       options: validationOptions,
       constraints: [entity, validationOptions, propertyName, true],
-      
+
       validator: UniqueExistsConstraint,
     });
   };
