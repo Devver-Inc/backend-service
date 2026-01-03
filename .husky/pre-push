@@ -1,0 +1,17 @@
+echo "🔍 Running lint..."
+npm run lint
+
+if [ $? -ne 0 ]; then
+  echo "❌ Lint failed. Fix errors before pushing."
+  exit 1
+fi
+
+echo "✨ Running format..."
+npm run format
+
+if [ $? -ne 0 ]; then
+  echo "❌ Format failed. Fix errors before pushing."
+  exit 1
+fi
+
+echo "✅ Lint and format passed! Continuing with push..."
