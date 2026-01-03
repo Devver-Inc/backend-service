@@ -4,9 +4,9 @@ import {
   ForbiddenException,
   Injectable,
   UnauthorizedException,
-} from "@nestjs/common";
+} from '@nestjs/common';
 
-import { LogtoService } from "../../logto.service";
+import { LogtoService } from '../../logto.service';
 
 @Injectable()
 export class AccessTokenGuard implements CanActivate {
@@ -25,7 +25,7 @@ export class AccessTokenGuard implements CanActivate {
       return true;
     } catch (error) {
       if (error.status === 401)
-        throw new UnauthorizedException(error.message || "Unauthorized");
+        throw new UnauthorizedException(error.message || 'Unauthorized');
       throw new ForbiddenException(error.message);
     }
   }

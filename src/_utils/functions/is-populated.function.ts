@@ -1,7 +1,7 @@
-import { Types } from "mongoose";
-import { InternalServerErrorException } from "@nestjs/common";
-import { isObject } from "class-validator";
-import { ErrorCodes } from "../enums/error-codes.enum";
+import { Types } from 'mongoose';
+import { InternalServerErrorException } from '@nestjs/common';
+import { isObject } from 'class-validator';
+import { ErrorCodes } from '../enums/error-codes.enum';
 
 export function IsPopulated<T>(
   document: T | Types.ObjectId | string | null | undefined,
@@ -15,7 +15,7 @@ export function IsPopulatedOrFail<T>(
 ): document is T {
   if (!IsPopulated(document))
     throw new InternalServerErrorException(
-      `${name ?? "document" + ErrorCodes.POPULATION_ERROR}`,
+      `${name ?? 'document' + ErrorCodes.POPULATION_ERROR}`,
     );
   return true;
 }

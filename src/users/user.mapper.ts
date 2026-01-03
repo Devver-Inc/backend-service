@@ -1,6 +1,6 @@
-import { Injectable } from "@nestjs/common";
-import { LogtoUser } from "src/logto/_utils/types/responses/responses.type";
-import { GetUserLightDto } from "./_utils/dto/responses/get-user-light.dto";
+import { Injectable } from '@nestjs/common';
+import { LogtoUser } from 'src/logto/_utils/types/responses/responses.type';
+import { GetUserLightDto } from './_utils/dto/responses/get-user-light.dto';
 
 @Injectable()
 export class UsersMapper {

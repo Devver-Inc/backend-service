@@ -6,32 +6,32 @@ import {
   InternalServerErrorException,
   NotFoundException,
   UnauthorizedException,
-} from "@nestjs/common";
-import { LOGTO_CLIENT_TOKEN, LOGTO_TENANT_ID } from "src/_utils/constants";
-import { LogtoClient } from "src/logto/_utils/types/logto.types";
-import { LogtoInvitation } from "src/logto/_utils/types/responses/invitation.types";
+} from '@nestjs/common';
+import { LOGTO_CLIENT_TOKEN, LOGTO_TENANT_ID } from 'src/_utils/constants';
+import { LogtoClient } from 'src/logto/_utils/types/logto.types';
+import { LogtoInvitation } from 'src/logto/_utils/types/responses/invitation.types';
 import {
   LogtoOrganizationRaw,
   LogtoResponseType,
   LogtoUser,
-} from "src/logto/_utils/types/responses/responses.type";
-import { CreateInvitationDto } from "src/organizations/_utils/dto/requests/create-invitation.dto";
-import { UpdateInvitationStatusEnum } from "src/organizations/_utils/enums/update-invitations-status.enum";
-import { OrganizationsMapper } from "src/organizations/organization.mapper";
-import { UpdateAccountDto } from "src/users/_utils/dto/requests/update-account.dto";
-import { LogtoExceptions } from "./_utils/errors/logto-exceptions.types";
+} from 'src/logto/_utils/types/responses/responses.type';
+import { CreateInvitationDto } from 'src/organizations/_utils/dto/requests/create-invitation.dto';
+import { UpdateInvitationStatusEnum } from 'src/organizations/_utils/enums/update-invitations-status.enum';
+import { OrganizationsMapper } from 'src/organizations/organization.mapper';
+import { UpdateAccountDto } from 'src/users/_utils/dto/requests/update-account.dto';
+import { LogtoExceptions } from './_utils/errors/logto-exceptions.types';
 import {
   toValidatedOrganization,
   toValidatedOrganizations,
   ValidatedOrganization,
-} from "./_utils/schemas/logto-organization.schema";
-import { GetOrganizationMembersQuery } from "./_utils/types/requests/get-organization-members-query.types";
-import { GetOrganizationQuery } from "./_utils/types/requests/get-organizations-query.types";
+} from './_utils/schemas/logto-organization.schema';
+import { GetOrganizationMembersQuery } from './_utils/types/requests/get-organization-members-query.types';
+import { GetOrganizationQuery } from './_utils/types/requests/get-organizations-query.types';
 import {
   CreateOrganizationBody,
   UpdateOrganizationBody,
-} from "./_utils/types/requests/requests.types";
-import { LogtoUserWithOrganizations } from "./_utils/types/user-with-organization.type";
+} from './_utils/types/requests/requests.types';
+import { LogtoUserWithOrganizations } from './_utils/types/user-with-organization.type';
 
 @Injectable()
 export class LogtoRequests {
@@ -50,7 +50,7 @@ export class LogtoRequests {
    */
   fetchUserInformations = (userId: string) =>
     this.handleResponse(
-      this.logtoClient.GET(`/api/users/{userId}`, {
+      this.logtoClient.GET('/api/users/{userId}', {
         params: {
           path: { userId: userId },
         },
@@ -68,7 +68,7 @@ export class LogtoRequests {
    */
   verifyUserPassword = (userId: string, password: string) =>
     this.handleResponse(
-      this.logtoClient.POST(`/api/users/{userId}/password/verify`, {
+      this.logtoClient.POST('/api/users/{userId}/password/verify', {
         params: {
           path: { userId: userId },
         },
@@ -89,7 +89,7 @@ export class LogtoRequests {
    */
   updateUserPassword = (userId: string, password: string) =>
     this.handleResponse(
-      this.logtoClient.PATCH(`/api/users/{userId}/password`, {
+      this.logtoClient.PATCH('/api/users/{userId}/password', {
         params: {
           path: { userId: userId },
         },
@@ -109,7 +109,7 @@ export class LogtoRequests {
    */
   getOrganizations = (query?: GetOrganizationQuery) =>
     this.handleOrganizationResponse(
-      this.logtoClient.GET("/api/organizations", {
+      this.logtoClient.GET('/api/organizations', {
         params: {
           query,
         },
@@ -125,7 +125,7 @@ export class LogtoRequests {
    */
   createOrganization = (params: CreateOrganizationBody) =>
     this.handleOrganizationResponse(
-      this.logtoClient.POST("/api/organizations", {
+      this.logtoClient.POST('/api/organizations', {
         body: {
           tenantId: LOGTO_TENANT_ID,
           name: params.name,
@@ -156,7 +156,7 @@ export class LogtoRequests {
     params: UpdateOrganizationBody,
   ) =>
     this.handleOrganizationResponse(
-      this.logtoClient.PATCH(`/api/organizations/{id}`, {
+      this.logtoClient.PATCH('/api/organizations/{id}', {
         params: { path: { id: organizationId } },
         body: {
           ...params,
@@ -176,7 +176,7 @@ export class LogtoRequests {
    * @returns Organization roles
    */
   getOrganizationsRoles = () =>
-    this.handleResponse(this.logtoClient.GET(`/api/organization-roles`));
+    this.handleResponse(this.logtoClient.GET('/api/organization-roles'));
 
   /**
    * GET /api/organizations/{id}/users/{userId}/roles
@@ -188,7 +188,7 @@ export class LogtoRequests {
    */
   getUserRoles = (userId: string, organizationId: string) =>
     this.handleResponse(
-      this.logtoClient.GET("/api/organizations/{id}/users/{userId}/roles", {
+      this.logtoClient.GET('/api/organizations/{id}/users/{userId}/roles', {
         params: { path: { id: organizationId, userId: userId } },
       }),
     );
@@ -202,7 +202,7 @@ export class LogtoRequests {
    */
   getUserOrganizations = (userId: string) =>
     this.handleResponse(
-      this.logtoClient.GET("/api/users/{userId}/organizations", {
+      this.logtoClient.GET('/api/users/{userId}/organizations', {
         params: { path: { userId: userId } },
       }),
     );
@@ -216,7 +216,7 @@ export class LogtoRequests {
    */
   getCurrentUserPermissions = (userId: string, organizationId: string) =>
     this.handleResponse(
-      this.logtoClient.GET("/api/organizations/{id}/users/{userId}/scopes", {
+      this.logtoClient.GET('/api/organizations/{id}/users/{userId}/scopes', {
         params: { path: { id: organizationId, userId: userId } },
       }),
     );
@@ -230,7 +230,7 @@ export class LogtoRequests {
    */
   getUserInvitations = (email: string): Promise<LogtoInvitation[]> =>
     this.handleResponse(
-      this.logtoClient.GET("/api/organization-invitations", {
+      this.logtoClient.GET('/api/organization-invitations', {
         params: {
           query: { invitee: email },
         },
@@ -252,7 +252,7 @@ export class LogtoRequests {
   ): Promise<LogtoInvitation> => {
     if (!user.currentOrganization) {
       throw new BadRequestException(
-        "User must belong to an organization to create invitations",
+        'User must belong to an organization to create invitations',
       );
     }
 
@@ -261,7 +261,7 @@ export class LogtoRequests {
       : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).getTime();
 
     return this.handleResponse<LogtoInvitation>(
-      this.logtoClient.POST("/api/organization-invitations", {
+      this.logtoClient.POST('/api/organization-invitations', {
         body: {
           invitee: params.invitee,
           inviterId: user.id,
@@ -280,7 +280,7 @@ export class LogtoRequests {
     organizationName: string,
   ): Promise<LogtoInvitation> => {
     return this.handleResponse<LogtoInvitation>(
-      this.logtoClient.POST("/api/organization-invitations/{id}/message", {
+      this.logtoClient.POST('/api/organization-invitations/{id}/message', {
         params: {
           path: { id: invitation.id },
         },
@@ -304,7 +304,7 @@ export class LogtoRequests {
    */
   getInvitationById = (invitationId: string): Promise<LogtoInvitation> =>
     this.handleResponse<LogtoInvitation>(
-      this.logtoClient.GET("/api/organization-invitations/{id}", {
+      this.logtoClient.GET('/api/organization-invitations/{id}', {
         params: {
           path: {
             id: invitationId,
@@ -325,7 +325,7 @@ export class LogtoRequests {
     organizationId: string,
   ): Promise<LogtoInvitation[]> =>
     this.handleResponse<LogtoInvitation[]>(
-      this.logtoClient.GET("/api/organization-invitations", {
+      this.logtoClient.GET('/api/organization-invitations', {
         params: {
           query: { organizationId },
         },
@@ -348,7 +348,7 @@ export class LogtoRequests {
     userId?: string,
   ): Promise<LogtoInvitation> =>
     this.handleResponse<LogtoInvitation>(
-      this.logtoClient.PUT("/api/organization-invitations/{id}/status", {
+      this.logtoClient.PUT('/api/organization-invitations/{id}/status', {
         params: {
           path: { id: invitationId },
         },
@@ -369,7 +369,7 @@ export class LogtoRequests {
    */
   fetchOrganizationInformations = (organizationId: string) =>
     this.handleOrganizationResponse(
-      this.logtoClient.GET(`/api/organizations/{id}`, {
+      this.logtoClient.GET('/api/organizations/{id}', {
         params: {
           path: { id: organizationId },
         },
@@ -378,7 +378,7 @@ export class LogtoRequests {
 
   updateUserProfile = (userId: string, dto: UpdateAccountDto) =>
     this.handleResponse(
-      this.logtoClient.PATCH(`/api/users/{userId}/profile`, {
+      this.logtoClient.PATCH('/api/users/{userId}/profile', {
         params: {
           path: { userId: userId },
         },
@@ -394,7 +394,7 @@ export class LogtoRequests {
 
   updateUserProfilePicture = (userId: string, profilePictureUrl: string) =>
     this.handleResponse(
-      this.logtoClient.PATCH(`/api/users/{userId}`, {
+      this.logtoClient.PATCH('/api/users/{userId}', {
         params: {
           path: { userId: userId },
         },
@@ -428,7 +428,7 @@ export class LogtoRequests {
    */
   addUsersToOrganization = (organizationId: string, userIds: string[]) =>
     this.handleResponse(
-      this.logtoClient.POST(`/api/organizations/{id}/users`, {
+      this.logtoClient.POST('/api/organizations/{id}/users', {
         params: { path: { id: organizationId } },
         body: { userIds: userIds },
       }),
@@ -450,7 +450,7 @@ export class LogtoRequests {
     roleIds: string[],
   ) =>
     this.handleResponse(
-      this.logtoClient.POST(`/api/organizations/{id}/users/roles`, {
+      this.logtoClient.POST('/api/organizations/{id}/users/roles', {
         params: { path: { id: organizationId } },
         body: { userIds: userIds, organizationRoleIds: roleIds },
       }),
@@ -470,7 +470,7 @@ export class LogtoRequests {
     roleIds: string[],
   ) =>
     this.handleResponse(
-      this.logtoClient.POST(`/api/organizations/{id}/jit/roles`, {
+      this.logtoClient.POST('/api/organizations/{id}/jit/roles', {
         params: { path: { id: organizationId } },
         body: { organizationRoleIds: roleIds },
       }),
@@ -487,7 +487,7 @@ export class LogtoRequests {
    */
   addOrganizationJitEmailDomain = (organizationId: string, domain: string) =>
     this.handleResponse(
-      this.logtoClient.POST("/api/organizations/{id}/jit/email-domains", {
+      this.logtoClient.POST('/api/organizations/{id}/jit/email-domains', {
         params: { path: { id: organizationId } },
         body: { emailDomain: domain },
       }),
@@ -503,7 +503,7 @@ export class LogtoRequests {
    */
   removeUserFromOrganization = (organizationId: string, userId: string) =>
     this.handleResponse(
-      this.logtoClient.DELETE(`/api/organizations/{id}/users/{userId}`, {
+      this.logtoClient.DELETE('/api/organizations/{id}/users/{userId}', {
         params: { path: { id: organizationId, userId: userId } },
       }),
     );
@@ -512,7 +512,7 @@ export class LogtoRequests {
     organizationId: string,
     query?: GetOrganizationMembersQuery,
   ): Promise<{ members: LogtoUser[]; totalItemsCount: number }> => {
-    const res = await this.logtoClient.GET("/api/organizations/{id}/users", {
+    const res = await this.logtoClient.GET('/api/organizations/{id}/users', {
       params: {
         path: { id: organizationId },
         ...(query && { query }),
@@ -520,7 +520,7 @@ export class LogtoRequests {
     });
 
     const members = this.resOrThrow<LogtoUser[]>(res);
-    const totalItemsCountHeader = res.response?.headers?.get("x-total-count");
+    const totalItemsCountHeader = res.response?.headers?.get('x-total-count');
     const totalItemsCount = totalItemsCountHeader
       ? Number(totalItemsCountHeader)
       : members.length;
@@ -541,8 +541,8 @@ export class LogtoRequests {
       .then((res) => this.resOrThrow(res, error))
       .catch((err) => {
         if (
-          err.message?.includes("Unexpected token") &&
-          (err.message?.includes("Created") || err.message?.includes('"C"'))
+          err.message?.includes('Unexpected token') &&
+          (err.message?.includes('Created') || err.message?.includes('"C"'))
         ) {
           return { success: true } as T;
         }
@@ -585,7 +585,7 @@ export class LogtoRequests {
 
     if (res.response?.status) {
       const status = res.response.status;
-      const errorMessage = error?.message || "Request failed";
+      const errorMessage = error?.message || 'Request failed';
 
       switch (status) {
         case 400:

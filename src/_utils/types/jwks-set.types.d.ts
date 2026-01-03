@@ -1,4 +1,4 @@
-import { FlattenedJWSInput, JSONWebKeySet, JWSHeaderParameters } from "jose";
+import { FlattenedJWSInput, JSONWebKeySet, JWSHeaderParameters } from 'jose';
 export type Jwks = {
   (
     protectedHeader?: JWSHeaderParameters,

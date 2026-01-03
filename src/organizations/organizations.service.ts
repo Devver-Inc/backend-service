@@ -2,27 +2,27 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
-} from "@nestjs/common";
-import { toPaginatedDto } from "src/_utils/pagination/pagination.mapper";
-import { PaginationDto } from "src/_utils/pagination/responses/pagination.dto";
-import { UserRoleEnum } from "src/logto/_utils/enums/permissions.enum";
-import { LogtoInvitation } from "src/logto/_utils/types/responses/invitation.types";
+} from '@nestjs/common';
+import { toPaginatedDto } from 'src/_utils/pagination/pagination.mapper';
+import { PaginationDto } from 'src/_utils/pagination/responses/pagination.dto';
+import { UserRoleEnum } from 'src/logto/_utils/enums/permissions.enum';
+import { LogtoInvitation } from 'src/logto/_utils/types/responses/invitation.types';
 import {
   LogtoOrganization,
   LogtoUser,
-} from "src/logto/_utils/types/responses/responses.type";
-import { LogtoUserWithOrganizations } from "src/logto/_utils/types/user-with-organization.type";
-import { LogtoRequests } from "src/logto/logto.requests";
-import { UsersPaginatedQueryDto } from "src/users/_utils/dto/query/user-paginated-query.dto";
-import { GetUserLightDto } from "src/users/_utils/dto/responses/get-user-light.dto";
-import { UsersMapper } from "src/users/user.mapper";
-import { CreateInvitationDto } from "./_utils/dto/requests/create-invitation.dto";
-import { UpdateInvitationStatusDto } from "./_utils/dto/requests/update-invitation-status.dto";
-import { GetInvitationDto } from "./_utils/dto/responses/get-invitation.dto";
-import { GetOrganizationDetailsDto } from "./_utils/dto/responses/get-organization-details.dto";
-import { InvitationStatusEnum } from "./_utils/enums/invitations-status.enum";
-import { UpdateInvitationStatusEnum } from "./_utils/enums/update-invitations-status.enum";
-import { OrganizationsMapper } from "./organization.mapper";
+} from 'src/logto/_utils/types/responses/responses.type';
+import { LogtoUserWithOrganizations } from 'src/logto/_utils/types/user-with-organization.type';
+import { LogtoRequests } from 'src/logto/logto.requests';
+import { UsersPaginatedQueryDto } from 'src/users/_utils/dto/query/user-paginated-query.dto';
+import { GetUserLightDto } from 'src/users/_utils/dto/responses/get-user-light.dto';
+import { UsersMapper } from 'src/users/user.mapper';
+import { CreateInvitationDto } from './_utils/dto/requests/create-invitation.dto';
+import { UpdateInvitationStatusDto } from './_utils/dto/requests/update-invitation-status.dto';
+import { GetInvitationDto } from './_utils/dto/responses/get-invitation.dto';
+import { GetOrganizationDetailsDto } from './_utils/dto/responses/get-organization-details.dto';
+import { InvitationStatusEnum } from './_utils/enums/invitations-status.enum';
+import { UpdateInvitationStatusEnum } from './_utils/enums/update-invitations-status.enum';
+import { OrganizationsMapper } from './organization.mapper';
 
 @Injectable()
 export class OrganizationsService {
@@ -120,7 +120,7 @@ export class OrganizationsService {
   ): Promise<GetInvitationDto> {
     if (!user.currentOrganization) {
       throw new BadRequestException(
-        "User must be part of an organization to create invitations",
+        'User must be part of an organization to create invitations',
       );
     }
 
@@ -145,7 +145,7 @@ export class OrganizationsService {
   async getOrganizationInvitations(user: LogtoUserWithOrganizations) {
     if (!user.currentOrganization) {
       throw new BadRequestException(
-        "User must be part of an organization to fetch invitations",
+        'User must be part of an organization to fetch invitations',
       );
     }
 
@@ -173,7 +173,7 @@ export class OrganizationsService {
   async getUserInvitations(user: LogtoUser): Promise<GetInvitationDto[]> {
     if (!user.primaryEmail) {
       throw new BadRequestException(
-        "User must have a verified email to fetch invitations",
+        'User must have a verified email to fetch invitations',
       );
     }
 
@@ -205,13 +205,13 @@ export class OrganizationsService {
     if (dto.status === UpdateInvitationStatusEnum.ACCEPTED) {
       if (!user.primaryEmail) {
         throw new BadRequestException(
-          "User must have a verified email to accept invitations",
+          'User must have a verified email to accept invitations',
         );
       }
 
       if (user.primaryEmail !== invitation.invitee) {
         throw new ForbiddenException(
-          "This invitation is not for the current user",
+          'This invitation is not for the current user',
         );
       }
 
@@ -234,12 +234,12 @@ export class OrganizationsService {
   ): Promise<LogtoOrganization> {
     if (organization.customData.ownerId === newOwner.id) {
       throw new BadRequestException(
-        "You cannot transfer ownership to yourself",
+        'You cannot transfer ownership to yourself',
       );
     }
     if (!organization.customData.adminIds.includes(newOwner.id)) {
       throw new BadRequestException(
-        "The new owner is not an administrator of the organization",
+        'The new owner is not an administrator of the organization',
       );
     }
     return this.logtoRequests.updateOrganization(organization.id, {
@@ -257,7 +257,7 @@ export class OrganizationsService {
   ): Promise<LogtoOrganization> {
     if (organization.customData.ownerId === userToRemove.id) {
       throw new BadRequestException(
-        "You cannot remove the owner from the organization",
+        'You cannot remove the owner from the organization',
       );
     }
 
@@ -266,7 +266,7 @@ export class OrganizationsService {
       !currentUserOrganization ||
       currentUserOrganization.id !== organization.id
     ) {
-      throw new BadRequestException("You are not a member of the organization");
+      throw new BadRequestException('You are not a member of the organization');
     }
 
     const currentUserRoles = await this.logtoRequests.getUserRoles(
@@ -278,7 +278,7 @@ export class OrganizationsService {
       !currentUserRoles.some((role) => role.name === UserRoleEnum.ADMIN)
     ) {
       throw new ForbiddenException(
-        "You are not allowed to remove this user from the organization",
+        'You are not allowed to remove this user from the organization',
       );
     }
 
@@ -288,7 +288,7 @@ export class OrganizationsService {
     if (members.length === 1) {
       // TODO: If the organization has only one member, delete the organization
       throw new BadRequestException(
-        "You cannot quit an organization if you are the only member",
+        'You cannot quit an organization if you are the only member',
       );
     }
 

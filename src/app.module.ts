@@ -1,10 +1,10 @@
-import { Module } from "@nestjs/common";
-import { UsersModule } from "./users/users.module";
-import { ConfigModule, ConfigService } from "@nestjs/config";
-import { EnvironmentVariables, validateEnv } from "./_utils/config/env.config";
-import { MongooseModule } from "@nestjs/mongoose";
-import { NestjsFormDataModule } from "nestjs-form-data";
-import { WebhooksModule } from "./webhooks/webhooks.module";
+import { Module } from '@nestjs/common';
+import { UsersModule } from './users/users.module';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { EnvironmentVariables, validateEnv } from './_utils/config/env.config';
+import { MongooseModule } from '@nestjs/mongoose';
+import { NestjsFormDataModule } from 'nestjs-form-data';
+import { WebhooksModule } from './webhooks/webhooks.module';
 
 @Module({
   imports: [
@@ -14,8 +14,8 @@ import { WebhooksModule } from "./webhooks/webhooks.module";
       useFactory: (
         configService: ConfigService<EnvironmentVariables, true>,
       ) => ({
-        uri: configService.get("DATABASE").DATABASE_URL,
-        dbName: configService.get("DATABASE").DATABASE_NAME,
+        uri: configService.get('DATABASE').DATABASE_URL,
+        dbName: configService.get('DATABASE').DATABASE_NAME,
       }),
     }),
     ConfigModule.forRoot({ validate: validateEnv, isGlobal: true }),

@@ -1,5 +1,5 @@
-import { PaginatedQueryDto } from "./requests/paginated-query.dto";
-import { PaginationDto } from "./responses/pagination.dto";
+import { PaginatedQueryDto } from './requests/paginated-query.dto';
+import { PaginationDto } from './responses/pagination.dto';
 
 type AgnoPaginatedResponse<T> = {
   data: T[];

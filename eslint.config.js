@@ -39,6 +39,7 @@ module.exports = [
       '@typescript-eslint/no-unused-vars': 'warn',
       '@typescript-eslint/no-unused-expressions': 'warn',
       'prettier/prettier': 'error',
+      quotes: ['error', 'single', { avoidEscape: true }],
     },
   },
 ];

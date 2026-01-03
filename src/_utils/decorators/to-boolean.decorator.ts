@@ -1,6 +1,6 @@
-import { applyDecorators } from "@nestjs/common";
-import { Transform } from "class-transformer";
-import { IsBoolean } from "class-validator";
+import { applyDecorators } from '@nestjs/common';
+import { Transform } from 'class-transformer';
+import { IsBoolean } from 'class-validator';
 
 export const ToBoolean = () =>
   applyDecorators(
@@ -13,9 +13,9 @@ export const ToBoolean = () =>
         key: string;
       }) => {
         const value = obj[key];
-        if (typeof value === "boolean") return value;
-        if (value === "true") return true;
-        if (value === "false") return false;
+        if (typeof value === 'boolean') return value;
+        if (value === 'true') return true;
+        if (value === 'false') return false;
         return false;
       },
     ),

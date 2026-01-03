@@ -1,9 +1,9 @@
-import { UserRoleEnum } from "../enums/permissions.enum";
+import { UserRoleEnum } from '../enums/permissions.enum';
 import {
   LogtoUserClaimOrganization,
   LogtoUserClaimOrganizationRole,
-} from "../schemas/logto-payload.types";
-import { LogtoOrganization, LogtoUser } from "./responses/responses.type";
+} from '../schemas/logto-payload.types';
+import { LogtoOrganization, LogtoUser } from './responses/responses.type';
 export interface AuthRole {
   id: string;
   name: UserRoleEnum;

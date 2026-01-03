@@ -1,12 +1,12 @@
-import { IsString, IsInt, Min, Max, IsEnum } from "class-validator";
-import { Type } from "class-transformer";
-import { Order } from "../../enums/order.enum";
-import { ApiPropertyOptional } from "@nestjs/swagger";
+import { IsString, IsInt, Min, Max, IsEnum } from 'class-validator';
+import { Type } from 'class-transformer';
+import { Order } from '../../enums/order.enum';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class ApiQueryDto {
   @ApiPropertyOptional()
   @IsString()
-  search: string = "";
+  search: string = '';
 
   @Type(() => Number)
   @IsInt()
@@ -20,7 +20,7 @@ export class ApiQueryDto {
   limit: number = 10;
 
   @IsString()
-  orderBy: string = "id";
+  orderBy: string = 'id';
 
   @IsEnum(Order)
   order: Order = Order.DESC;

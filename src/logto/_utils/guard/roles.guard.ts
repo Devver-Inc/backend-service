@@ -3,17 +3,17 @@ import {
   ExecutionContext,
   ForbiddenException,
   Injectable,
-} from "@nestjs/common";
-import { Reflector } from "@nestjs/core";
-import { ROLES_KEY } from "src/_utils/constants";
-import { LogtoRequests } from "src/logto/logto.requests";
+} from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
+import { ROLES_KEY } from 'src/_utils/constants';
+import { LogtoRequests } from 'src/logto/logto.requests';
 import {
   UserPermissionsEnum,
   UserRoleEnum,
   UserRoles,
-} from "../enums/permissions.enum";
-import { AuthInfo } from "../types/auth-info.types";
-import { ProtectOptions } from "src/_utils/decorators/protect.decorator";
+} from '../enums/permissions.enum';
+import { AuthInfo } from '../types/auth-info.types';
+import { ProtectOptions } from 'src/_utils/decorators/protect.decorator';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -41,7 +41,7 @@ export class RolesGuard implements CanActivate {
     const userPermissions = await this.logtoRequests
       .getCurrentUserPermissions(
         auth.user.id,
-        auth.selectedOrganization?.id ?? "",
+        auth.selectedOrganization?.id ?? '',
       )
       .then((permissions) => permissions.map((x) => x.name));
 
@@ -80,7 +80,7 @@ export class RolesGuard implements CanActivate {
     }
 
     throw new ForbiddenException(
-      "Insufficient permissions or roles to access this resource",
+      'Insufficient permissions or roles to access this resource',
     );
   }
 }

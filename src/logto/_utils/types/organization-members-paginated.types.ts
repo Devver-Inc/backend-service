@@ -1,4 +1,4 @@
-import { LogtoUser } from "./responses/responses.type";
+import { LogtoUser } from './responses/responses.type';
 
 export type OrganizationMemberAndCount = {
   members: LogtoUser[];

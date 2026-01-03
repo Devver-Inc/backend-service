@@ -1,5 +1,5 @@
 export class AuthorizationError extends Error {
-  name = "AuthorizationError";
+  name = 'AuthorizationError';
   constructor(
     message: string,
     public status = 403,

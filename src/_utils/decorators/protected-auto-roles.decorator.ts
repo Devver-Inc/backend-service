@@ -1,9 +1,9 @@
-import { DECORATORS } from "@nestjs/swagger/dist/constants";
-import type { ProtectOptions } from "./protect.decorator";
+import { DECORATORS } from '@nestjs/swagger/dist/constants';
+import type { ProtectOptions } from './protect.decorator';
 import {
   UserRoleEnum,
   UserPermissionsEnum,
-} from "src/logto/_utils/enums/permissions.enum";
+} from 'src/logto/_utils/enums/permissions.enum';
 
 interface ApiOperationMetadata {
   summary?: string;
@@ -18,7 +18,7 @@ export function ProtectedAutoRolesDecorator(
     _propertyKey?: string | symbol,
     descriptor?: PropertyDescriptor,
   ) => {
-    if (!descriptor?.value || typeof descriptor.value !== "function") {
+    if (!descriptor?.value || typeof descriptor.value !== 'function') {
       return;
     }
 
@@ -28,7 +28,7 @@ export function ProtectedAutoRolesDecorator(
     ) as ApiOperationMetadata | undefined;
 
     const current: ApiOperationMetadata = {
-      summary: "",
+      summary: '',
       ...existingMetadata,
     };
 
@@ -39,7 +39,7 @@ export function ProtectedAutoRolesDecorator(
     const uniqueRoles = [...new Set(roles)];
     const combinedLabels = [...uniquePermissions, ...uniqueRoles];
 
-    current.summary += ` (${combinedLabels.join(", ") || "all"})`;
+    current.summary += ` (${combinedLabels.join(', ') || 'all'})`;
 
     Reflect.defineMetadata(DECORATORS.API_OPERATION, current, descriptor.value);
   };

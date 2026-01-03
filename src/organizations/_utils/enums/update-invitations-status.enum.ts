@@ -1,4 +1,4 @@
 export enum UpdateInvitationStatusEnum {
-  ACCEPTED = "Accepted",
-  REVOKED = "Revoked",
+  ACCEPTED = 'Accepted',
+  REVOKED = 'Revoked',
 }

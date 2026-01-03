@@ -4,10 +4,10 @@ import {
   Inject,
   Type,
   BadRequestException,
-} from "@nestjs/common";
-import { ModuleRef } from "@nestjs/core";
-import { isValidObjectId } from "mongoose";
-import { ErrorCodes } from "../enums/error-codes.enum";
+} from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
+import { isValidObjectId } from 'mongoose';
+import { ErrorCodes } from '../enums/error-codes.enum';
 
 export interface BaseRepository {
   findOneByIdOrThrow(id: string): Promise<any>;
@@ -40,7 +40,7 @@ export class EntityByIdPipe<T> implements PipeTransform<string, Promise<T>> {
 
   async transform(): Promise<T> {
     throw new Error(
-      "Use EntityByIdPipe.for(RepositoryClass) instead of direct instantiation",
+      'Use EntityByIdPipe.for(RepositoryClass) instead of direct instantiation',
     );
   }
 }

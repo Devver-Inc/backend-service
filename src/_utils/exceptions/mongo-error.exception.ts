@@ -3,10 +3,10 @@ import {
   Catch,
   ExceptionFilter,
   HttpStatus,
-} from "@nestjs/common";
-import { MongoError } from "mongodb";
-import { Error as MongooseError } from "mongoose";
-import { ErrorCodes } from "../enums/error-codes.enum";
+} from '@nestjs/common';
+import { MongoError } from 'mongodb';
+import { Error as MongooseError } from 'mongoose';
+import { ErrorCodes } from '../enums/error-codes.enum';
 
 @Catch(MongoError, MongooseError)
 export class MongoErrorException implements ExceptionFilter {
@@ -18,7 +18,7 @@ export class MongoErrorException implements ExceptionFilter {
     if (exception instanceof MongooseError.DocumentNotFoundError) {
       return response.status(HttpStatus.NOT_FOUND).json({
         message: ErrorCodes.NOT_FOUND,
-        error: "Document not found",
+        error: 'Document not found',
         statusCode: HttpStatus.NOT_FOUND,
       });
     }
@@ -27,7 +27,7 @@ export class MongoErrorException implements ExceptionFilter {
     if (exception instanceof MongooseError.CastError) {
       return response.status(HttpStatus.BAD_REQUEST).json({
         message: ErrorCodes.INVALID_ID_FORMAT,
-        error: "Invalid ID format",
+        error: 'Invalid ID format',
         statusCode: HttpStatus.BAD_REQUEST,
       });
     }
@@ -42,17 +42,17 @@ export class MongoErrorException implements ExceptionFilter {
     }
 
     // MongoDB Duplicate key error (E11000)
-    if ("code" in exception && exception.code === 11000) {
+    if ('code' in exception && exception.code === 11000) {
       return response.status(HttpStatus.CONFLICT).json({
         message: ErrorCodes.UNIQUE_CONSTRAINT,
-        error: "Unique Constraint Violation",
+        error: 'Unique Constraint Violation',
         statusCode: HttpStatus.CONFLICT,
       });
     }
 
     return response.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
       message: exception.message,
-      error: "Internal Server Error",
+      error: 'Internal Server Error',
       statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
     });
   }

@@ -5,8 +5,8 @@ import {
   IsNumber,
   IsString,
   Min,
-} from "class-validator";
-import { Optional } from "class-validator-extended";
+} from 'class-validator';
+import { Optional } from 'class-validator-extended';
 
 export class CreateInvitationDto {
   @IsEmail()

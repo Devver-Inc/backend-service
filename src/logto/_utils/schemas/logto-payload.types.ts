@@ -1,4 +1,4 @@
-import { Schema } from "effect";
+import { Schema } from 'effect';
 
 const LogtoOrganizationRoleCustomClaim = Schema.Struct({
   roleId: Schema.String,

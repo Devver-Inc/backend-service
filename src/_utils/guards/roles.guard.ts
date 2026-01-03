@@ -3,18 +3,18 @@ import {
   ExecutionContext,
   ForbiddenException,
   Injectable,
-} from "@nestjs/common";
-import { Reflector } from "@nestjs/core";
-import { ROLES_KEY } from "src/_utils/constants";
-import { LogtoRequests } from "src/logto/logto.requests";
-import { ProtectOptions } from "../decorators/protect.decorator";
+} from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
+import { ROLES_KEY } from 'src/_utils/constants';
+import { LogtoRequests } from 'src/logto/logto.requests';
+import { ProtectOptions } from '../decorators/protect.decorator';
 
-import { AuthInfo } from "../types/auth-info.types";
+import { AuthInfo } from '../types/auth-info.types';
 import {
   UserRoleEnum,
   UserPermissionsEnum,
   UserRoles,
-} from "src/logto/_utils/enums/permissions.enum";
+} from 'src/logto/_utils/enums/permissions.enum';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -78,7 +78,7 @@ export class RolesGuard implements CanActivate {
     }
 
     throw new ForbiddenException(
-      "Insufficient permissions or roles to access this resource",
+      'Insufficient permissions or roles to access this resource',
     );
   }
 }

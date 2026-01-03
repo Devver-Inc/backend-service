@@ -1,9 +1,9 @@
-import { Injectable, Logger } from "@nestjs/common";
-import { UsersService } from "src/users/users.service";
+import { Injectable, Logger } from '@nestjs/common';
+import { UsersService } from 'src/users/users.service';
 import {
   LogtoWebhookEvent,
   LogtoWebhookPayload,
-} from "./_utils/types/logto-webhook.types";
+} from './_utils/types/logto-webhook.types';
 
 @Injectable()
 export class WebhooksService {
@@ -15,7 +15,7 @@ export class WebhooksService {
     this.logger.log(`Received logto webhook event: ${payload.event}`);
 
     if (!payload || !payload.event || !payload.user) {
-      this.logger.warn("Invalid webhook payload received");
+      this.logger.warn('Invalid webhook payload received');
       return;
     }
 

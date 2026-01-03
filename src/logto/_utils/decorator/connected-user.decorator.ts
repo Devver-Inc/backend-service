@@ -2,18 +2,18 @@ import {
   BadRequestException,
   createParamDecorator,
   ExecutionContext,
-} from "@nestjs/common";
+} from '@nestjs/common';
 import {
   LogtoOrganization,
   LogtoUser,
-} from "../types/responses/responses.type";
-import { LogtoUserWithOrganizations } from "../types/user-with-organization.type";
+} from '../types/responses/responses.type';
+import { LogtoUserWithOrganizations } from '../types/user-with-organization.type';
 
 export const ConnectedUser = createParamDecorator(
   (_, ctx: ExecutionContext): LogtoUser => {
     const user = ctx.switchToHttp().getRequest().auth.user;
     if (!user)
-      throw new BadRequestException("user not found in context of request");
+      throw new BadRequestException('user not found in context of request');
     return user;
   },
 );
@@ -31,7 +31,7 @@ export const ConnectedUserWithOrgs = createParamDecorator(
     const organizations = request.auth.organizations;
 
     if (!user)
-      throw new BadRequestException("user not found in context of request");
+      throw new BadRequestException('user not found in context of request');
 
     return {
       ...user,

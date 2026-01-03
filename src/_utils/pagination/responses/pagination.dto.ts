@@ -1,4 +1,4 @@
-import { PaginatedQueryDto } from "../requests/paginated-query.dto";
+import { PaginatedQueryDto } from '../requests/paginated-query.dto';
 
 export class PaginationMetaDto {
   currentPage: number;

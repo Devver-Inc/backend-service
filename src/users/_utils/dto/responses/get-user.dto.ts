@@ -1,4 +1,4 @@
-import { GetOrganizationLightDto } from "src/organizations/_utils/dto/responses/get-organization-light.dto";
+import { GetOrganizationLightDto } from 'src/organizations/_utils/dto/responses/get-organization-light.dto';
 
 export class GetUserDto {
   id: string;

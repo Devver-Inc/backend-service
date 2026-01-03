@@ -1,11 +1,11 @@
-import { Transform } from "class-transformer";
-import { IsBoolean, IsEnum, IsNumber, IsString, Min } from "class-validator";
-import { Optional } from "class-validator-extended";
-import { PipelineStage } from "mongoose";
+import { Transform } from 'class-transformer';
+import { IsBoolean, IsEnum, IsNumber, IsString, Min } from 'class-validator';
+import { Optional } from 'class-validator-extended';
+import { PipelineStage } from 'mongoose';
 
 export enum SortDirection {
-  ASC = "ASC",
-  DESC = "DESC",
+  ASC = 'ASC',
+  DESC = 'DESC',
 }
 
 export class PaginatedQueryDto {
@@ -25,7 +25,7 @@ export class PaginatedQueryDto {
   sortDirection: SortDirection = SortDirection.DESC;
 
   @IsBoolean()
-  @Transform(({ obj, key }) => obj[key] === "true")
+  @Transform(({ obj, key }) => obj[key] === 'true')
   disablePagination: boolean = false;
 
   get skip(): number {
@@ -52,7 +52,7 @@ export class PaginatedQueryDto {
     return {
       $facet: {
         items: [{ $skip: this.skip }, { $limit: this.pageSize }],
-        total: [{ $count: "total" }],
+        total: [{ $count: 'total' }],
       },
     };
   }

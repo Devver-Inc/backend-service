@@ -1,12 +1,12 @@
 export enum UserRoleEnum {
-  ADMIN = "admin",
-  DEVELOPER = "developer",
-  VIEWER = "viewer",
+  ADMIN = 'admin',
+  DEVELOPER = 'developer',
+  VIEWER = 'viewer',
 }
 
 export enum UserPermissionsEnum {
   // Super Admin
-  SUPER_ADMIN = "super:admin",
+  SUPER_ADMIN = 'super:admin',
 }
 
 export const UserRoles: Record<

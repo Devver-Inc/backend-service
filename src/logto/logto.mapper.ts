@@ -1,10 +1,10 @@
-import { Injectable } from "@nestjs/common";
-import { LogtoPayload } from "./_utils/schemas/logto-payload.types";
-import { AuthInfo } from "./_utils/types/auth-info.types";
+import { Injectable } from '@nestjs/common';
+import { LogtoPayload } from './_utils/schemas/logto-payload.types';
+import { AuthInfo } from './_utils/types/auth-info.types';
 import {
   LogtoOrganization,
   LogtoUser,
-} from "./_utils/types/responses/responses.type";
+} from './_utils/types/responses/responses.type';
 
 @Injectable()
 export class LogtoMapper {
@@ -17,7 +17,7 @@ export class LogtoMapper {
     clientId: payload.client_id,
     user,
     organizations: payload.organizations,
-    scopes: (payload.scope as string)?.split(" ") ?? [],
+    scopes: (payload.scope as string)?.split(' ') ?? [],
     audience: Array.isArray(payload.aud)
       ? payload.aud
       : payload.aud

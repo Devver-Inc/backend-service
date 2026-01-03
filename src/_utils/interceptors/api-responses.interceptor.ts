@@ -3,10 +3,10 @@ import {
   NestInterceptor,
   ExecutionContext,
   CallHandler,
-} from "@nestjs/common";
-import { Observable } from "rxjs";
-import { map } from "rxjs/operators";
-import { Request } from "express";
+} from '@nestjs/common';
+import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
+import { Request } from 'express';
 
 @Injectable()
 export class ApiResponsesInterceptor implements NestInterceptor {
@@ -21,7 +21,7 @@ export class ApiResponsesInterceptor implements NestInterceptor {
       map((responseData) => {
         if (
           responseData &&
-          typeof responseData === "object" &&
+          typeof responseData === 'object' &&
           responseData.data !== undefined &&
           responseData.meta !== undefined
         ) {
@@ -30,9 +30,9 @@ export class ApiResponsesInterceptor implements NestInterceptor {
 
         if (
           responseData &&
-          typeof responseData === "object" &&
+          typeof responseData === 'object' &&
           Array.isArray(responseData.data) &&
-          typeof responseData.totalCount === "number"
+          typeof responseData.totalCount === 'number'
         ) {
           const totalCount = responseData.totalCount;
           const totalPages = Math.ceil(totalCount / limit);

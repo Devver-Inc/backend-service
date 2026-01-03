@@ -1,25 +1,25 @@
-import { IncomingHttpHeaders } from "node:http";
-import { BadRequestException, Inject, Injectable } from "@nestjs/common";
-import { jwtVerify } from "jose";
+import { IncomingHttpHeaders } from 'node:http';
+import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { jwtVerify } from 'jose';
 import {
   BEARER_PREFIX,
   LOGTO_JWKS_TOKEN,
   LOGTO_URIS_TOKEN,
-} from "src/_utils/constants";
-import { PERSONAL_EMAIL_DOMAINS } from "src/logto/_utils/constants/domains";
-import { AuthorizationError } from "src/logto/_utils/errors/authorization-error.types";
-import { AuthInfo } from "src/logto/_utils/types/auth-info.types";
-import { LogtoUser } from "src/logto/_utils/types/responses/responses.type";
-import { UpdateUserPasswordDto } from "src/users/_utils/dto/requests/update-user-password.dto";
-import { OrganizationsMapper } from "../organizations/organization.mapper";
+} from 'src/_utils/constants';
+import { PERSONAL_EMAIL_DOMAINS } from 'src/logto/_utils/constants/domains';
+import { AuthorizationError } from 'src/logto/_utils/errors/authorization-error.types';
+import { AuthInfo } from 'src/logto/_utils/types/auth-info.types';
+import { LogtoUser } from 'src/logto/_utils/types/responses/responses.type';
+import { UpdateUserPasswordDto } from 'src/users/_utils/dto/requests/update-user-password.dto';
+import { OrganizationsMapper } from '../organizations/organization.mapper';
 import {
   decodeLogtoPayload,
   LogtoPayload,
-} from "./_utils/schemas/logto-payload.types";
-import { Jwks, JwksUris } from "./_utils/types/jwks-set.types";
-import { LogtoRolesEnum, RoleTypeEnum } from "./_utils/types/roles.type";
-import { LogtoMapper } from "./logto.mapper";
-import { LogtoRequests } from "./logto.requests";
+} from './_utils/schemas/logto-payload.types';
+import { Jwks, JwksUris } from './_utils/types/jwks-set.types';
+import { LogtoRolesEnum, RoleTypeEnum } from './_utils/types/roles.type';
+import { LogtoMapper } from './logto.mapper';
+import { LogtoRequests } from './logto.requests';
 
 @Injectable()
 export class LogtoService {
@@ -40,7 +40,7 @@ export class LogtoService {
     authorization,
   }: IncomingHttpHeaders): string {
     if (!authorization) {
-      throw new AuthorizationError("Authorization header is missing", 401);
+      throw new AuthorizationError('Authorization header is missing', 401);
     }
 
     if (!authorization.startsWith(BEARER_PREFIX)) {
@@ -63,7 +63,7 @@ export class LogtoService {
 
   async createAuthInfo(payload: LogtoPayload): Promise<AuthInfo> {
     const sub = payload.sub;
-    if (!sub) throw new BadRequestException("Invalid Payload");
+    if (!sub) throw new BadRequestException('Invalid Payload');
     const user = await this.getUserInformations(payload.sub);
     const selectedOrganization = payload.organization_id
       ? await this.getOrganizationInformations(payload.organization_id)
@@ -72,7 +72,7 @@ export class LogtoService {
   }
 
   private getProfessionalUserEmailOrNull(email: string): string | null {
-    const domain = email.toLowerCase().split("@")[1];
+    const domain = email.toLowerCase().split('@')[1];
     return PERSONAL_EMAIL_DOMAINS.includes(domain) ? null : domain;
   }
 
@@ -86,10 +86,10 @@ export class LogtoService {
       adminRoleId,
     );
     const professionalDomain = this.getProfessionalUserEmailOrNull(
-      user.primaryEmail ?? "",
+      user.primaryEmail ?? '',
     );
     if (professionalDomain) {
-      const domainName = professionalDomain.split(".")[0];
+      const domainName = professionalDomain.split('.')[0];
       const professionalOrganization =
         await this.createOrganizationIfNotExistsAndAssignUserWithRoles(
           user,
@@ -164,7 +164,7 @@ export class LogtoService {
     updateUserPasswordDto: UpdateUserPasswordDto,
   ) {
     if (user.hasPassword && !updateUserPasswordDto.oldPassword) {
-      throw new BadRequestException("Old password is required");
+      throw new BadRequestException('Old password is required');
     }
 
     if (user.hasPassword && updateUserPasswordDto.oldPassword) {
@@ -173,7 +173,7 @@ export class LogtoService {
         updateUserPasswordDto.oldPassword,
       );
       if (!isPasswordValid) {
-        throw new BadRequestException("Invalid old password");
+        throw new BadRequestException('Invalid old password');
       }
     }
 
