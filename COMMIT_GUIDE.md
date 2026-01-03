@@ -25,6 +25,7 @@ Use emojis at the beginning of your commit messages to categorize changes:
 | 🏷️ | `:label:` | Types/interfaces |
 | 📦 | `:package:` | Dependencies |
 | 🚧 | `:construction:` | Work in progress |
+| 🧹 | `:broom:` | Lint/Format fixes |
 
 ## Examples
 
@@ -33,12 +34,16 @@ git commit -m "✨ Add JWT authentication"
 git commit -m "🐛 Fix email validation"
 git commit -m "📦 Update dependencies"
 git commit -m "🎨 Improve code structure in user service"
+git commit -m "🧹 Run lint and format fixes"
 ```
 
 ## Git Hooks
 
 ### prepare-commit-msg
 When you run `git commit` without a message, a template will be shown with all available emojis and examples.
+
+### commit-msg
+Validates that every commit message starts with an allowed emoji. If you try to commit without an emoji, the commit will be **blocked** and you'll see a list of available emojis.
 
 ### pre-push
 Before pushing to remote, the following checks will run automatically:

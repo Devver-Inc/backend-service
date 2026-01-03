@@ -9,28 +9,31 @@ if [ -z "$COMMIT_SOURCE" ]; then
   # If message is empty, add template
   if ! grep -q '[a-zA-Z]' "$COMMIT_MSG_FILE"; then
     cat > "$COMMIT_MSG_FILE" << 'EOF'
+
 # Choose an emoji and write your commit message:
 #
-# ✨ :sparkles:        New feature
-# 🐛 :bug:             Bug fix
-# 📝 :memo:            Documentation
-# 🎨 :art:             Code improvement/structure
-# ♻️  :recycle:         Refactoring
-# ⚡ :zap:             Performance improvement
-# 🔒 :lock:            Security
-# ✅ :white_check_mark: Tests
-# 🔧 :wrench:          Configuration
-# 🚀 :rocket:          Deploy/CI/CD
-# 🔥 :fire:            Remove code/files
-# 💄 :lipstick:        UI/styling
-# 🏷️  :label:           Types/interfaces
-# 📦 :package:         Dependencies
-# 🚧 :construction:    Work in progress
+# ✨ :sparkles:         New feature
+# 🐛 :bug:              Bug fix
+# 📝 :memo:             Documentation
+# 🎨 :art:              Code improvement/structure
+# ♻️  :recycle:          Refactoring
+# ⚡ :zap:              Performance improvement
+# 🔒 :lock:             Security
+# ✅ :white_check_mark:  Tests
+# 🔧 :wrench:           Configuration
+# 🚀 :rocket:           Deploy/CI/CD
+# 🔥 :fire:             Remove code/files
+# 💄 :lipstick:         UI/styling
+# 🏷️  :label:            Types/interfaces
+# 📦 :package:          Dependencies
+# 🚧 :construction:     Work in progress
+# 🧹 :broom:            Lint/Format fixes
 #
 # Format: <emoji> Short message (max 50 chars)
 #
 # Example: ✨ Add JWT authentication
 # Example: 🐛 Fix email validation
+# Example: 🧹 Run lint and format fixes
 #
 EOF
   fi
