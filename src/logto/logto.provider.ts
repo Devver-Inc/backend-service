@@ -26,7 +26,7 @@ export const logtoProviders: Provider[] = [
     provide: LOGTO_CLIENT_TOKEN,
     useFactory: (
       configService: ConfigService<EnvironmentVariables, true>,
-      logger: Logger
+      logger: Logger,
     ): LogtoClient => {
       const clientId = configService.get<LogtoConfig>("LOGTO").LOGTO_CLIENT_ID;
       const clientSecret = configService.get<LogtoConfig>("LOGTO").LOGTO_SECRET;
@@ -45,7 +45,7 @@ export const logtoProviders: Provider[] = [
         logger.error(
           "Failed to initialize Logto client",
           error,
-          LOGTO_CLIENT_TOKEN
+          LOGTO_CLIENT_TOKEN,
         );
         throw error;
       }
@@ -56,7 +56,7 @@ export const logtoProviders: Provider[] = [
     provide: LOGTO_CREDENTIALS,
     useFactory: (
       configService: ConfigService<EnvironmentVariables, true>,
-      logger: Logger
+      logger: Logger,
     ): LogtoClientCredentials => {
       const clientId = configService.get<LogtoConfig>("LOGTO").LOGTO_CLIENT_ID;
       const clientSecret = configService.get<LogtoConfig>("LOGTO").LOGTO_SECRET;
@@ -75,7 +75,7 @@ export const logtoProviders: Provider[] = [
         logger.error(
           "Failed to initialize Logto client",
           error,
-          LOGTO_CLIENT_TOKEN
+          LOGTO_CLIENT_TOKEN,
         );
         throw error;
       }
@@ -86,12 +86,12 @@ export const logtoProviders: Provider[] = [
     provide: LOGTO_URIS_TOKEN,
     useFactory: async (
       configService: ConfigService<EnvironmentVariables, true>,
-      logger: Logger
+      logger: Logger,
     ): Promise<JwksUris> => {
       const baseUrl = configService.get<LogtoConfig>("LOGTO").LOGTO_BASE_URL;
       try {
         const response = await fetch(
-          `${baseUrl}/oidc/.well-known/openid-configuration`
+          `${baseUrl}/oidc/.well-known/openid-configuration`,
         );
         const openIdResult: OpenIdConfig =
           (await response.json()) as OpenIdConfig;
@@ -105,7 +105,7 @@ export const logtoProviders: Provider[] = [
         logger.error(
           "Failed to initialize Logto client",
           error,
-          LOGTO_URIS_TOKEN
+          LOGTO_URIS_TOKEN,
         );
         throw error;
       }
@@ -123,7 +123,7 @@ export const logtoProviders: Provider[] = [
         logger.error(
           "Failed to initialize Logto JWKS",
           error,
-          LOGTO_JWKS_TOKEN
+          LOGTO_JWKS_TOKEN,
         );
         throw error;
       }

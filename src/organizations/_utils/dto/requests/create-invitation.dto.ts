@@ -1,22 +1,29 @@
-import { IsArray, IsEmail, IsNotEmpty, IsNumber, IsString, Min } from 'class-validator'
-import { Optional } from 'class-validator-extended'
+import {
+  IsArray,
+  IsEmail,
+  IsNotEmpty,
+  IsNumber,
+  IsString,
+  Min,
+} from "class-validator";
+import { Optional } from "class-validator-extended";
 
 export class CreateInvitationDto {
   @IsEmail()
   @IsNotEmpty()
-  invitee: string
+  invitee: string;
 
   @Optional()
   @IsNumber()
   @Min(1)
-  expiresInHours?: number = 72
+  expiresInHours?: number = 72;
 
   @Optional()
   @IsString()
-  message?: string
+  message?: string;
 
   @Optional()
   @IsArray()
   @IsString({ each: true })
-  organizationRoleIds?: string[]
+  organizationRoleIds?: string[];
 }

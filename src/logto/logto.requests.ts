@@ -38,7 +38,7 @@ export class LogtoRequests {
   constructor(
     @Inject(LOGTO_CLIENT_TOKEN) private readonly logtoClient: LogtoClient,
     private readonly exceptions: LogtoExceptions,
-    private readonly organizationsMapper: OrganizationsMapper
+    private readonly organizationsMapper: OrganizationsMapper,
   ) {}
 
   /**
@@ -55,7 +55,7 @@ export class LogtoRequests {
           path: { userId: userId },
         },
       }),
-      this.exceptions.ERROR_FETCH_USER_INFORMATIONS
+      this.exceptions.ERROR_FETCH_USER_INFORMATIONS,
     );
 
   /**
@@ -76,7 +76,7 @@ export class LogtoRequests {
           password,
         },
       }),
-      this.exceptions.ERROR_VERIFY_USER_PASSWORD
+      this.exceptions.ERROR_VERIFY_USER_PASSWORD,
     );
 
   /**
@@ -97,7 +97,7 @@ export class LogtoRequests {
           password,
         },
       }),
-      this.exceptions.ERROR_UPDATE_USER_PASSWORD
+      this.exceptions.ERROR_UPDATE_USER_PASSWORD,
     );
 
   /**
@@ -113,7 +113,7 @@ export class LogtoRequests {
         params: {
           query,
         },
-      })
+      }),
     );
 
   /**
@@ -140,7 +140,7 @@ export class LogtoRequests {
           createdAt: params.createdAt,
         },
       }),
-      this.exceptions.ERROR_CREATE_ORGANIZATION
+      this.exceptions.ERROR_CREATE_ORGANIZATION,
     );
 
   /**
@@ -153,7 +153,7 @@ export class LogtoRequests {
    */
   updateOrganization = (
     organizationId: string,
-    params: UpdateOrganizationBody
+    params: UpdateOrganizationBody,
   ) =>
     this.handleOrganizationResponse(
       this.logtoClient.PATCH(`/api/organizations/{id}`, {
@@ -166,7 +166,7 @@ export class LogtoRequests {
             customData: params.customData as unknown as Record<string, never>,
           }),
         } as any,
-      })
+      }),
     );
 
   /**
@@ -190,7 +190,7 @@ export class LogtoRequests {
     this.handleResponse(
       this.logtoClient.GET("/api/organizations/{id}/users/{userId}/roles", {
         params: { path: { id: organizationId, userId: userId } },
-      })
+      }),
     );
 
   /**
@@ -204,7 +204,7 @@ export class LogtoRequests {
     this.handleResponse(
       this.logtoClient.GET("/api/users/{userId}/organizations", {
         params: { path: { userId: userId } },
-      })
+      }),
     );
 
   /**
@@ -218,7 +218,7 @@ export class LogtoRequests {
     this.handleResponse(
       this.logtoClient.GET("/api/organizations/{id}/users/{userId}/scopes", {
         params: { path: { id: organizationId, userId: userId } },
-      })
+      }),
     );
 
   /**
@@ -235,7 +235,7 @@ export class LogtoRequests {
           query: { invitee: email },
         },
       }) as Promise<LogtoResponseType<LogtoInvitation[]>>,
-      this.exceptions.ERROR_GET_INVITATIONS
+      this.exceptions.ERROR_GET_INVITATIONS,
     );
 
   /**
@@ -248,11 +248,11 @@ export class LogtoRequests {
    */
   createOrganizationInvitation = (
     user: LogtoUserWithOrganizations,
-    params: CreateInvitationDto
+    params: CreateInvitationDto,
   ): Promise<LogtoInvitation> => {
     if (!user.currentOrganization) {
       throw new BadRequestException(
-        "User must belong to an organization to create invitations"
+        "User must belong to an organization to create invitations",
       );
     }
 
@@ -271,13 +271,13 @@ export class LogtoRequests {
           messagePayload: false,
         },
       }) as Promise<LogtoResponseType<LogtoInvitation>>,
-      this.exceptions.ERROR_CREATE_INVITATION
+      this.exceptions.ERROR_CREATE_INVITATION,
     );
   };
 
   resendInvitationMessage = (
     invitation: LogtoInvitation,
-    organizationName: string
+    organizationName: string,
   ): Promise<LogtoInvitation> => {
     return this.handleResponse<LogtoInvitation>(
       this.logtoClient.POST("/api/organization-invitations/{id}/message", {
@@ -287,11 +287,11 @@ export class LogtoRequests {
         body: {
           link: this.organizationsMapper.toGetInvitationLinkUrl(
             invitation,
-            organizationName
+            organizationName,
           ),
         },
       }),
-      this.exceptions.ERROR_CREATE_INVITATION
+      this.exceptions.ERROR_CREATE_INVITATION,
     );
   };
 
@@ -311,7 +311,7 @@ export class LogtoRequests {
           },
         },
       }) as Promise<LogtoResponseType<LogtoInvitation>>,
-      this.exceptions.ERROR_GET_INVITATIONS
+      this.exceptions.ERROR_GET_INVITATIONS,
     );
 
   /**
@@ -322,7 +322,7 @@ export class LogtoRequests {
    * @returns Organization invitations
    */
   getOrganizationInvitations = (
-    organizationId: string
+    organizationId: string,
   ): Promise<LogtoInvitation[]> =>
     this.handleResponse<LogtoInvitation[]>(
       this.logtoClient.GET("/api/organization-invitations", {
@@ -330,7 +330,7 @@ export class LogtoRequests {
           query: { organizationId },
         },
       }) as Promise<LogtoResponseType<LogtoInvitation[]>>,
-      this.exceptions.ERROR_GET_INVITATIONS
+      this.exceptions.ERROR_GET_INVITATIONS,
     );
 
   /**
@@ -345,7 +345,7 @@ export class LogtoRequests {
   updateOrganizationInvitationStatus = (
     invitationId: string,
     status: UpdateInvitationStatusEnum,
-    userId?: string
+    userId?: string,
   ): Promise<LogtoInvitation> =>
     this.handleResponse<LogtoInvitation>(
       this.logtoClient.PUT("/api/organization-invitations/{id}/status", {
@@ -357,7 +357,7 @@ export class LogtoRequests {
           ...(userId && { acceptedUserId: userId }),
         },
       }) as Promise<LogtoResponseType<LogtoInvitation>>,
-      this.exceptions.ERROR_ACCEPT_INVITATION
+      this.exceptions.ERROR_ACCEPT_INVITATION,
     );
 
   /**
@@ -373,7 +373,7 @@ export class LogtoRequests {
         params: {
           path: { id: organizationId },
         },
-      })
+      }),
     );
 
   updateUserProfile = (userId: string, dto: UpdateAccountDto) =>
@@ -389,7 +389,7 @@ export class LogtoRequests {
           },
         },
       }),
-      this.exceptions.ERROR_UPDATE_USER_PROFILE
+      this.exceptions.ERROR_UPDATE_USER_PROFILE,
     );
 
   updateUserProfilePicture = (userId: string, profilePictureUrl: string) =>
@@ -402,7 +402,7 @@ export class LogtoRequests {
           avatar: profilePictureUrl,
         },
       }),
-      this.exceptions.ERROR_UPDATE_USER_PROFILE
+      this.exceptions.ERROR_UPDATE_USER_PROFILE,
     );
 
   /**
@@ -414,7 +414,7 @@ export class LogtoRequests {
    */
   getOrganizationMembers = async (
     organizationId: string,
-    query?: GetOrganizationMembersQuery
+    query?: GetOrganizationMembersQuery,
   ): Promise<{ members: LogtoUser[]; totalItemsCount: number }> =>
     this.fetchOrganizationMembers(organizationId, query);
 
@@ -432,7 +432,7 @@ export class LogtoRequests {
         params: { path: { id: organizationId } },
         body: { userIds: userIds },
       }),
-      this.exceptions.ERROR_ADD_USERS_TO_ORGANIZATION
+      this.exceptions.ERROR_ADD_USERS_TO_ORGANIZATION,
     );
 
   /**
@@ -447,14 +447,14 @@ export class LogtoRequests {
   assignRolesToOrganizationMembers = (
     organizationId: string,
     userIds: string[],
-    roleIds: string[]
+    roleIds: string[],
   ) =>
     this.handleResponse(
       this.logtoClient.POST(`/api/organizations/{id}/users/roles`, {
         params: { path: { id: organizationId } },
         body: { userIds: userIds, organizationRoleIds: roleIds },
       }),
-      this.exceptions.ERROR_ASSIGN_ROLES_ORGANIZATION_MEMBERS
+      this.exceptions.ERROR_ASSIGN_ROLES_ORGANIZATION_MEMBERS,
     );
 
   /**
@@ -467,14 +467,14 @@ export class LogtoRequests {
    */
   addOrganizationJitDefaultRoles = (
     organizationId: string,
-    roleIds: string[]
+    roleIds: string[],
   ) =>
     this.handleResponse(
       this.logtoClient.POST(`/api/organizations/{id}/jit/roles`, {
         params: { path: { id: organizationId } },
         body: { organizationRoleIds: roleIds },
       }),
-      this.exceptions.ERROR_ADD_ORGANIZATION_JIT_DEFAULT_ROLES
+      this.exceptions.ERROR_ADD_ORGANIZATION_JIT_DEFAULT_ROLES,
     );
 
   /**
@@ -490,7 +490,7 @@ export class LogtoRequests {
       this.logtoClient.POST("/api/organizations/{id}/jit/email-domains", {
         params: { path: { id: organizationId } },
         body: { emailDomain: domain },
-      })
+      }),
     );
 
   /**
@@ -505,12 +505,12 @@ export class LogtoRequests {
     this.handleResponse(
       this.logtoClient.DELETE(`/api/organizations/{id}/users/{userId}`, {
         params: { path: { id: organizationId, userId: userId } },
-      })
+      }),
     );
 
   private fetchOrganizationMembers = async (
     organizationId: string,
-    query?: GetOrganizationMembersQuery
+    query?: GetOrganizationMembersQuery,
   ): Promise<{ members: LogtoUser[]; totalItemsCount: number }> => {
     const res = await this.logtoClient.GET("/api/organizations/{id}/users", {
       params: {
@@ -535,7 +535,7 @@ export class LogtoRequests {
 
   private handleResponse = <T>(
     promise: Promise<LogtoResponseType<T>>,
-    error?: BadRequestException | InternalServerErrorException
+    error?: BadRequestException | InternalServerErrorException,
   ): Promise<T> =>
     promise
       .then((res) => this.resOrThrow(res, error))
@@ -551,17 +551,17 @@ export class LogtoRequests {
 
   private async handleOrganizationResponse(
     promise: Promise<LogtoResponseType<LogtoOrganizationRaw>>,
-    error?: BadRequestException | InternalServerErrorException
+    error?: BadRequestException | InternalServerErrorException,
   ): Promise<ValidatedOrganization>;
   private async handleOrganizationResponse(
     promise: Promise<LogtoResponseType<LogtoOrganizationRaw[]>>,
-    error?: BadRequestException | InternalServerErrorException
+    error?: BadRequestException | InternalServerErrorException,
   ): Promise<Array<ValidatedOrganization>>;
   private async handleOrganizationResponse(
     promise: Promise<
       LogtoResponseType<LogtoOrganizationRaw | LogtoOrganizationRaw[]>
     >,
-    error?: BadRequestException | InternalServerErrorException
+    error?: BadRequestException | InternalServerErrorException,
   ): Promise<unknown> {
     return this.handleResponse(promise, error).then((data) => {
       if (Array.isArray(data)) {
@@ -573,7 +573,7 @@ export class LogtoRequests {
 
   private resOrThrow = <T>(
     res: LogtoResponseType<T>,
-    error?: BadRequestException | InternalServerErrorException
+    error?: BadRequestException | InternalServerErrorException,
   ): T => {
     if (
       res.response &&

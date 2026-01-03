@@ -25,7 +25,7 @@ export class EntityByIdPipe<T> implements PipeTransform<string, Promise<T>> {
     @Injectable()
     class ConfiguredPipe implements PipeTransform<string, Promise<T>> {
       constructor(
-        @Inject(repositoryClass) public readonly repository: BaseRepository
+        @Inject(repositoryClass) public readonly repository: BaseRepository,
       ) {}
 
       async transform(id: string): Promise<T> {
@@ -40,7 +40,7 @@ export class EntityByIdPipe<T> implements PipeTransform<string, Promise<T>> {
 
   async transform(): Promise<T> {
     throw new Error(
-      "Use EntityByIdPipe.for(RepositoryClass) instead of direct instantiation"
+      "Use EntityByIdPipe.for(RepositoryClass) instead of direct instantiation",
     );
   }
 }

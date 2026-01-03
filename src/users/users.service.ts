@@ -1,8 +1,8 @@
-import { Injectable } from '@nestjs/common'
-import { LogtoUser } from 'src/logto/_utils/types/responses/responses.type'
-import { LogtoRequests } from 'src/logto/logto.requests'
-import { LogtoService } from 'src/logto/logto.service'
-import { UpdateAccountDto } from './_utils/dto/requests/update-account.dto'
+import { Injectable } from "@nestjs/common";
+import { LogtoUser } from "src/logto/_utils/types/responses/responses.type";
+import { LogtoRequests } from "src/logto/logto.requests";
+import { LogtoService } from "src/logto/logto.service";
+import { UpdateAccountDto } from "./_utils/dto/requests/update-account.dto";
 
 @Injectable()
 export class UsersService {

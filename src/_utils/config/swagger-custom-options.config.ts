@@ -1,4 +1,4 @@
-import { SwaggerCustomOptions } from '@nestjs/swagger';
+import { SwaggerCustomOptions } from "@nestjs/swagger";
 
 const swaggerCustomOptions: SwaggerCustomOptions = {
   swaggerOptions: {

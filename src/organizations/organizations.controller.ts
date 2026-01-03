@@ -48,7 +48,7 @@ export class OrganizationsController {
   @Protect()
   @Get("invitations")
   async getOrganizationInvitations(
-    @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations
+    @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
   ): Promise<GetInvitationDto[]> {
     return this.organizationsService.getOrganizationInvitations(user);
   }
@@ -59,7 +59,7 @@ export class OrganizationsController {
   @ApiOperation({ summary: "Get Organization information" })
   getOrganizationInformations(
     @Param("organizationId", LogtoOrganizationByIdPipe)
-    organization: LogtoOrganization
+    organization: LogtoOrganization,
   ): Promise<GetOrganizationLightDto> {
     return this.organizationsService.getOrganizationInformations(organization);
   }
@@ -70,7 +70,7 @@ export class OrganizationsController {
   @ApiOperation({ summary: "Get Organization details" })
   getOrganizationDetails(
     @Param("organizationId", LogtoOrganizationByIdPipe)
-    organization: LogtoOrganization
+    organization: LogtoOrganization,
   ): Promise<GetOrganizationDetailsDto> {
     return this.organizationsService.getOrganizationDetails(organization);
   }
@@ -82,11 +82,11 @@ export class OrganizationsController {
   getOrganizationMembers(
     @Param("organizationId", LogtoOrganizationByIdPipe)
     organization: LogtoOrganization,
-    @Query() paginatedQueryDto: UsersPaginatedQueryDto
+    @Query() paginatedQueryDto: UsersPaginatedQueryDto,
   ): Promise<PaginationDto<GetUserLightDto[]>> {
     return this.organizationsService.getOrganizationMembers(
       organization,
-      paginatedQueryDto
+      paginatedQueryDto,
     );
   }
 
@@ -98,7 +98,7 @@ export class OrganizationsController {
   async transferOwnership(
     @Param("organizationId", LogtoOrganizationByIdPipe)
     organization: LogtoOrganization,
-    @Param("newOwnerId", LogtoUserByIdPipe) newOwner: LogtoUser
+    @Param("newOwnerId", LogtoUserByIdPipe) newOwner: LogtoUser,
   ) {
     return this.organizationsService.transferOwnership(organization, newOwner);
   }
@@ -112,12 +112,12 @@ export class OrganizationsController {
     @ConnectedUser() currentUser: LogtoUserWithOrganizations,
     @Param("organizationId", LogtoOrganizationByIdPipe)
     organization: LogtoOrganization,
-    @Param("userId", LogtoUserByIdPipe) userToRemove: LogtoUser
+    @Param("userId", LogtoUserByIdPipe) userToRemove: LogtoUser,
   ) {
     return this.organizationsService.removeUserFromOrganization(
       organization,
       currentUser,
-      userToRemove
+      userToRemove,
     );
   }
 
@@ -129,11 +129,11 @@ export class OrganizationsController {
   })
   async createInvitation(
     @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
-    @Body() createInvitationDto: CreateInvitationDto
+    @Body() createInvitationDto: CreateInvitationDto,
   ): Promise<GetInvitationDto> {
     return this.organizationsService.createInvitation(
       user,
-      createInvitationDto
+      createInvitationDto,
     );
   }
 
@@ -144,7 +144,7 @@ export class OrganizationsController {
     description: "List all pending invitations for the authenticated user",
   })
   async getMyInvitations(
-    @ConnectedUser() user: LogtoUser
+    @ConnectedUser() user: LogtoUser,
   ): Promise<GetInvitationDto[]> {
     return this.organizationsService.getUserInvitations(user);
   }
@@ -161,7 +161,7 @@ export class OrganizationsController {
   })
   async getInvitationById(
     @Param("invitationId", LogtoEntityByIdPipe(LogtoEntityType.INVITATION))
-    invitation: LogtoInvitation
+    invitation: LogtoInvitation,
   ): Promise<GetInvitationDto> {
     return this.organizationsService.getInvitationById(invitation);
   }
@@ -181,7 +181,7 @@ export class OrganizationsController {
   updateInvitationStatus(
     @ConnectedUser() user: LogtoUser,
     @Param("invitationId", LogtoInvitationByIdPipe) invitation: LogtoInvitation,
-    @Body() dto: UpdateInvitationStatusDto
+    @Body() dto: UpdateInvitationStatusDto,
   ): void {
     this.organizationsService.updateInvitationStatus(user, invitation, dto);
   }

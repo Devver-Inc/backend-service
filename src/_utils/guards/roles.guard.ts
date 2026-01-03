@@ -20,7 +20,7 @@ import {
 export class RolesGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
-    private readonly logtoRequests: LogtoRequests
+    private readonly logtoRequests: LogtoRequests,
   ) {}
 
   async canActivate(context: ExecutionContext) {
@@ -59,7 +59,7 @@ export class RolesGuard implements CanActivate {
     if (
       requiredPermissions &&
       userPermissions.some((perm) =>
-        requiredPermissions.has(perm as UserPermissionsEnum)
+        requiredPermissions.has(perm as UserPermissionsEnum),
       )
     )
       return true;
@@ -69,7 +69,7 @@ export class RolesGuard implements CanActivate {
         const roleConfig = UserRoles[role.roleName as UserRoleEnum];
         if (
           roleConfig?.permissions?.some((perm: UserPermissionsEnum) =>
-            requiredPermissions.has(perm)
+            requiredPermissions.has(perm),
           )
         ) {
           return true;
@@ -78,7 +78,7 @@ export class RolesGuard implements CanActivate {
     }
 
     throw new ForbiddenException(
-      "Insufficient permissions or roles to access this resource"
+      "Insufficient permissions or roles to access this resource",
     );
   }
 }

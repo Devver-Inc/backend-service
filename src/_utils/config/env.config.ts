@@ -79,7 +79,7 @@ export function validateEnv(config: Record<string, unknown>) {
     structuredConfig,
     {
       enableImplicitConversion: true,
-    }
+    },
   );
 
   const errors = validateSync(validatedConfig, {

@@ -1,7 +1,7 @@
-import { Module } from '@nestjs/common'
-import { UsersModule } from 'src/users/users.module'
-import { WebhooksController } from './webhooks.controller'
-import { WebhooksService } from './webhooks.service'
+import { Module } from "@nestjs/common";
+import { UsersModule } from "src/users/users.module";
+import { WebhooksController } from "./webhooks.controller";
+import { WebhooksService } from "./webhooks.service";
 
 @Module({
   imports: [UsersModule],

@@ -29,7 +29,7 @@ export class OrganizationsService {
   constructor(
     private readonly organizationsMapper: OrganizationsMapper,
     private readonly logtoRequests: LogtoRequests,
-    private readonly usersMapper: UsersMapper
+    private readonly usersMapper: UsersMapper,
   ) {}
 
   getOrganizationInformations(organization: LogtoOrganization) {
@@ -37,10 +37,10 @@ export class OrganizationsService {
   }
 
   async getOrganizationDetails(
-    organization: LogtoOrganization
+    organization: LogtoOrganization,
   ): Promise<GetOrganizationDetailsDto> {
     const { members } = await this.logtoRequests.getOrganizationMembers(
-      organization.id
+      organization.id,
     );
     const ownerId = organization.customData.ownerId;
     const adminsIdsSet = new Set<string>(organization.customData.adminIds);
@@ -54,25 +54,25 @@ export class OrganizationsService {
         }
         return acc;
       },
-      { owner: null as LogtoUser | null, admins: [] as LogtoUser[] }
+      { owner: null as LogtoUser | null, admins: [] as LogtoUser[] },
     );
 
     return this.organizationsMapper.toOrganizationDetailsDto(
       organization,
       members,
       owner,
-      admins
+      admins,
     );
   }
 
   async getOrganizationMembers(
     organization: LogtoOrganization,
-    paginatedQueryDto: UsersPaginatedQueryDto
+    paginatedQueryDto: UsersPaginatedQueryDto,
   ): Promise<PaginationDto<GetUserLightDto[]>> {
     if (!paginatedQueryDto.rolesFilter?.length) {
       const query =
         this.organizationsMapper.toGetOrganizationMembersQuery(
-          paginatedQueryDto
+          paginatedQueryDto,
         );
       const { members, totalItemsCount } =
         await this.logtoRequests.getOrganizationMembers(organization.id, query);
@@ -81,12 +81,12 @@ export class OrganizationsService {
         members,
         paginatedQueryDto,
         totalItemsCount,
-        this.usersMapper.toUserLightDto
+        this.usersMapper.toUserLightDto,
       );
     }
 
     const { members } = await this.logtoRequests.getOrganizationMembers(
-      organization.id
+      organization.id,
     );
     const filteredMembers = members.filter(async (member) => {
       if (paginatedQueryDto.search) {
@@ -97,10 +97,10 @@ export class OrganizationsService {
       if (paginatedQueryDto.rolesFilter) {
         const roles = await this.logtoRequests.getUserRoles(
           member.id,
-          organization.id
+          organization.id,
         );
         return paginatedQueryDto.rolesFilter.some((role) =>
-          roles.some((r) => r.name === role)
+          roles.some((r) => r.name === role),
         );
       }
       return true;
@@ -110,48 +110,48 @@ export class OrganizationsService {
       filteredMembers,
       paginatedQueryDto,
       filteredMembers.length,
-      this.usersMapper.toUserLightDto
+      this.usersMapper.toUserLightDto,
     );
   }
 
   async createInvitation(
     user: LogtoUserWithOrganizations,
-    createInvitationDto: CreateInvitationDto
+    createInvitationDto: CreateInvitationDto,
   ): Promise<GetInvitationDto> {
     if (!user.currentOrganization) {
       throw new BadRequestException(
-        "User must be part of an organization to create invitations"
+        "User must be part of an organization to create invitations",
       );
     }
 
     const invitation = await this.logtoRequests.createOrganizationInvitation(
       user,
-      createInvitationDto
+      createInvitationDto,
     );
     const organization = await this.logtoRequests.fetchOrganizationInformations(
-      user.currentOrganization.id
+      user.currentOrganization.id,
     );
     await this.logtoRequests.resendInvitationMessage(
       invitation,
-      organization.name
+      organization.name,
     );
 
     return this.organizationsMapper.toInvitationDto(
       invitation,
-      organization.name
+      organization.name,
     );
   }
 
   async getOrganizationInvitations(user: LogtoUserWithOrganizations) {
     if (!user.currentOrganization) {
       throw new BadRequestException(
-        "User must be part of an organization to fetch invitations"
+        "User must be part of an organization to fetch invitations",
       );
     }
 
     const invitations = (
       await this.logtoRequests.getOrganizationInvitations(
-        user.currentOrganization.id
+        user.currentOrganization.id,
       )
     ).filter((i) => i.status !== InvitationStatusEnum.ACCEPTED);
 
@@ -159,21 +159,21 @@ export class OrganizationsService {
   }
 
   async getInvitationById(
-    invitation: LogtoInvitation
+    invitation: LogtoInvitation,
   ): Promise<GetInvitationDto> {
     const organization = await this.logtoRequests.fetchOrganizationInformations(
-      invitation.organizationId
+      invitation.organizationId,
     );
     return this.organizationsMapper.toInvitationDto(
       invitation,
-      organization.name
+      organization.name,
     );
   }
 
   async getUserInvitations(user: LogtoUser): Promise<GetInvitationDto[]> {
     if (!user.primaryEmail) {
       throw new BadRequestException(
-        "User must have a verified email to fetch invitations"
+        "User must have a verified email to fetch invitations",
       );
     }
 
@@ -185,13 +185,13 @@ export class OrganizationsService {
       invitations.map(async (invitation) => {
         const organization =
           await this.logtoRequests.fetchOrganizationInformations(
-            invitation.organizationId
+            invitation.organizationId,
           );
         return this.organizationsMapper.toInvitationDto(
           invitation,
-          organization.name
+          organization.name,
         );
-      })
+      }),
     );
 
     return invitationsWithOrgNames;
@@ -200,46 +200,46 @@ export class OrganizationsService {
   async updateInvitationStatus(
     user: LogtoUser,
     invitation: LogtoInvitation,
-    dto: UpdateInvitationStatusDto
+    dto: UpdateInvitationStatusDto,
   ): Promise<void> {
     if (dto.status === UpdateInvitationStatusEnum.ACCEPTED) {
       if (!user.primaryEmail) {
         throw new BadRequestException(
-          "User must have a verified email to accept invitations"
+          "User must have a verified email to accept invitations",
         );
       }
 
       if (user.primaryEmail !== invitation.invitee) {
         throw new ForbiddenException(
-          "This invitation is not for the current user"
+          "This invitation is not for the current user",
         );
       }
 
       await this.logtoRequests.updateOrganizationInvitationStatus(
         invitation.id,
         dto.status,
-        user.id
+        user.id,
       );
     } else if (dto.status === UpdateInvitationStatusEnum.REVOKED) {
       await this.logtoRequests.updateOrganizationInvitationStatus(
         invitation.id,
-        dto.status
+        dto.status,
       );
     }
   }
 
   async transferOwnership(
     organization: LogtoOrganization,
-    newOwner: LogtoUser
+    newOwner: LogtoUser,
   ): Promise<LogtoOrganization> {
     if (organization.customData.ownerId === newOwner.id) {
       throw new BadRequestException(
-        "You cannot transfer ownership to yourself"
+        "You cannot transfer ownership to yourself",
       );
     }
     if (!organization.customData.adminIds.includes(newOwner.id)) {
       throw new BadRequestException(
-        "The new owner is not an administrator of the organization"
+        "The new owner is not an administrator of the organization",
       );
     }
     return this.logtoRequests.updateOrganization(organization.id, {
@@ -253,11 +253,11 @@ export class OrganizationsService {
   async removeUserFromOrganization(
     organization: LogtoOrganization,
     currentUser: LogtoUserWithOrganizations,
-    userToRemove: LogtoUser
+    userToRemove: LogtoUser,
   ): Promise<LogtoOrganization> {
     if (organization.customData.ownerId === userToRemove.id) {
       throw new BadRequestException(
-        "You cannot remove the owner from the organization"
+        "You cannot remove the owner from the organization",
       );
     }
 
@@ -271,24 +271,24 @@ export class OrganizationsService {
 
     const currentUserRoles = await this.logtoRequests.getUserRoles(
       currentUser.id,
-      organization.id
+      organization.id,
     );
     if (
       userToRemove.id !== currentUser.id &&
       !currentUserRoles.some((role) => role.name === UserRoleEnum.ADMIN)
     ) {
       throw new ForbiddenException(
-        "You are not allowed to remove this user from the organization"
+        "You are not allowed to remove this user from the organization",
       );
     }
 
     const { members } = await this.logtoRequests.getOrganizationMembers(
-      organization.id
+      organization.id,
     );
     if (members.length === 1) {
       // TODO: If the organization has only one member, delete the organization
       throw new BadRequestException(
-        "You cannot quit an organization if you are the only member"
+        "You cannot quit an organization if you are the only member",
       );
     }
 
@@ -297,14 +297,14 @@ export class OrganizationsService {
         customData: {
           ...organization.customData,
           adminIds: organization.customData.adminIds.filter(
-            (id) => id !== userToRemove.id
+            (id) => id !== userToRemove.id,
           ),
         },
       });
     }
     await this.logtoRequests.removeUserFromOrganization(
       organization.id,
-      userToRemove.id
+      userToRemove.id,
     );
 
     return this.logtoRequests.fetchOrganizationInformations(organization.id);

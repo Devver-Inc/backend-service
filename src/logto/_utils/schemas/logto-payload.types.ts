@@ -1,20 +1,20 @@
-import { Schema } from 'effect'
+import { Schema } from "effect";
 
 const LogtoOrganizationRoleCustomClaim = Schema.Struct({
   roleId: Schema.String,
   roleName: Schema.String,
-})
+});
 
 const LogtoOrganizationCustomClaimSchema = Schema.Struct({
   id: Schema.String,
   name: Schema.String,
   description: Schema.String,
   roles: Schema.Array(LogtoOrganizationRoleCustomClaim),
-})
+});
 
 const LogtoCustomClaimsSchema = Schema.Struct({
   organizations: Schema.Array(LogtoOrganizationCustomClaimSchema),
-})
+});
 
 export const JWTPayloadSchema = Schema.Struct({
   /**
@@ -35,7 +35,9 @@ export const JWTPayloadSchema = Schema.Struct({
    *
    * @see {@link https://www.rfc-editor.org/rfc/rfc7519#section-4.1.3 RFC7519#section-4.1.3}
    */
-  aud: Schema.optional(Schema.Union(Schema.String, Schema.Array(Schema.String))),
+  aud: Schema.optional(
+    Schema.Union(Schema.String, Schema.Array(Schema.String)),
+  ),
   /**
    * JWT ID
    *
@@ -60,7 +62,7 @@ export const JWTPayloadSchema = Schema.Struct({
    * @see {@link https://www.rfc-editor.org/rfc/rfc7519#section-4.1.6 RFC7519#section-4.1.6}
    */
   iat: Schema.optional(Schema.Number),
-})
+});
 
 const LogtoBasePayloadSchema = Schema.Struct({
   /**
@@ -111,14 +113,18 @@ const LogtoBasePayloadSchema = Schema.Struct({
    * @see {@link https://docs.logto.io/authorization/validate-access-tokens}
    */
   organization_id: Schema.optional(Schema.String),
-})
+});
 
 const LogtoPayloadSchema = JWTPayloadSchema.pipe(
   Schema.extend(LogtoCustomClaimsSchema),
   Schema.extend(LogtoBasePayloadSchema),
-)
+);
 
-export type LogtoPayload = Schema.Schema.Type<typeof LogtoPayloadSchema>
-export type LogtoUserClaimOrganization = Schema.Schema.Type<typeof LogtoOrganizationCustomClaimSchema>
-export type LogtoUserClaimOrganizationRole = Schema.Schema.Type<typeof LogtoOrganizationRoleCustomClaim>
-export const decodeLogtoPayload = Schema.decodeUnknownSync(LogtoPayloadSchema)
+export type LogtoPayload = Schema.Schema.Type<typeof LogtoPayloadSchema>;
+export type LogtoUserClaimOrganization = Schema.Schema.Type<
+  typeof LogtoOrganizationCustomClaimSchema
+>;
+export type LogtoUserClaimOrganizationRole = Schema.Schema.Type<
+  typeof LogtoOrganizationRoleCustomClaim
+>;
+export const decodeLogtoPayload = Schema.decodeUnknownSync(LogtoPayloadSchema);

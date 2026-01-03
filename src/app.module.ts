@@ -12,7 +12,7 @@ import { WebhooksModule } from "./webhooks/webhooks.module";
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (
-        configService: ConfigService<EnvironmentVariables, true>
+        configService: ConfigService<EnvironmentVariables, true>,
       ) => ({
         uri: configService.get("DATABASE").DATABASE_URL,
         dbName: configService.get("DATABASE").DATABASE_NAME,
