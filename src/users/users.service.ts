@@ -1,57 +1,37 @@
-import { Injectable } from "@nestjs/common";
-import { CreateUserDto } from "./_utils/dto/request/create-user.dto";
-import { GetUserDto } from "./_utils/dto/response/get-user.dto";
-import { UsersMapper } from "./users.mapper";
-import { UsersRepository } from "./users.repository";
-import { UserDocument } from "./user.schema";
-import { UpdateUserDto } from "./_utils/dto/request/update-user.dto";
-import { UserQueryDto } from "./_utils/dto/request/user-query.dto";
-import { LoginResponseDto } from "src/auth/_utils/dto/response/login-response.dto";
-import { AuthService } from "src/auth/auth.service";
-import { EncryptionService } from "src/encryption/encryption.service";
-import { FunctionPaginatedResponseDto } from "src/_utils/dto/response/function-paginated-response.dto";
+import { Injectable } from '@nestjs/common'
+import { LogtoUser } from 'src/logto/_utils/types/responses/responses.type'
+import { LogtoRequests } from 'src/logto/logto.requests'
+import { LogtoService } from 'src/logto/logto.service'
+import { UpdateAccountDto } from './_utils/dto/requests/update-account.dto'
 
 @Injectable()
 export class UsersService {
   constructor(
-    private readonly usersRepository: UsersRepository,
-    private readonly usersMapper: UsersMapper,
-    private readonly authService: AuthService,
-    private readonly encryptionService: EncryptionService
+    private readonly logtoService: LogtoService,
+    private readonly logtoRequests: LogtoRequests,
   ) {}
 
-  async createUser(body: CreateUserDto): Promise<LoginResponseDto> {
-    const hashPassword = await this.encryptionService.encrypt(body.password);
-
-    await this.usersRepository.create({ ...body, password: hashPassword });
-
-    return this.authService.login({
-      email: body.email,
-      password: body.password,
-      rememberMe: false,
-    });
+  createAccount(connectedUser: LogtoUser) {
+    return this.logtoService.manageUserWithoutOrganization(connectedUser);
   }
 
-  async findPaginated(
-    queries: UserQueryDto
-  ): Promise<FunctionPaginatedResponseDto<GetUserDto>> {
-    const { users, totalCount } =
-      await this.usersRepository.findPaginated(queries);
-    return {
-      data: users.map(this.usersMapper.toGetUserDto),
-      totalCount,
-    };
+  async updateAccount(connectedUser: LogtoUser, dto: UpdateAccountDto) {
+    // if (dto.profilePictureFile) {
+    //   await this.minioService.uploadFile(
+    //     dto.profilePictureFile,
+    //     this.minioMapper.toUserProfilePictureKey(
+    //       connectedUser.id,
+    //       dto.profilePictureFile.extension
+    //     )
+    //   );
+    //   this.logtoRequests.updateUserProfilePicture(
+    //     connectedUser.id,
+    //     this.minioMapper.toGetProfilePictureUrl(
+    //       connectedUser.id,
+    //       dto.profilePictureFile.extension
+    //     )
+    //   );
+    // }
+    await this.logtoRequests.updateUserProfile(connectedUser.id, dto);
   }
-
-  updateUser = (
-    user: UserDocument,
-    body: UpdateUserDto
-  ): Promise<GetUserDto> =>
-    this.usersRepository
-      .updateOrThrow(user.id, body)
-      .then(this.usersMapper.toGetUserDto);
-
-  async sendActivateAccountEmail(email: string) {}
-
-  deleteUser = (user: UserDocument) => this.usersRepository.delete(user.id);
 }
