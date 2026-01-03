@@ -4,7 +4,8 @@ COMMIT_MSG_FILE=$1
 COMMIT_MSG=$(cat "$COMMIT_MSG_FILE")
 
 # Skip validation for merge commits
-if [ -n "$2" ]; then
+# Check if it's a merge commit (second parameter exists or commit message starts with "Merge")
+if [ -n "$2" ] || echo "$COMMIT_MSG" | grep -qE "^Merge (branch|remote-tracking branch|pull request)"; then
   exit 0
 fi
 
