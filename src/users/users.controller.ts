@@ -21,8 +21,8 @@ export class UsersController {
 
   @Protect()
   @Post('/account')
-  createAccountForUser(@ConnectedUser() connectedUser: LogtoUser) {
-    return this.usersService.createAccount(connectedUser);
+  createAccountForUser(@ConnectedUser() user: LogtoUser) {
+    return this.usersService.createAccount(user);
   }
 
   @Protect()
@@ -30,9 +30,9 @@ export class UsersController {
   @FormDataRequest()
   @HttpCode(HttpStatus.NO_CONTENT)
   updateAccount(
-    @ConnectedUser() connectedUser: LogtoUser,
+    @ConnectedUser() user: LogtoUser,
     @Body() dto: UpdateAccountDto,
   ) {
-    return this.usersService.updateAccount(connectedUser, dto);
+    return this.usersService.updateAccount(user, dto);
   }
 }

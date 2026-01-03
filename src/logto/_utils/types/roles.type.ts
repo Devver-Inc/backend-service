@@ -1,6 +1,7 @@
 export enum LogtoRolesEnum {
   ADMIN = 'admin',
-  BASIC = 'basic',
+  DEVELOPER = 'developer',
+  VIEWER = 'viewer',
 }
 
 export enum RoleTypeEnum {

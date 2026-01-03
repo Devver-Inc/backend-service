@@ -126,7 +126,7 @@ export class LogtoService {
       ),
     });
 
-    const roleIds = await this.getRoleIdsForRoleNames(LogtoRolesEnum.BASIC);
+    const roleIds = await this.getRoleIdsForRoleNames(LogtoRolesEnum.ADMIN);
 
     await this.logtoRequests.addOrganizationJitDefaultRoles(
       newOrganization.id,

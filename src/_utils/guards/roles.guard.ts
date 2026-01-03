@@ -52,7 +52,7 @@ export class RolesGuard implements CanActivate {
 
     if (
       requiredRoles &&
-      userRoles.some((role) => requiredRoles.has(role.roleName as UserRoleEnum))
+      userRoles.some((role) => requiredRoles.has(role.name as UserRoleEnum))
     )
       return true;
 
@@ -66,7 +66,7 @@ export class RolesGuard implements CanActivate {
 
     if (requiredPermissions) {
       for (const role of userRoles) {
-        const roleConfig = UserRoles[role.roleName as UserRoleEnum];
+        const roleConfig = UserRoles[role.name as UserRoleEnum];
         if (
           roleConfig?.permissions?.some((perm: UserPermissionsEnum) =>
             requiredPermissions.has(perm),

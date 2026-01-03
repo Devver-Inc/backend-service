@@ -11,27 +11,27 @@ export class UsersService {
     private readonly logtoRequests: LogtoRequests,
   ) {}
 
-  createAccount(connectedUser: LogtoUser) {
-    return this.logtoService.manageUserWithoutOrganization(connectedUser);
+  createAccount(user: LogtoUser) {
+    return this.logtoService.manageUserWithoutOrganization(user);
   }
 
-  async updateAccount(connectedUser: LogtoUser, dto: UpdateAccountDto) {
+  async updateAccount(user: LogtoUser, dto: UpdateAccountDto) {
     // if (dto.profilePictureFile) {
     //   await this.minioService.uploadFile(
     //     dto.profilePictureFile,
     //     this.minioMapper.toUserProfilePictureKey(
-    //       connectedUser.id,
+    //       user.id,
     //       dto.profilePictureFile.extension
     //     )
     //   );
     //   this.logtoRequests.updateUserProfilePicture(
-    //     connectedUser.id,
+    //     user.id,
     //     this.minioMapper.toGetProfilePictureUrl(
-    //       connectedUser.id,
+    //       user.id,
     //       dto.profilePictureFile.extension
     //     )
     //   );
     // }
-    await this.logtoRequests.updateUserProfile(connectedUser.id, dto);
+    await this.logtoRequests.updateUserProfile(user.id, dto);
   }
 }
