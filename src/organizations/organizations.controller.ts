@@ -10,7 +10,8 @@ import {
   Put,
   Query,
 } from '@nestjs/common';
-import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
+import { ApiConsumes, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
+import { FormDataRequest } from 'nestjs-form-data';
 import { PaginationDto } from 'src/_utils/pagination/responses/pagination.dto';
 import {
   ConnectedUser,
@@ -26,7 +27,9 @@ import { UsersPaginatedQueryDto } from 'src/users/_utils/dto/query/user-paginate
 import { GetUserLightDto } from 'src/users/_utils/dto/responses/get-user-light.dto';
 import { UserRoleEnum } from '../logto/_utils/enums/permissions.enum';
 import { CreateInvitationDto } from './_utils/dto/requests/create-invitation.dto';
+import { CreateOrganizationDto } from './_utils/dto/requests/create-organization.dto';
 import { UpdateInvitationStatusDto } from './_utils/dto/requests/update-invitation-status.dto';
+import { UpdateOrganizationDto } from './_utils/dto/requests/update-organization.dto';
 import { GetInvitationDto } from './_utils/dto/responses/get-invitation.dto';
 import { GetOrganizationDetailsDto } from './_utils/dto/responses/get-organization-details.dto';
 import { GetOrganizationLightDto } from './_utils/dto/responses/get-organization-light.dto';
@@ -44,6 +47,21 @@ import {
 @Controller('organizations')
 export class OrganizationsController {
   constructor(private readonly organizationsService: OrganizationsService) {}
+
+  @Protect()
+  @Post()
+  @FormDataRequest()
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Create a new Organization' })
+  async createOrganization(
+    @Body() createOrganizationDto: CreateOrganizationDto,
+    @ConnectedUser() user: LogtoUser,
+  ): Promise<GetOrganizationLightDto> {
+    return this.organizationsService.createOrganization(
+      createOrganizationDto,
+      user,
+    );
+  }
 
   @Protect()
   @Get('invitations')
@@ -90,7 +108,36 @@ export class OrganizationsController {
     );
   }
 
-  @Protect()
+  @Protect({ roles: [UserRoleEnum.ADMIN] })
+  @Patch(':organizationId')
+  @FormDataRequest()
+  @ApiConsumes('multipart/form-data')
+  @ApiParam({ name: 'organizationId', type: String })
+  @ApiOperation({ summary: 'Update organization' })
+  async updateOrganization(
+    @Param('organizationId', LogtoOrganizationByIdPipe)
+    organization: LogtoOrganization,
+    @Body() updateOrganizationDto: UpdateOrganizationDto,
+  ): Promise<GetOrganizationLightDto> {
+    return this.organizationsService.updateOrganization(
+      organization,
+      updateOrganizationDto,
+    );
+  }
+
+  @Protect({ roles: [UserRoleEnum.ADMIN] })
+  @Delete(':organizationId')
+  @HttpCode(204)
+  @ApiParam({ name: 'organizationId', type: String })
+  @ApiOperation({ summary: 'Delete organization' })
+  async deleteOrganization(
+    @Param('organizationId', LogtoOrganizationByIdPipe)
+    organization: LogtoOrganization,
+  ): Promise<void> {
+    return this.organizationsService.deleteOrganization(organization);
+  }
+
+  @Protect({ roles: [UserRoleEnum.ADMIN] })
   @Put(':organizationId/owner/:newOwnerId')
   @ApiParam({ name: 'organizationId', type: String })
   @ApiParam({ name: 'newOwnerId', type: String })
@@ -103,7 +150,7 @@ export class OrganizationsController {
     return this.organizationsService.transferOwnership(organization, newOwner);
   }
 
-  @Protect()
+  @Protect({ roles: [UserRoleEnum.ADMIN] })
   @Delete(':organizationId/users/:userId')
   @ApiParam({ name: 'organizationId', type: String })
   @ApiParam({ name: 'userId', type: String })
@@ -121,7 +168,7 @@ export class OrganizationsController {
     );
   }
 
-  @Protect()
+  @Protect({ roles: [UserRoleEnum.ADMIN] })
   @Post('invitations')
   @ApiOperation({
     summary: 'Create a new organization invitation',

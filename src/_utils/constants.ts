@@ -6,7 +6,6 @@ export const LOGTO_CREDENTIALS = 'LogtoClientCredentials';
 export const LOGTO_JWKS_TOKEN = 'LogtoJwks';
 export const LOGTO_URIS_TOKEN = 'LogtoUris';
 export const MINIO_CLIENT_TOKEN = 'MinioClient';
-export const AGNO_CLIENT_TOKEN = 'AgnoClient';
 
 /**
  * Others

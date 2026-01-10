@@ -17,7 +17,7 @@ export class UsersService {
 
   async updateAccount(user: LogtoUser, dto: UpdateAccountDto) {
     // if (dto.profilePictureFile) {
-    //   await this.minioService.uploadFile(
+    //   await this.fileUploadService.uploadFile(
     //     dto.profilePictureFile,
     //     this.minioMapper.toUserProfilePictureKey(
     //       user.id,
