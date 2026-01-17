@@ -72,7 +72,7 @@ export class OrganizationsController {
     return this.organizationsService.getOrganizationInvitations(user);
   }
 
-  @Protect({ roles: [UserRoleEnum.ADMIN] })
+  @Protect()
   @Get(':organizationId')
   @ApiParam({ name: 'organizationId', type: String })
   @ApiOperation({ summary: 'Get Organization information' })
@@ -94,7 +94,7 @@ export class OrganizationsController {
     return this.organizationsService.getOrganizationDetails(organization);
   }
 
-  @Protect({ roles: [UserRoleEnum.ADMIN] })
+  @Protect()
   @Get(':organizationId/members')
   @ApiParam({ name: 'organizationId', type: String })
   @ApiOperation({ summary: 'Get Organization members' })
