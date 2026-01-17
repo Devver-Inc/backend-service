@@ -8,13 +8,12 @@ import { Reflector } from '@nestjs/core';
 import { ROLES_KEY } from 'src/_utils/constants';
 import { LogtoRequests } from 'src/logto/logto.requests';
 import { ProtectOptions } from '../decorators/protect.decorator';
-
-import { AuthInfo } from '../types/auth-info.types';
 import {
   UserRoleEnum,
   UserPermissionsEnum,
   UserRoles,
 } from 'src/logto/_utils/enums/permissions.enum';
+import { AuthInfo } from 'src/logto/_utils/types/auth-info.types';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -40,7 +39,10 @@ export class RolesGuard implements CanActivate {
     const auth = request.auth as AuthInfo;
     const userRoles = auth.selectedOrganizationRoles;
     const userPermissions = await this.logtoRequests
-      .getCurrentUserPermissions(auth.user.id, auth.selectedOrganization?.id)
+      .getCurrentUserPermissions(
+        auth.user.id,
+        auth.selectedOrganization?.id ?? '',
+      )
       .then((permissions) => permissions.map((x) => x.name));
 
     const requiredRoles =
