@@ -16,7 +16,12 @@ import { ProjectsService } from './projects.service';
     forwardRef(() => UsersModule),
   ],
   controllers: [ProjectsController],
-  providers: [ProjectsService, ProjectsRepository, ProjectsMapper, ProjectsExceptions],
+  providers: [
+    ProjectsService,
+    ProjectsRepository,
+    ProjectsMapper,
+    ProjectsExceptions,
+  ],
   exports: [ProjectsService, ProjectsMapper],
 })
 export class ProjectsModule {}
