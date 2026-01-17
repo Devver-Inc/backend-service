@@ -170,21 +170,6 @@ export class LogtoRequests {
     );
 
   /**
-   * DELETE /api/organizations/{id}
-   * Delete an organization.
-   * @link https://openapi.logto.io/operation/operation-deleteorganization
-   * @param organizationId
-   * @returns void (204 status)
-   */
-  deleteOrganization = (organizationId: string) =>
-    this.handleResponse(
-      this.logtoClient.DELETE('/api/organizations/{id}', {
-        params: { path: { id: organizationId } },
-      }),
-      this.exceptions.ERROR_DELETE_ORGANIZATION,
-    );
-
-  /**
    * GET /api/organization-roles
    * Get all organization roles.
    * @link https://openapi.logto.io/operation/operation-listorganizationroles
