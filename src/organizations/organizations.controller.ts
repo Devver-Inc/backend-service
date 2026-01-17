@@ -42,6 +42,7 @@ import {
   LogtoEntityType,
   LogtoInvitationByIdPipe,
 } from 'src/_utils/pipes/logto-entity-by-id.pipe';
+import { ApiResponseDecorator } from 'src/_utils/decorators/api-response.decorator';
 
 @ApiTags('Organizations')
 @Controller('organizations')
@@ -97,6 +98,7 @@ export class OrganizationsController {
   @Get(':organizationId/members')
   @ApiParam({ name: 'organizationId', type: String })
   @ApiOperation({ summary: 'Get Organization members' })
+  @ApiResponseDecorator(GetUserLightDto)
   getOrganizationMembers(
     @Param('organizationId', LogtoOrganizationByIdPipe)
     organization: LogtoOrganization,
