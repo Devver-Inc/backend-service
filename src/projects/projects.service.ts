@@ -30,7 +30,7 @@ export class ProjectsService {
     dto: CreateProjectDto,
     user: LogtoUserWithOrganizations,
   ): Promise<GetProjectLightDto> {
-    const organizationId = user.currentOrganization!.id;
+    const organizationId = user.currentOrganization.id;
 
     const domain = ProjectDomain.create(dto, organizationId, user.id);
     const project = await this.projectsRepository.create(domain);
@@ -42,7 +42,7 @@ export class ProjectsService {
     user: LogtoUserWithOrganizations,
     query: ProjectsPaginatedQueryDto,
   ): Promise<PaginationDto<GetProjectLightDto[]>> {
-    const organizationId = user.currentOrganization!.id;
+    const organizationId = user.currentOrganization.id;
 
     const { projects, totalCount } =
       await this.projectsRepository.findByOrganizationId(organizationId, query);
@@ -86,7 +86,7 @@ export class ProjectsService {
     dto: AddTeamMembersDto,
     user: LogtoUserWithOrganizations,
   ): Promise<GetProjectDto> {
-    const organizationId = user.currentOrganization!.id;
+    const organizationId = user.currentOrganization.id;
     const project = await this.getProjectWithAccessCheck(projectId, user);
     const validMemberIds = await this.getOrganizationMemberIds(organizationId);
 
@@ -125,7 +125,7 @@ export class ProjectsService {
     projectId: string,
     user: LogtoUserWithOrganizations,
   ): Promise<ProjectDocument> {
-    const organizationId = user.currentOrganization!.id;
+    const organizationId = user.currentOrganization.id;
     const project = await this.projectsRepository.findById(projectId);
     const domain = ProjectDomain.fromDocument(project);
 
