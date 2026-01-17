@@ -172,10 +172,11 @@ export class ProjectsService {
   ): Promise<GetProjectDto> {
     const [createdBy, { members: teamMembers }] = await Promise.all([
       this.logtoRequests.fetchUserSafe(project.createdBy),
-      this.logtoRequests.getOrganizationMembers(project.organizationId, {
-        q: project.teamMemberIds.join(' '),
-        page_size: project.teamMemberIds.length,
-      }),
+      project.teamMemberIds.length
+        ? this.logtoRequests.getOrganizationMembers(project.organizationId, {
+            q: project.teamMemberIds.join(' '),
+          })
+        : { members: [] },
     ]);
 
     return this.projectsMapper.toProjectDto(project, createdBy, teamMembers);
