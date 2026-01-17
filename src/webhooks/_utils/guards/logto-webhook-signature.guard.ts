@@ -54,7 +54,7 @@ export class LogtoWebhookSignatureGuard implements CanActivate {
       }
 
       return timingSafeEqual(signatureBuffer, expectedBuffer);
-    } catch (_error) {
+    } catch {
       return false;
     }
   }

@@ -5,7 +5,7 @@ import {
   GetProjectDto,
   GetProjectLightDto,
 } from './_utils/dto/responses/get-project.dto';
-import { Project, ProjectDocument } from './project.schema';
+import { ProjectDocument } from './project.schema';
 
 @Injectable()
 export class ProjectsMapper {

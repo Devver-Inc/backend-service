@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { DateTime } from 'luxon';
 import {
   EnvironmentVariables,
   MinioConfig,

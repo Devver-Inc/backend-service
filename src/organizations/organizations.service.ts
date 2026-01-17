@@ -1,8 +1,4 @@
-import {
-  BadRequestException,
-  ForbiddenException,
-  Injectable,
-} from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { toPaginatedDto } from 'src/_utils/pagination/pagination.mapper';
 import { PaginationDto } from 'src/_utils/pagination/responses/pagination.dto';
 import { UserRoleEnum } from 'src/logto/_utils/enums/permissions.enum';
@@ -28,6 +24,7 @@ import { InvitationStatusEnum } from './_utils/enums/invitations-status.enum';
 import { UpdateInvitationStatusEnum } from './_utils/enums/update-invitations-status.enum';
 import { OrganizationsMapper } from './organization.mapper';
 import { FileUploadService } from 'src/minio/file-upload.service';
+import { OrganizationsExceptions } from './_utils/errors/organizations-exceptions';
 
 @Injectable()
 export class OrganizationsService {
@@ -37,6 +34,7 @@ export class OrganizationsService {
     private readonly usersMapper: UsersMapper,
     private readonly fileUploadService: FileUploadService,
     private readonly minioMapper: MinioMapper,
+    private readonly exceptions: OrganizationsExceptions,
   ) {}
 
   async createOrganization(
@@ -100,7 +98,7 @@ export class OrganizationsService {
   }
 
   async updateOrganization(
-    organization: LogtoOrganization,
+    user: LogtoUserWithOrganizations,
     updateOrganizationDto: UpdateOrganizationDto,
   ): Promise<GetOrganizationLightDto> {
     const fileMapping = updateOrganizationDto.logoFile
@@ -108,7 +106,7 @@ export class OrganizationsService {
           {
             file: updateOrganizationDto.logoFile,
             key: this.minioMapper.toOrganizationLogoKey(
-              organization.id,
+              user.currentOrganization.id,
               updateOrganizationDto.logoFile.extension,
             ),
           },
@@ -120,13 +118,13 @@ export class OrganizationsService {
       async () => {
         const logoUrl = updateOrganizationDto.logoFile
           ? this.minioMapper.toOrganizationLogoUrl(
-              organization.id,
+              user.currentOrganization.id,
               updateOrganizationDto.logoFile.extension,
             )
           : undefined;
 
         const updatedOrganization = await this.logtoRequests.updateOrganization(
-          organization.id,
+          user.currentOrganization.id,
           {
             name: updateOrganizationDto.name,
             description: updateOrganizationDto.description,
@@ -145,31 +143,36 @@ export class OrganizationsService {
     );
   }
 
-  async deleteOrganization(organization: LogtoOrganization): Promise<void> {
+  async deleteOrganization(user: LogtoUserWithOrganizations): Promise<void> {
     const { members } = await this.logtoRequests.getOrganizationMembers(
-      organization.id,
+      user.currentOrganization.id,
     );
 
     if (members.length > 1) {
-      throw new BadRequestException(
-        'Cannot delete organization with multiple members',
-      );
+      throw this.exceptions.CANNOT_DELETE_WITH_MULTIPLE_MEMBERS;
     }
 
-    await this.logtoRequests.deleteOrganization(organization.id);
+    await this.logtoRequests.deleteOrganization(user.currentOrganization.id);
   }
 
-  getOrganizationInformations = (organization: LogtoOrganization) =>
-    this.organizationsMapper.toOrganizationLightDto(organization);
+  async getOrganizationInformations(
+    user: LogtoUserWithOrganizations,
+  ): Promise<GetOrganizationLightDto> {
+    return this.organizationsMapper.toOrganizationLightDto(
+      user.currentOrganization,
+    );
+  }
 
   async getOrganizationDetails(
-    organization: LogtoOrganization,
+    user: LogtoUserWithOrganizations,
   ): Promise<GetOrganizationDetailsDto> {
     const { members } = await this.logtoRequests.getOrganizationMembers(
-      organization.id,
+      user.currentOrganization.id,
     );
-    const ownerId = organization.customData.ownerId;
-    const adminsIdsSet = new Set<string>(organization.customData.adminIds);
+    const ownerId = user.currentOrganization.customData.ownerId;
+    const adminsIdsSet = new Set<string>(
+      user.currentOrganization.customData.adminIds,
+    );
     const { owner, admins } = members.reduce(
       (acc, member) => {
         if (member.id === ownerId) {
@@ -184,7 +187,7 @@ export class OrganizationsService {
     );
 
     return this.organizationsMapper.toOrganizationDetailsDto(
-      organization,
+      user.currentOrganization,
       members,
       owner,
       admins,
@@ -192,7 +195,7 @@ export class OrganizationsService {
   }
 
   async getOrganizationMembers(
-    organization: LogtoOrganization,
+    user: LogtoUserWithOrganizations,
     paginatedQueryDto: UsersPaginatedQueryDto,
   ): Promise<PaginationDto<GetUserLightDto[]>> {
     if (!paginatedQueryDto.rolesFilter?.length) {
@@ -201,7 +204,10 @@ export class OrganizationsService {
           paginatedQueryDto,
         );
       const { members, totalItemsCount } =
-        await this.logtoRequests.getOrganizationMembers(organization.id, query);
+        await this.logtoRequests.getOrganizationMembers(
+          user.currentOrganization.id,
+          query,
+        );
 
       return toPaginatedDto(
         members,
@@ -212,7 +218,7 @@ export class OrganizationsService {
     }
 
     const { members } = await this.logtoRequests.getOrganizationMembers(
-      organization.id,
+      user.currentOrganization.id,
     );
     const filteredMembers = members.filter(async (member) => {
       if (paginatedQueryDto.search) {
@@ -223,7 +229,7 @@ export class OrganizationsService {
       if (paginatedQueryDto.rolesFilter) {
         const roles = await this.logtoRequests.getUserRoles(
           member.id,
-          organization.id,
+          user.currentOrganization.id,
         );
         return paginatedQueryDto.rolesFilter.some((role) =>
           roles.some((r) => r.name === role),
@@ -244,12 +250,6 @@ export class OrganizationsService {
     user: LogtoUserWithOrganizations,
     createInvitationDto: CreateInvitationDto,
   ): Promise<GetInvitationDto> {
-    if (!user.currentOrganization) {
-      throw new BadRequestException(
-        'User must be part of an organization to create invitations',
-      );
-    }
-
     const invitation = await this.logtoRequests.createOrganizationInvitation(
       user,
       createInvitationDto,
@@ -269,12 +269,6 @@ export class OrganizationsService {
   }
 
   async getOrganizationInvitations(user: LogtoUserWithOrganizations) {
-    if (!user.currentOrganization) {
-      throw new BadRequestException(
-        'User must be part of an organization to fetch invitations',
-      );
-    }
-
     const invitations = (
       await this.logtoRequests.getOrganizationInvitations(
         user.currentOrganization.id,
@@ -298,9 +292,7 @@ export class OrganizationsService {
 
   async getUserInvitations(user: LogtoUser): Promise<GetInvitationDto[]> {
     if (!user.primaryEmail) {
-      throw new BadRequestException(
-        'User must have a verified email to fetch invitations',
-      );
+      throw this.exceptions.USER_MUST_HAVE_EMAIL_FOR_INVITATIONS;
     }
 
     const invitations = (
@@ -330,15 +322,11 @@ export class OrganizationsService {
   ): Promise<void> {
     if (dto.status === UpdateInvitationStatusEnum.ACCEPTED) {
       if (!user.primaryEmail) {
-        throw new BadRequestException(
-          'User must have a verified email to accept invitations',
-        );
+        throw this.exceptions.USER_MUST_HAVE_EMAIL_FOR_INVITATIONS;
       }
 
       if (user.primaryEmail !== invitation.invitee) {
-        throw new ForbiddenException(
-          'This invitation is not for the current user',
-        );
+        throw this.exceptions.INVITATION_NOT_FOR_CURRENT_USER;
       }
 
       await this.logtoRequests.updateOrganizationInvitationStatus(
@@ -355,82 +343,69 @@ export class OrganizationsService {
   }
 
   async transferOwnership(
-    organization: LogtoOrganization,
+    user: LogtoUserWithOrganizations,
     newOwner: LogtoUser,
   ): Promise<LogtoOrganization> {
-    if (organization.customData.ownerId === newOwner.id) {
-      throw new BadRequestException(
-        'You cannot transfer ownership to yourself',
-      );
+    if (user.currentOrganization.customData.ownerId === newOwner.id) {
+      throw this.exceptions.CANNOT_TRANSFER_TO_YOURSELF;
     }
-    if (!organization.customData.adminIds.includes(newOwner.id)) {
-      throw new BadRequestException(
-        'The new owner is not an administrator of the organization',
-      );
+    if (!user.currentOrganization.customData.adminIds.includes(newOwner.id)) {
+      throw this.exceptions.NEW_OWNER_NOT_ADMIN;
     }
-    return this.logtoRequests.updateOrganization(organization.id, {
+    return this.logtoRequests.updateOrganization(user.currentOrganization.id, {
       customData: {
         ownerId: newOwner.id,
-        adminIds: organization.customData.adminIds,
+        adminIds: user.currentOrganization.customData.adminIds,
       },
     });
   }
 
   async removeUserFromOrganization(
-    organization: LogtoOrganization,
-    currentUser: LogtoUserWithOrganizations,
+    user: LogtoUserWithOrganizations,
     userToRemove: LogtoUser,
   ): Promise<LogtoOrganization> {
-    if (organization.customData.ownerId === userToRemove.id) {
-      throw new BadRequestException(
-        'You cannot remove the owner from the organization',
-      );
-    }
-
-    const currentUserOrganization = currentUser.currentOrganization;
-    if (
-      !currentUserOrganization ||
-      currentUserOrganization.id !== organization.id
-    ) {
-      throw new BadRequestException('You are not a member of the organization');
+    if (user.currentOrganization.customData.ownerId === userToRemove.id) {
+      throw this.exceptions.CANNOT_REMOVE_OWNER;
     }
 
     const currentUserRoles = await this.logtoRequests.getUserRoles(
-      currentUser.id,
-      organization.id,
+      user.id,
+      user.currentOrganization.id,
     );
     if (
-      userToRemove.id !== currentUser.id &&
+      userToRemove.id !== user.id &&
       !currentUserRoles.some((role) => role.name === UserRoleEnum.ADMIN)
     ) {
-      throw new ForbiddenException(
-        'You are not allowed to remove this user from the organization',
-      );
+      throw this.exceptions.NOT_ALLOWED_TO_REMOVE_USER;
     }
 
     const { members } = await this.logtoRequests.getOrganizationMembers(
-      organization.id,
+      user.currentOrganization.id,
     );
     if (members.length === 1) {
-      await this.logtoRequests.deleteOrganization(organization.id);
-      return organization;
+      await this.logtoRequests.deleteOrganization(user.currentOrganization.id);
+      return user.currentOrganization;
     }
 
-    if (organization.customData.adminIds.includes(userToRemove.id)) {
-      await this.logtoRequests.updateOrganization(organization.id, {
+    if (
+      user.currentOrganization.customData.adminIds.includes(userToRemove.id)
+    ) {
+      await this.logtoRequests.updateOrganization(user.currentOrganization.id, {
         customData: {
-          ...organization.customData,
-          adminIds: organization.customData.adminIds.filter(
+          ...user.currentOrganization.customData,
+          adminIds: user.currentOrganization.customData.adminIds.filter(
             (id) => id !== userToRemove.id,
           ),
         },
       });
     }
     await this.logtoRequests.removeUserFromOrganization(
-      organization.id,
+      user.currentOrganization.id,
       userToRemove.id,
     );
 
-    return this.logtoRequests.fetchOrganizationInformations(organization.id);
+    return this.logtoRequests.fetchOrganizationInformations(
+      user.currentOrganization.id,
+    );
   }
 }

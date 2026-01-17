@@ -5,6 +5,7 @@ import { UsersModule } from 'src/users/users.module';
 import { OrganizationsMapper } from './organization.mapper';
 import { OrganizationsController } from './organizations.controller';
 import { OrganizationsService } from './organizations.service';
+import { OrganizationsExceptions } from './_utils/errors/organizations-exceptions';
 
 @Module({
   imports: [
@@ -13,7 +14,11 @@ import { OrganizationsService } from './organizations.service';
     MinioModule,
   ],
   controllers: [OrganizationsController],
-  providers: [OrganizationsService, OrganizationsMapper],
+  providers: [
+    OrganizationsService,
+    OrganizationsMapper,
+    OrganizationsExceptions,
+  ],
   exports: [OrganizationsService, OrganizationsMapper],
 })
 export class OrganizationsModule {}
