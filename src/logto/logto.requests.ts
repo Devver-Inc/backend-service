@@ -73,19 +73,6 @@ export class LogtoRequests {
   };
 
   /**
-   * Safely fetch multiple users' information by their IDs.
-   * Filters out any users that do not exist or caused errors during fetching.
-   * @param userIds
-   * @returns Array of user information
-   */
-  fetchUsersSafe = async (userIds: string[]) => {
-    const users = await Promise.all(
-      userIds.map((id) => this.fetchUserSafe(id)),
-    );
-    return users.filter((u): u is NonNullable<typeof u> => u !== null);
-  };
-
-  /**
    * POST /api/users/{userId}/password/verify
    * Verify user password.
    * @link https://openapi.logto.io/operation/operation-verifyuserpassword

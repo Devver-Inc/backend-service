@@ -170,9 +170,12 @@ export class ProjectsService {
   private async toFullProjectDto(
     project: ProjectDocument,
   ): Promise<GetProjectDto> {
-    const [createdBy, teamMembers] = await Promise.all([
+    const [createdBy, { members: teamMembers }] = await Promise.all([
       this.logtoRequests.fetchUserSafe(project.createdBy),
-      this.logtoRequests.fetchUsersSafe(project.teamMemberIds),
+      this.logtoRequests.getOrganizationMembers(project.organizationId, {
+        q: project.teamMemberIds.join(' '),
+        page_size: project.teamMemberIds.length,
+      }),
     ]);
 
     return this.projectsMapper.toProjectDto(project, createdBy, teamMembers);
