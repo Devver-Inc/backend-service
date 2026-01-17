@@ -1,5 +1,9 @@
 import { applyDecorators, HttpStatus, Type } from '@nestjs/common';
-import { ApiExtraModels, ApiResponse as NestApiResponse, getSchemaPath } from '@nestjs/swagger';
+import {
+  ApiExtraModels,
+  ApiResponse as NestApiResponse,
+  getSchemaPath,
+} from '@nestjs/swagger';
 import { ApiResponseMetaDto } from '../dto/response/api-meta-response.dto';
 
 export const ApiResponseDecorator = <TModel extends Type<any>>(

@@ -1,25 +1,27 @@
-import { Module } from "@nestjs/common";
-import { AuthModule } from "./auth/auth.module";
-import { UsersModule } from "./users/users.module";
-import { ConfigModule, ConfigService } from "@nestjs/config";
-import { EnvironmentVariables, validateEnv } from "./_utils/config/env.config";
-import { NodemailerModule } from "./nodemailer/nodemailer.module";
-import { MongooseModule } from "@nestjs/mongoose";
+import { Module } from '@nestjs/common';
+import { UsersModule } from './users/users.module';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { EnvironmentVariables, validateEnv } from './_utils/config/env.config';
+import { MongooseModule } from '@nestjs/mongoose';
+import { NestjsFormDataModule } from 'nestjs-form-data';
+import { WebhooksModule } from './webhooks/webhooks.module';
 
 @Module({
   imports: [
     MongooseModule.forRootAsync({
+      imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: async (
-        configService: ConfigService<EnvironmentVariables, true>
+      useFactory: (
+        configService: ConfigService<EnvironmentVariables, true>,
       ) => ({
-        uri: configService.get("MONGODB_URI"),
+        uri: configService.get('DATABASE').DATABASE_URL,
+        dbName: configService.get('DATABASE').DATABASE_NAME,
       }),
     }),
     ConfigModule.forRoot({ validate: validateEnv, isGlobal: true }),
-    AuthModule,
+    NestjsFormDataModule.config({ isGlobal: true }),
     UsersModule,
-    NodemailerModule,
+    WebhooksModule,
   ],
 })
 export class AppModule {}

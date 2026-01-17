@@ -4,12 +4,6 @@
   "sourceRoot": "src",
   "compilerOptions": {
     "deleteOutDir": true,
-    "plugins": ["@nestjs/swagger"],
-    "assets": [
-      {
-        "include": "nodemailer/templates/**/*",
-        "outDir": "./dist/src/"
-      }
-    ]
+    "plugins": ["@nestjs/swagger"]
   }
 }
