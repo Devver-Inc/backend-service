@@ -59,6 +59,33 @@ export class LogtoRequests {
     );
 
   /**
+   * Safely fetch user information by user ID.
+   * Returns null if the user does not exist or an error occurs.
+   * @param userId
+   * @returns User information or null
+   */
+  fetchUserSafe = async (userId: string) => {
+    try {
+      return await this.fetchUserInformations(userId);
+    } catch {
+      return null;
+    }
+  };
+
+  /**
+   * Safely fetch multiple users' information by their IDs.
+   * Filters out any users that do not exist or caused errors during fetching.
+   * @param userIds
+   * @returns Array of user information
+   */
+  fetchUsersSafe = async (userIds: string[]) => {
+    const users = await Promise.all(
+      userIds.map((id) => this.fetchUserSafe(id)),
+    );
+    return users.filter((u): u is NonNullable<typeof u> => u !== null);
+  };
+
+  /**
    * POST /api/users/{userId}/password/verify
    * Verify user password.
    * @link https://openapi.logto.io/operation/operation-verifyuserpassword
@@ -167,6 +194,21 @@ export class LogtoRequests {
           }),
         } as any,
       }),
+    );
+
+  /**
+   * DELETE /api/organizations/{id}
+   * Delete an organization.
+   * @link https://openapi.logto.io/operation/operation-deleteorganization
+   * @param organizationId
+   * @returns void (204 status)
+   */
+  deleteOrganization = (organizationId: string) =>
+    this.handleResponse(
+      this.logtoClient.DELETE('/api/organizations/{id}', {
+        params: { path: { id: organizationId } },
+      }),
+      this.exceptions.ERROR_DELETE_ORGANIZATION,
     );
 
   /**
