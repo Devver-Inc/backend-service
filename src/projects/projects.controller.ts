@@ -24,13 +24,14 @@ import {
   GetProjectLightDto,
 } from './_utils/dto/responses/get-project.dto';
 import { ProjectsService } from './projects.service';
+import { UserRoleEnum } from 'src/logto/_utils/enums/permissions.enum';
 
 @ApiTags('Projects')
 @Controller('projects')
 export class ProjectsController {
   constructor(private readonly projectsService: ProjectsService) {}
 
-  @Protect()
+  @Protect({ roles: [UserRoleEnum.ADMIN] })
   @Post()
   @ApiOperation({ summary: 'Create a new project' })
   async createProject(
@@ -62,7 +63,7 @@ export class ProjectsController {
     return this.projectsService.getProjectById(projectId, user);
   }
 
-  @Protect()
+  @Protect({ roles: [UserRoleEnum.ADMIN] })
   @Patch(':projectId')
   @ApiParam({ name: 'projectId', type: String })
   @ApiOperation({ summary: 'Update project' })
@@ -78,7 +79,7 @@ export class ProjectsController {
     );
   }
 
-  @Protect()
+  @Protect({ roles: [UserRoleEnum.ADMIN] })
   @Delete(':projectId')
   @HttpCode(204)
   @ApiParam({ name: 'projectId', type: String })
@@ -90,7 +91,7 @@ export class ProjectsController {
     return this.projectsService.deleteProject(projectId, user);
   }
 
-  @Protect()
+  @Protect({ roles: [UserRoleEnum.ADMIN] })
   @Post(':projectId/members')
   @ApiParam({ name: 'projectId', type: String })
   @ApiOperation({ summary: 'Add team members to project' })
@@ -106,7 +107,7 @@ export class ProjectsController {
     );
   }
 
-  @Protect()
+  @Protect({ roles: [UserRoleEnum.ADMIN] })
   @Delete(':projectId/members/:userId')
   @ApiParam({ name: 'projectId', type: String })
   @ApiParam({ name: 'userId', type: String })
