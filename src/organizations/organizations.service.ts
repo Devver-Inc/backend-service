@@ -13,16 +13,21 @@ import {
 } from 'src/logto/_utils/types/responses/responses.type';
 import { LogtoUserWithOrganizations } from 'src/logto/_utils/types/user-with-organization.type';
 import { LogtoRequests } from 'src/logto/logto.requests';
+import { MinioMapper } from 'src/minio/minio.mapper';
 import { UsersPaginatedQueryDto } from 'src/users/_utils/dto/query/user-paginated-query.dto';
 import { GetUserLightDto } from 'src/users/_utils/dto/responses/get-user-light.dto';
 import { UsersMapper } from 'src/users/user.mapper';
 import { CreateInvitationDto } from './_utils/dto/requests/create-invitation.dto';
+import { CreateOrganizationDto } from './_utils/dto/requests/create-organization.dto';
 import { UpdateInvitationStatusDto } from './_utils/dto/requests/update-invitation-status.dto';
+import { UpdateOrganizationDto } from './_utils/dto/requests/update-organization.dto';
 import { GetInvitationDto } from './_utils/dto/responses/get-invitation.dto';
 import { GetOrganizationDetailsDto } from './_utils/dto/responses/get-organization-details.dto';
+import { GetOrganizationLightDto } from './_utils/dto/responses/get-organization-light.dto';
 import { InvitationStatusEnum } from './_utils/enums/invitations-status.enum';
 import { UpdateInvitationStatusEnum } from './_utils/enums/update-invitations-status.enum';
 import { OrganizationsMapper } from './organization.mapper';
+import { FileUploadService } from 'src/minio/file-upload.service';
 
 @Injectable()
 export class OrganizationsService {
@@ -30,11 +35,132 @@ export class OrganizationsService {
     private readonly organizationsMapper: OrganizationsMapper,
     private readonly logtoRequests: LogtoRequests,
     private readonly usersMapper: UsersMapper,
+    private readonly fileUploadService: FileUploadService,
+    private readonly minioMapper: MinioMapper,
   ) {}
 
-  getOrganizationInformations(organization: LogtoOrganization) {
-    return this.organizationsMapper.toOrganizationLightDto(organization);
+  async createOrganization(
+    createOrganizationDto: CreateOrganizationDto,
+    user: LogtoUser,
+  ): Promise<GetOrganizationLightDto> {
+    const organization = await this.logtoRequests.createOrganization({
+      name: createOrganizationDto.name,
+      description: createOrganizationDto.description,
+      customData: this.organizationsMapper.toOrganizationCustomDataType(
+        user.id,
+        [user.id],
+      ),
+    });
+
+    const fileMapping = createOrganizationDto.logoFile
+      ? [
+          {
+            file: createOrganizationDto.logoFile,
+            key: this.minioMapper.toOrganizationLogoKey(
+              organization.id,
+              createOrganizationDto.logoFile.extension,
+            ),
+          },
+        ]
+      : [];
+
+    return this.fileUploadService.uploadFilesWithCleanup(
+      fileMapping,
+      async () => {
+        const logoUrl = createOrganizationDto.logoFile
+          ? this.minioMapper.toOrganizationLogoUrl(
+              organization.id,
+              createOrganizationDto.logoFile.extension,
+            )
+          : undefined;
+
+        const updatedOrganization = await this.logtoRequests.updateOrganization(
+          organization.id,
+          {
+            name: createOrganizationDto.name,
+            description: createOrganizationDto.description,
+            ...(logoUrl && {
+              branding: {
+                logoUrl,
+              },
+            }),
+          },
+        );
+
+        await this.logtoRequests.addUsersToOrganization(
+          updatedOrganization.id,
+          [user.id],
+        );
+
+        return this.organizationsMapper.toOrganizationLightDto(
+          updatedOrganization,
+        );
+      },
+    );
   }
+
+  async updateOrganization(
+    organization: LogtoOrganization,
+    updateOrganizationDto: UpdateOrganizationDto,
+  ): Promise<GetOrganizationLightDto> {
+    const fileMapping = updateOrganizationDto.logoFile
+      ? [
+          {
+            file: updateOrganizationDto.logoFile,
+            key: this.minioMapper.toOrganizationLogoKey(
+              organization.id,
+              updateOrganizationDto.logoFile.extension,
+            ),
+          },
+        ]
+      : [];
+
+    return this.fileUploadService.uploadFilesWithCleanup(
+      fileMapping,
+      async () => {
+        const logoUrl = updateOrganizationDto.logoFile
+          ? this.minioMapper.toOrganizationLogoUrl(
+              organization.id,
+              updateOrganizationDto.logoFile.extension,
+            )
+          : undefined;
+
+        const updatedOrganization = await this.logtoRequests.updateOrganization(
+          organization.id,
+          {
+            name: updateOrganizationDto.name,
+            description: updateOrganizationDto.description,
+            ...(logoUrl && {
+              branding: {
+                logoUrl,
+              },
+            }),
+          },
+        );
+
+        return this.organizationsMapper.toOrganizationLightDto(
+          updatedOrganization,
+        );
+      },
+    );
+  }
+
+  async deleteOrganization(organization: LogtoOrganization): Promise<void> {
+    const { members } = await this.logtoRequests.getOrganizationMembers(
+      organization.id,
+    );
+
+    if (members.length > 1) {
+      throw new BadRequestException(
+        'Cannot delete organization with multiple members',
+      );
+    }
+
+    await this.logtoRequests.deleteOrganization(organization.id);
+  }
+
+  getOrganizationInformations = (organization: LogtoOrganization) =>
+    this.organizationsMapper.toOrganizationLightDto(organization);
 
   async getOrganizationDetails(
     organization: LogtoOrganization,
@@ -286,10 +412,8 @@ export class OrganizationsService {
       organization.id,
     );
     if (members.length === 1) {
-      // TODO: If the organization has only one member, delete the organization
-      throw new BadRequestException(
-        'You cannot quit an organization if you are the only member',
-      );
+      await this.logtoRequests.deleteOrganization(organization.id);
+      return organization;
     }
 
     if (organization.customData.adminIds.includes(userToRemove.id)) {

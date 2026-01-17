@@ -4,7 +4,7 @@ import {
   ApiResponse as NestApiResponse,
   getSchemaPath,
 } from '@nestjs/swagger';
-import { ApiResponseMetaDto } from '../dto/response/api-meta-response.dto';
+import { PaginationMetaDto } from '../pagination/responses/pagination.dto';
 
 export const ApiResponseDecorator = <TModel extends Type<any>>(
   model: TModel,
@@ -12,7 +12,7 @@ export const ApiResponseDecorator = <TModel extends Type<any>>(
   isArray: boolean = true,
 ) => {
   return applyDecorators(
-    ApiExtraModels(model, ApiResponseMetaDto),
+    ApiExtraModels(model, PaginationMetaDto),
     NestApiResponse({
       status: statusCode,
       schema: {
@@ -26,7 +26,7 @@ export const ApiResponseDecorator = <TModel extends Type<any>>(
                 $ref: getSchemaPath(model),
               },
           meta: {
-            $ref: getSchemaPath(ApiResponseMetaDto),
+            $ref: getSchemaPath(PaginationMetaDto),
           },
         },
       },

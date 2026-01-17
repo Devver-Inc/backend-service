@@ -3,8 +3,9 @@ import { UsersModule } from './users/users.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { EnvironmentVariables, validateEnv } from './_utils/config/env.config';
 import { MongooseModule } from '@nestjs/mongoose';
-import { NestjsFormDataModule } from 'nestjs-form-data';
+import { MemoryStoredFile, NestjsFormDataModule } from 'nestjs-form-data';
 import { WebhooksModule } from './webhooks/webhooks.module';
+import { MinioModule } from './minio/minio.module';
 
 @Module({
   imports: [
@@ -19,9 +20,10 @@ import { WebhooksModule } from './webhooks/webhooks.module';
       }),
     }),
     ConfigModule.forRoot({ validate: validateEnv, isGlobal: true }),
-    NestjsFormDataModule.config({ isGlobal: true }),
+    NestjsFormDataModule.config({ isGlobal: true, storage: MemoryStoredFile }),
     UsersModule,
     WebhooksModule,
+    MinioModule,
   ],
 })
 export class AppModule {}

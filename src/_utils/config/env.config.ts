@@ -1,8 +1,9 @@
 import { exit } from 'node:process';
 import { Logger } from '@nestjs/common';
-import { plainToInstance, Type } from 'class-transformer';
+import { plainToInstance, Transform, Type } from 'class-transformer';
 import {
   IsNumber,
+  IsOptional,
   IsString,
   ValidateNested,
   validateSync,
@@ -41,6 +42,29 @@ export class ServerConfig {
   FRONTEND_URL: string;
 }
 
+export class MinioConfig {
+  @IsString()
+  MINIO_ENDPOINT: string;
+
+  @Transform(({ value }) =>
+    value === null || value === undefined || value === ''
+      ? null
+      : Number(value),
+  )
+  @IsNumber()
+  @IsOptional()
+  MINIO_PORT?: number | null;
+
+  @IsString()
+  MINIO_ACCESS_KEY: string;
+
+  @IsString()
+  MINIO_SECRET_KEY: string;
+
+  @IsString()
+  MINIO_BUCKET_NAME: string;
+}
+
 export class EnvironmentVariables {
   @ValidateNested()
   @Type(() => DatabaseConfig)
@@ -53,6 +77,10 @@ export class EnvironmentVariables {
   @ValidateNested()
   @Type(() => ServerConfig)
   SERVER: ServerConfig;
+
+  @ValidateNested()
+  @Type(() => MinioConfig)
+  MINIO: MinioConfig;
 }
 
 export function validateEnv(config: Record<string, unknown>) {
@@ -71,6 +99,13 @@ export function validateEnv(config: Record<string, unknown>) {
       PORT: config.PORT,
       NODE_ENV: config.NODE_ENV,
       FRONTEND_URL: config.FRONTEND_URL,
+    },
+    MINIO: {
+      MINIO_ENDPOINT: config.MINIO_ENDPOINT,
+      MINIO_PORT: config.MINIO_PORT,
+      MINIO_ACCESS_KEY: config.MINIO_ACCESS_KEY,
+      MINIO_SECRET_KEY: config.MINIO_SECRET_KEY,
+      MINIO_BUCKET_NAME: config.MINIO_BUCKET_NAME,
     },
   };
 

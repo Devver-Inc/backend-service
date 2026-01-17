@@ -12,6 +12,9 @@ export class LogtoExceptions {
   ERROR_CREATE_ORGANIZATION = new BadRequestException(
     'Failed to create organization',
   );
+  ERROR_DELETE_ORGANIZATION = new BadRequestException(
+    'Failed to delete organization',
+  );
   ERROR_ADD_USERS_TO_ORGANIZATION = new BadRequestException(
     'Failed to add users to organization',
   );
