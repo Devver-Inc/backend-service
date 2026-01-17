@@ -15,7 +15,7 @@ import { ProjectsExceptions } from './_utils/errors/projects-exceptions';
 import { ProjectsMapper } from './project.mapper';
 import { ProjectsRepository } from './projects.repository';
 import { ProjectDocument } from './project.schema';
-import { ProjectDomain, InvalidTeamMembersError } from './project.domain';
+import { ProjectDomain } from './project.domain';
 
 @Injectable()
 export class ProjectsService {
@@ -31,6 +31,11 @@ export class ProjectsService {
     user: LogtoUserWithOrganizations,
   ): Promise<GetProjectLightDto> {
     const organizationId = user.currentOrganization.id;
+
+    await this.validateTeamMembersInOrganization(
+      organizationId,
+      dto.teamMemberIds,
+    );
 
     const domain = ProjectDomain.create(dto, organizationId, user.id);
     const project = await this.projectsRepository.create(domain);
@@ -88,19 +93,13 @@ export class ProjectsService {
   ): Promise<GetProjectDto> {
     const organizationId = user.currentOrganization.id;
     const project = await this.getProjectWithAccessCheck(projectId, user);
-    const validMemberIds = await this.getOrganizationMemberIds(organizationId);
 
-    try {
-      const updated = await this.updateAndSave(project, (d) =>
-        d.addTeamMembers(dto.userIds, validMemberIds),
-      );
-      return this.toFullProjectDto(updated);
-    } catch (error) {
-      if (error instanceof InvalidTeamMembersError) {
-        throw this.exceptions.SOME_MEMBERS_NOT_IN_ORGANIZATION;
-      }
-      throw error;
-    }
+    await this.validateTeamMembersInOrganization(organizationId, dto.userIds);
+
+    const updated = await this.updateAndSave(project, (d) =>
+      d.addTeamMembers(dto.userIds),
+    );
+    return this.toFullProjectDto(updated);
   }
 
   async removeTeamMember(
@@ -136,12 +135,26 @@ export class ProjectsService {
     return project;
   }
 
-  private async getOrganizationMemberIds(
+  private async validateTeamMembersInOrganization(
     organizationId: string,
-  ): Promise<string[]> {
-    const { members } =
-      await this.logtoRequests.getOrganizationMembers(organizationId);
-    return members.map((m) => m.id);
+    userIds?: string[],
+  ): Promise<void> {
+    if (!userIds?.length) return;
+
+    const { members } = await this.logtoRequests.getOrganizationMembers(
+      organizationId,
+      {
+        q: userIds.join(' '),
+        page_size: userIds.length,
+      },
+    );
+
+    const foundIds = new Set(members.map((m) => m.id));
+    const invalidIds = userIds.filter((id) => !foundIds.has(id));
+
+    if (invalidIds.length > 0) {
+      throw this.exceptions.SOME_MEMBERS_NOT_IN_ORGANIZATION;
+    }
   }
 
   private async updateAndSave(

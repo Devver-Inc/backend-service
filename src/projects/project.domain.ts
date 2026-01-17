@@ -7,12 +7,6 @@ import {
   ProjectDocument,
 } from './project.schema';
 
-export class InvalidTeamMembersError extends Error {
-  constructor(public readonly invalidIds: string[]) {
-    super(`Users not in organization: ${invalidIds.join(', ')}`);
-  }
-}
-
 interface ProjectDomainProps {
   name: string;
   description?: string;
@@ -81,17 +75,7 @@ export class ProjectDomain {
     return this.teamMemberIds.includes(userId);
   }
 
-  addTeamMembers(
-    userIds: string[],
-    validOrganizationMemberIds: string[],
-  ): ProjectDomain {
-    const validSet = new Set(validOrganizationMemberIds);
-    const invalidIds = userIds.filter((id) => !validSet.has(id));
-
-    if (invalidIds.length > 0) {
-      throw new InvalidTeamMembersError(invalidIds);
-    }
-
+  addTeamMembers(userIds: string[]): ProjectDomain {
     const existingIds = new Set(this.teamMemberIds);
     const newIds = userIds.filter((id) => !existingIds.has(id));
 

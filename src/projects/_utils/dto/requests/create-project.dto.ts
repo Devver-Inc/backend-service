@@ -23,18 +23,15 @@ export class CreateProjectDto {
   @MaxLength(256)
   description?: string;
 
-  @Optional()
   @ValidateNested()
   @Type(() => MachineConfigurationDto)
-  machineConfiguration?: MachineConfigurationDto;
+  machineConfiguration: MachineConfigurationDto;
 
-  @Optional()
   @IsArray()
   @IsString({ each: true })
-  teamMemberIds?: string[];
+  teamMemberIds: string[];
 
-  @Optional()
   @ValidateNested()
   @Type(() => AccessControlDto)
-  accessControl?: AccessControlDto;
+  accessControl: AccessControlDto;
 }
