@@ -6,6 +6,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { MemoryStoredFile, NestjsFormDataModule } from 'nestjs-form-data';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { MinioModule } from './minio/minio.module';
+import { ProjectsModule } from './projects/projects.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { MinioModule } from './minio/minio.module';
     UsersModule,
     WebhooksModule,
     MinioModule,
+    ProjectsModule,
   ],
 })
 export class AppModule {}

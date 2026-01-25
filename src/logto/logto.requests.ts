@@ -59,6 +59,20 @@ export class LogtoRequests {
     );
 
   /**
+   * Safely fetch user information by user ID.
+   * Returns null if the user does not exist or an error occurs.
+   * @param userId
+   * @returns User information or null
+   */
+  fetchUserSafe = async (userId: string) => {
+    try {
+      return await this.fetchUserInformations(userId);
+    } catch {
+      return null;
+    }
+  };
+
+  /**
    * POST /api/users/{userId}/password/verify
    * Verify user password.
    * @link https://openapi.logto.io/operation/operation-verifyuserpassword

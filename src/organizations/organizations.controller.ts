@@ -18,10 +18,7 @@ import {
   ConnectedUserWithOrgs,
 } from 'src/logto/_utils/decorator/connected-user.decorator';
 import { LogtoInvitation } from 'src/logto/_utils/types/responses/invitation.types';
-import {
-  LogtoOrganization,
-  LogtoUser,
-} from 'src/logto/_utils/types/responses/responses.type';
+import { LogtoUser } from 'src/logto/_utils/types/responses/responses.type';
 import { LogtoUserWithOrganizations } from 'src/logto/_utils/types/user-with-organization.type';
 import { UsersPaginatedQueryDto } from 'src/users/_utils/dto/query/user-paginated-query.dto';
 import { GetUserLightDto } from 'src/users/_utils/dto/responses/get-user-light.dto';
@@ -36,7 +33,6 @@ import { GetOrganizationLightDto } from './_utils/dto/responses/get-organization
 import { OrganizationsService } from './organizations.service';
 import { Protect } from 'src/_utils/decorators/protect.decorator';
 import {
-  LogtoOrganizationByIdPipe,
   LogtoUserByIdPipe,
   LogtoEntityByIdPipe,
   LogtoEntityType,
@@ -49,7 +45,7 @@ import { ApiResponseDecorator } from 'src/_utils/decorators/api-response.decorat
 export class OrganizationsController {
   constructor(private readonly organizationsService: OrganizationsService) {}
 
-  @Protect()
+  @Protect({ skipOrganizationCheck: true })
   @Post()
   @FormDataRequest()
   @ApiConsumes('multipart/form-data')
@@ -64,7 +60,7 @@ export class OrganizationsController {
     );
   }
 
-  @Protect()
+  @Protect({ skipOrganizationCheck: true })
   @Get('invitations')
   async getOrganizationInvitations(
     @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
@@ -73,99 +69,83 @@ export class OrganizationsController {
   }
 
   @Protect()
-  @Get(':organizationId')
-  @ApiParam({ name: 'organizationId', type: String })
-  @ApiOperation({ summary: 'Get Organization information' })
+  @Get()
+  @ApiOperation({ summary: 'Get current Organization information' })
   getOrganizationInformations(
-    @Param('organizationId', LogtoOrganizationByIdPipe)
-    organization: LogtoOrganization,
+    @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
   ): Promise<GetOrganizationLightDto> {
-    return this.organizationsService.getOrganizationInformations(organization);
+    return this.organizationsService.getOrganizationInformations(user);
   }
 
   @Protect({ roles: [UserRoleEnum.ADMIN] })
-  @Get(':organizationId/details')
-  @ApiParam({ name: 'organizationId', type: String })
-  @ApiOperation({ summary: 'Get Organization details' })
+  @Get('details')
+  @ApiOperation({ summary: 'Get current Organization details' })
   getOrganizationDetails(
-    @Param('organizationId', LogtoOrganizationByIdPipe)
-    organization: LogtoOrganization,
+    @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
   ): Promise<GetOrganizationDetailsDto> {
-    return this.organizationsService.getOrganizationDetails(organization);
+    return this.organizationsService.getOrganizationDetails(user);
   }
 
   @Protect()
-  @Get(':organizationId/members')
-  @ApiParam({ name: 'organizationId', type: String })
-  @ApiOperation({ summary: 'Get Organization members' })
+  @Get('members')
+  @ApiOperation({ summary: 'Get current Organization members' })
   @ApiResponseDecorator(GetUserLightDto)
   getOrganizationMembers(
-    @Param('organizationId', LogtoOrganizationByIdPipe)
-    organization: LogtoOrganization,
+    @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
     @Query() paginatedQueryDto: UsersPaginatedQueryDto,
   ): Promise<PaginationDto<GetUserLightDto[]>> {
     return this.organizationsService.getOrganizationMembers(
-      organization,
+      user,
       paginatedQueryDto,
     );
   }
 
   @Protect({ roles: [UserRoleEnum.ADMIN] })
-  @Patch(':organizationId')
+  @Patch()
   @FormDataRequest()
   @ApiConsumes('multipart/form-data')
-  @ApiParam({ name: 'organizationId', type: String })
-  @ApiOperation({ summary: 'Update organization' })
+  @ApiOperation({ summary: 'Update current organization' })
   async updateOrganization(
-    @Param('organizationId', LogtoOrganizationByIdPipe)
-    organization: LogtoOrganization,
+    @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
     @Body() updateOrganizationDto: UpdateOrganizationDto,
   ): Promise<GetOrganizationLightDto> {
     return this.organizationsService.updateOrganization(
-      organization,
+      user,
       updateOrganizationDto,
     );
   }
 
   @Protect({ roles: [UserRoleEnum.ADMIN] })
-  @Delete(':organizationId')
+  @Delete()
   @HttpCode(204)
-  @ApiParam({ name: 'organizationId', type: String })
-  @ApiOperation({ summary: 'Delete organization' })
+  @ApiOperation({ summary: 'Delete current organization' })
   async deleteOrganization(
-    @Param('organizationId', LogtoOrganizationByIdPipe)
-    organization: LogtoOrganization,
+    @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
   ): Promise<void> {
-    return this.organizationsService.deleteOrganization(organization);
+    return this.organizationsService.deleteOrganization(user);
   }
 
   @Protect({ roles: [UserRoleEnum.ADMIN] })
-  @Put(':organizationId/owner/:newOwnerId')
-  @ApiParam({ name: 'organizationId', type: String })
+  @Put('owner/:newOwnerId')
   @ApiParam({ name: 'newOwnerId', type: String })
-  @ApiOperation({ summary: 'Transfer ownership of an organization' })
+  @ApiOperation({ summary: 'Transfer ownership of current organization' })
   async transferOwnership(
-    @Param('organizationId', LogtoOrganizationByIdPipe)
-    organization: LogtoOrganization,
+    @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
     @Param('newOwnerId', LogtoUserByIdPipe) newOwner: LogtoUser,
   ) {
-    return this.organizationsService.transferOwnership(organization, newOwner);
+    return this.organizationsService.transferOwnership(user, newOwner);
   }
 
   @Protect({ roles: [UserRoleEnum.ADMIN] })
-  @Delete(':organizationId/users/:userId')
-  @ApiParam({ name: 'organizationId', type: String })
+  @Delete('users/:userId')
   @ApiParam({ name: 'userId', type: String })
-  @ApiOperation({ summary: 'Remove a user from an organization' })
+  @ApiOperation({ summary: 'Remove a user from current organization' })
   async removeUserFromOrganization(
-    @ConnectedUser() currentUser: LogtoUserWithOrganizations,
-    @Param('organizationId', LogtoOrganizationByIdPipe)
-    organization: LogtoOrganization,
+    @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
     @Param('userId', LogtoUserByIdPipe) userToRemove: LogtoUser,
   ) {
     return this.organizationsService.removeUserFromOrganization(
-      organization,
-      currentUser,
+      user,
       userToRemove,
     );
   }
@@ -186,7 +166,7 @@ export class OrganizationsController {
     );
   }
 
-  @Protect()
+  @Protect({ skipOrganizationCheck: true })
   @Get('invitations/me')
   @ApiOperation({
     summary: 'Get invitations for current user',
@@ -215,7 +195,7 @@ export class OrganizationsController {
     return this.organizationsService.getInvitationById(invitation);
   }
 
-  @Protect()
+  @Protect({ skipOrganizationCheck: true })
   @Patch('invitations/:invitationId/status')
   @HttpCode(204)
   @ApiParam({
