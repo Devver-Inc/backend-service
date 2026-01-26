@@ -75,13 +75,10 @@ export class OrganizationsService {
         const updatedOrganization = await this.logtoRequests.updateOrganization(
           organization.id,
           {
-            name: createOrganizationDto.name,
-            description: createOrganizationDto.description,
-            ...(logoUrl && {
-              branding: {
-                logoUrl,
-              },
-            }),
+            customData: {
+              ...organization.customData,
+              ...(logoUrl && { logoUrl }),
+            },
           },
         );
 
@@ -121,18 +118,17 @@ export class OrganizationsService {
               user.currentOrganization.id,
               updateOrganizationDto.logoFile.extension,
             )
-          : undefined;
+          : user.currentOrganization.customData.logoUrl;
 
         const updatedOrganization = await this.logtoRequests.updateOrganization(
           user.currentOrganization.id,
           {
             name: updateOrganizationDto.name,
             description: updateOrganizationDto.description,
-            ...(logoUrl && {
-              branding: {
-                logoUrl,
-              },
-            }),
+            customData: {
+              ...user.currentOrganization.customData,
+              logoUrl,
+            },
           },
         );
 
@@ -354,8 +350,8 @@ export class OrganizationsService {
     }
     return this.logtoRequests.updateOrganization(user.currentOrganization.id, {
       customData: {
+        ...user.currentOrganization.customData,
         ownerId: newOwner.id,
-        adminIds: user.currentOrganization.customData.adminIds,
       },
     });
   }
