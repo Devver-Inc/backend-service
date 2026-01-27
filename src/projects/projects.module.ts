@@ -22,6 +22,6 @@ import { ProjectsService } from './projects.service';
     ProjectsMapper,
     ProjectsExceptions,
   ],
-  exports: [ProjectsService, ProjectsMapper],
+  exports: [ProjectsService, ProjectsMapper, ProjectsRepository],
 })
 export class ProjectsModule {}

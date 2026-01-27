@@ -1,13 +1,14 @@
-// projects.repository.ts
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, QueryFilter } from 'mongoose';
 import { ProjectsPaginatedQueryDto } from './_utils/dto/query/projects-paginated-query.dto';
-import { Project, ProjectDocument } from './project.schema';
 import { ProjectDomain } from './project.domain';
+import { Project, ProjectDocument } from './project.schema';
 
 @Injectable()
 export class ProjectsRepository {
+  NOT_FOUND_ERROR = 'PROJECT_NOT_FOUND';
+
   constructor(
     @InjectModel(Project.name) private projectModel: Model<Project>,
   ) {}
@@ -19,6 +20,16 @@ export class ProjectsRepository {
   async findById(id: string): Promise<ProjectDocument> {
     return this.projectModel.findById(id).orFail().exec();
   }
+
+  findByProjectAndOrganizationId = (
+    projectId: string,
+    organizationId: string,
+  ): Promise<ProjectDocument> => {
+    return this.projectModel
+      .findOne({ _id: projectId, organizationId })
+      .orFail(new NotFoundException(this.NOT_FOUND_ERROR))
+      .exec();
+  };
 
   async findByOrganizationId(
     organizationId: string,

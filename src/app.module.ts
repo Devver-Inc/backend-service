@@ -7,6 +7,7 @@ import { MemoryStoredFile, NestjsFormDataModule } from 'nestjs-form-data';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { MinioModule } from './minio/minio.module';
 import { ProjectsModule } from './projects/projects.module';
+import { CommentsModule } from './comments/comments.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { ProjectsModule } from './projects/projects.module';
     WebhooksModule,
     MinioModule,
     ProjectsModule,
+    CommentsModule,
   ],
 })
 export class AppModule {}
