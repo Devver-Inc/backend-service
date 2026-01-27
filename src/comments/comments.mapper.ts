@@ -5,8 +5,6 @@ import { CommentDocument } from './comments.schema';
 
 @Injectable()
 export class CommentsMapper {
-  constructor() {}
-
   toGetCommentDto = (comment: CommentDocument): GetCommentDto => ({
     id: comment._id.toString(),
     userId: comment.userId,

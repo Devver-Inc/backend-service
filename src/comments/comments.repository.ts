@@ -1,16 +1,25 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, QueryFilter } from 'mongoose';
-import { LogtoUserWithOrganizations } from 'src/logto/_utils/types/user-with-organization.type';
 import { CommentsPaginatedQueryDto } from './_utils/dtos/query/comments-paginated-query.dto';
-import { CreateCommentDto } from './_utils/dtos/requests/create-comment.dto';
+import { CommentDomain } from './comment.domain';
 import { Comment, CommentDocument } from './comments.schema';
 
 @Injectable()
 export class CommentsRepository {
+  NOT_FOUND_ERROR = 'COMMENT_NOT_FOUND';
+
   constructor(
     @InjectModel(Comment.name) private commentsModel: Model<Comment>,
   ) {}
+
+  async create(domain: CommentDomain): Promise<CommentDocument> {
+    return this.commentsModel.create(domain);
+  }
+
+  async findById(id: string): Promise<CommentDocument> {
+    return this.commentsModel.findById(id).orFail().exec();
+  }
 
   async findByOrganizationId(
     organizationId: string,
@@ -39,15 +48,11 @@ export class CommentsRepository {
     return { comments, totalCount };
   }
 
-  create = (
-    user: LogtoUserWithOrganizations,
-    dto: CreateCommentDto,
-    projectId: string,
-  ) =>
-    this.commentsModel.create({
-      userId: user.id,
-      project: projectId,
-      content: dto.content,
-      position: dto.position,
-    });
+  async save(comment: CommentDocument): Promise<CommentDocument> {
+    return comment.save();
+  }
+
+  async deleteById(id: string): Promise<void> {
+    await this.commentsModel.findByIdAndDelete(id).orFail().exec();
+  }
 }
