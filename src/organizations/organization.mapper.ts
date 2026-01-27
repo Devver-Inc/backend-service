@@ -24,15 +24,12 @@ export class OrganizationsMapper {
     private readonly configService: ConfigService<EnvironmentVariables, true>,
   ) {}
 
-  toOrganizationLightDtoFromArray = (organizations: LogtoOrganization[]) =>
-    Promise.all(organizations.map((org) => this.toOrganizationLightDto(org)));
-
   toOrganizationLightDto = async (
     organization: LogtoOrganization,
   ): Promise<GetOrganizationLightDto> => ({
     id: organization.id,
     name: organization.name,
-    coverImageUrl: organization.branding.logoUrl || null,
+    coverImageUrl: organization.customData.logoUrl || null,
   });
 
   toOrganizationDetailsDto = async (
@@ -43,7 +40,7 @@ export class OrganizationsMapper {
   ): Promise<GetOrganizationDetailsDto> => ({
     id: organization.id,
     name: organization.name,
-    coverImageUrl: organization.branding.logoUrl || null,
+    coverImageUrl: organization.customData.logoUrl || null,
     owner: owner ? this.usersMapper.toUserLightDto(owner) : null,
     admins: admins?.length
       ? admins.map((member) => this.usersMapper.toUserLightDto(member))
@@ -94,6 +91,7 @@ export class OrganizationsMapper {
     adminIds: [ownerId, ...adminIds],
     logoUrl: logoUrl,
   });
+
   toGetInvitationLinkUrl = (
     invitation: LogtoInvitation,
     organizationName: string,
