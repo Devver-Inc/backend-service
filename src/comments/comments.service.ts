@@ -6,6 +6,7 @@ import { ProjectsRepository } from 'src/projects/projects.repository';
 import { CommentsPaginatedQueryDto } from './_utils/dtos/query/comments-paginated-query.dto';
 import { CreateCommentDto } from './_utils/dtos/requests/create-comment.dto';
 import { GetCommentDto } from './_utils/dtos/responses/get-comment.dto';
+import { CommentDomain } from './comment.domain';
 import { CommentsMapper } from './comments.mapper';
 import { CommentsRepository } from './comments.repository';
 
@@ -52,8 +53,9 @@ export class CommentsService {
       user.currentOrganization.id,
     );
 
-    return await this.commentsRepository
-      .create(user, dto, projectId)
-      .then(this.commentsMapper.toGetCommentDto);
+    const domain = CommentDomain.create(dto, user.id, projectId);
+    const comment = await this.commentsRepository.create(domain);
+
+    return this.commentsMapper.toGetCommentDto(comment);
   }
 }
