@@ -4,6 +4,7 @@ import { LogtoOrganizationRaw } from '../types/responses/responses.type';
 export const OrganizationCustomDataSchema = S.Struct({
   ownerId: S.optionalWith(S.String, { default: () => '' }),
   adminIds: S.optionalWith(S.Array(S.String), { default: () => [] }),
+  logoUrl: S.optionalWith(S.String, { default: () => '' }),
 });
 
 export type OrganizationCustomData = S.Schema.Type<
