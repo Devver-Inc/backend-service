@@ -18,7 +18,10 @@ export class ProjectsRepository {
   }
 
   async findById(id: string): Promise<ProjectDocument> {
-    return this.projectModel.findById(id).orFail().exec();
+    return this.projectModel
+      .findById(id)
+      .orFail(new NotFoundException(this.NOT_FOUND_ERROR))
+      .exec();
   }
 
   findByProjectAndOrganizationId = (

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, QueryFilter } from 'mongoose';
 import { CommentsPaginatedQueryDto } from './_utils/dtos/query/comments-paginated-query.dto';
@@ -18,7 +18,10 @@ export class CommentsRepository {
   }
 
   async findById(id: string): Promise<CommentDocument> {
-    return this.commentsModel.findById(id).orFail().exec();
+    return this.commentsModel
+      .findById(id)
+      .orFail(new NotFoundException(this.NOT_FOUND_ERROR))
+      .exec();
   }
 
   async findByOrganizationId(
