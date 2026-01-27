@@ -1,21 +1,21 @@
 import { Injectable } from '@nestjs/common';
 import { toPaginatedDto } from 'src/_utils/pagination/pagination.mapper';
 import { PaginationDto } from 'src/_utils/pagination/responses/pagination.dto';
-import { LogtoRequests } from 'src/logto/logto.requests';
 import { LogtoUserWithOrganizations } from 'src/logto/_utils/types/user-with-organization.type';
+import { LogtoRequests } from 'src/logto/logto.requests';
+import { ProjectsPaginatedQueryDto } from './_utils/dto/query/projects-paginated-query.dto';
 import { AddTeamMembersDto } from './_utils/dto/requests/add-team-members.dto';
 import { CreateProjectDto } from './_utils/dto/requests/create-project.dto';
 import { UpdateProjectDto } from './_utils/dto/requests/update-project.dto';
-import { ProjectsPaginatedQueryDto } from './_utils/dto/query/projects-paginated-query.dto';
 import {
   GetProjectDto,
   GetProjectLightDto,
 } from './_utils/dto/responses/get-project.dto';
 import { ProjectsExceptions } from './_utils/errors/projects-exceptions';
-import { ProjectsMapper } from './project.mapper';
-import { ProjectsRepository } from './projects.repository';
-import { ProjectDocument } from './project.schema';
 import { ProjectDomain } from './project.domain';
+import { ProjectsMapper } from './project.mapper';
+import { ProjectDocument } from './project.schema';
+import { ProjectsRepository } from './projects.repository';
 
 @Injectable()
 export class ProjectsService {
