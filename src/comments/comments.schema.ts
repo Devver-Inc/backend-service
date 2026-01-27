@@ -1,7 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument, Types } from 'mongoose';
+import { HydratedDocument } from 'mongoose';
 import { Position } from 'src/_utils/schemas/position.schema';
-import { MongooseObjectId } from 'src/_utils/types';
+import { MongooseObjectId, Populated } from 'src/_utils/types';
 import { Project, ProjectDocument } from 'src/projects/project.schema';
 
 export type CommentDocument = HydratedDocument<Comment>;
@@ -12,7 +12,7 @@ export class Comment {
   userId: string;
 
   @Prop({ type: MongooseObjectId, ref: Project.name })
-  project: Types.ObjectId | ProjectDocument;
+  project: Populated<ProjectDocument>;
 
   @Prop({ type: String, required: true })
   content: string;
