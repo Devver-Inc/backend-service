@@ -31,7 +31,6 @@ export class CommentsController {
   @Protect()
   @Post(':projectId')
   @ApiOperation({ summary: 'Create comment' })
-  @ApiResponseDecorator(GetCommentDto)
   @ApiParam({ name: 'commentId', description: 'ID of the comment' })
   async getCommentById(
     @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
