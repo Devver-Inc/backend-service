@@ -1,9 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, QueryFilter } from 'mongoose';
+import { escapeRegex } from 'src/_utils/functions/escape-regex.function';
 import { ProjectsPaginatedQueryDto } from './_utils/dto/query/projects-paginated-query.dto';
 import { ProjectDomain } from './project.domain';
 import { Project, ProjectDocument } from './project.schema';
+import { MongoId } from 'src/_utils/types';
+
+export type ProjectLean = Project & { _id: MongoId };
 
 @Injectable()
 export class ProjectsRepository {
@@ -37,11 +41,11 @@ export class ProjectsRepository {
   async findByOrganizationId(
     organizationId: string,
     query: ProjectsPaginatedQueryDto,
-  ): Promise<{ projects: ProjectDocument[]; totalCount: number }> {
+  ): Promise<{ projects: ProjectLean[]; totalCount: number }> {
     const filter: QueryFilter<Project> = { organizationId };
 
     if (query.search) {
-      filter.name = { $regex: query.search, $options: 'i' };
+      filter.name = { $regex: escapeRegex(query.search), $options: 'i' };
     }
 
     const sortDirection = query.sortDirection === 'ASC' ? 1 : -1;
@@ -52,6 +56,7 @@ export class ProjectsRepository {
         .sort({ [query.sortBy || 'createdAt']: sortDirection })
         .skip(query.skip)
         .limit(query.limit || 10)
+        .lean()
         .exec(),
       this.projectModel.countDocuments(filter).exec(),
     ]);

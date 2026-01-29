@@ -1,4 +1,4 @@
-import { GetPositionDto } from '../dtos/responses/get-position.dto';
+import { GetPositionDto } from '../dto/responses/get-position.dto';
 import { Position } from '../schemas/position.schema';
 
 export const mapToGetPositionDto = (position: Position): GetPositionDto => ({

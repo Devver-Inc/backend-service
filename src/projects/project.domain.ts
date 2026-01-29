@@ -27,7 +27,13 @@ export class ProjectDomain {
   readonly accessControl: AccessControl;
 
   private constructor(props: ProjectDomainProps) {
-    Object.assign(this, props);
+    this.name = props.name;
+    this.description = props.description;
+    this.organizationId = props.organizationId;
+    this.createdBy = props.createdBy;
+    this.machineConfiguration = props.machineConfiguration;
+    this.teamMemberIds = props.teamMemberIds;
+    this.accessControl = props.accessControl;
   }
 
   static create(

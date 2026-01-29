@@ -1,9 +1,10 @@
 // comment.domain.ts
 import { Position } from 'src/_utils/schemas/position.schema';
-import { CreateCommentDto } from './_utils/dtos/requests/create-comment.dto';
+import { CreateCommentDto } from './_utils/dto/requests/create-comment.dto';
 
 interface CommentDomainProps {
   userId: string;
+  organizationId: string;
   projectId: string;
   content: string;
   position: Position;
@@ -11,21 +12,28 @@ interface CommentDomainProps {
 
 export class CommentDomain {
   readonly userId: string;
+  readonly organizationId: string;
   readonly projectId: string;
   readonly content: string;
   readonly position: Position;
 
   private constructor(props: CommentDomainProps) {
-    Object.assign(this, props);
+    this.userId = props.userId;
+    this.organizationId = props.organizationId;
+    this.projectId = props.projectId;
+    this.content = props.content;
+    this.position = props.position;
   }
 
   static create(
     dto: CreateCommentDto,
     userId: string,
+    organizationId: string,
     projectId: string,
   ): CommentDomain {
     return new CommentDomain({
       userId,
+      organizationId,
       projectId,
       content: dto.content,
       position: dto.position as Position,

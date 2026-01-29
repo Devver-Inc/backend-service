@@ -11,6 +11,9 @@ export class Comment {
   @Prop({ type: String, required: true })
   userId: string;
 
+  @Prop({ type: String, required: true, index: true })
+  organizationId: string;
+
   @Prop({ type: MongooseObjectId, ref: Project.name })
   project: Populated<ProjectDocument>;
 
@@ -22,3 +25,7 @@ export class Comment {
 }
 
 export const CommentSchema = SchemaFactory.createForClass(Comment);
+
+CommentSchema.index({ project: 1 });
+CommentSchema.index({ userId: 1 });
+CommentSchema.index({ organizationId: 1, project: 1 });

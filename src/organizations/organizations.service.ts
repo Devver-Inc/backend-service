@@ -216,23 +216,32 @@ export class OrganizationsService {
     const { members } = await this.logtoRequests.getOrganizationMembers(
       user.currentOrganization.id,
     );
-    const filteredMembers = members.filter(async (member) => {
-      if (paginatedQueryDto.search) {
-        return member.name
-          ?.toLowerCase()
-          .includes(paginatedQueryDto.search.toLowerCase());
-      }
-      if (paginatedQueryDto.rolesFilter) {
-        const roles = await this.logtoRequests.getUserRoles(
-          member.id,
-          user.currentOrganization.id,
-        );
-        return paginatedQueryDto.rolesFilter.some((role) =>
-          roles.some((r) => r.name === role),
-        );
-      }
-      return true;
-    });
+
+    const filterResults = await Promise.all(
+      members.map(async (member) => {
+        if (paginatedQueryDto.search) {
+          const matchesSearch = member.name
+            ?.toLowerCase()
+            .includes(paginatedQueryDto.search.toLowerCase());
+          if (!matchesSearch) return false;
+        }
+
+        if (paginatedQueryDto.rolesFilter?.length) {
+          const roles = await this.logtoRequests.getUserRoles(
+            member.id,
+            user.currentOrganization.id,
+          );
+          const matchesRole = paginatedQueryDto.rolesFilter.some((role) =>
+            roles.some((r) => r.name === role),
+          );
+          if (!matchesRole) return false;
+        }
+
+        return true;
+      }),
+    );
+
+    const filteredMembers = members.filter((_, index) => filterResults[index]);
 
     return toPaginatedDto(
       filteredMembers,
