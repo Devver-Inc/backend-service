@@ -65,6 +65,11 @@ export class MinioConfig {
   MINIO_BUCKET_NAME: string;
 }
 
+export class CorsConfig {
+  @IsString({ each: true })
+  ALLOWED_ORIGINS: string[];
+}
+
 export class EnvironmentVariables {
   @ValidateNested()
   @Type(() => DatabaseConfig)
@@ -81,6 +86,10 @@ export class EnvironmentVariables {
   @ValidateNested()
   @Type(() => MinioConfig)
   MINIO: MinioConfig;
+
+  @ValidateNested()
+  @Type(() => CorsConfig)
+  CORS: CorsConfig;
 }
 
 export function validateEnv(config: Record<string, unknown>) {
@@ -106,6 +115,13 @@ export function validateEnv(config: Record<string, unknown>) {
       MINIO_ACCESS_KEY: config.MINIO_ACCESS_KEY,
       MINIO_SECRET_KEY: config.MINIO_SECRET_KEY,
       MINIO_BUCKET_NAME: config.MINIO_BUCKET_NAME,
+    },
+    CORS: {
+      ALLOWED_ORIGINS: config.CORS_ALLOWED_ORIGINS
+        ? String(config.CORS_ALLOWED_ORIGINS)
+            .split(',')
+            .map((origin) => origin.trim())
+        : [],
     },
   };
 

@@ -1,4 +1,4 @@
-import { GetPositionDto } from 'src/_utils/dtos/responses/get-position.dto';
+import { GetPositionDto } from 'src/_utils/dto/responses/get-position.dto';
 
 export class GetCommentDto {
   id: string;

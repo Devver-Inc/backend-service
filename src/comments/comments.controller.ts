@@ -6,9 +6,9 @@ import { PaginationDto } from 'src/_utils/pagination/responses/pagination.dto';
 import { ConnectedUserWithOrgs } from 'src/logto/_utils/decorator/connected-user.decorator';
 import { LogtoUserWithOrganizations } from 'src/logto/_utils/types/user-with-organization.type';
 import { GetProjectLightDto } from 'src/projects/_utils/dto/responses/get-project.dto';
-import { CommentsPaginatedQueryDto } from './_utils/dtos/query/comments-paginated-query.dto';
-import { CreateCommentDto } from './_utils/dtos/requests/create-comment.dto';
-import { GetCommentDto } from './_utils/dtos/responses/get-comment.dto';
+import { CommentsPaginatedQueryDto } from './_utils/dto/query/comments-paginated-query.dto';
+import { CreateCommentDto } from './_utils/dto/requests/create-comment.dto';
+import { GetCommentDto } from './_utils/dto/responses/get-comment.dto';
 import { CommentsService } from './comments.service';
 
 @Controller('comments')

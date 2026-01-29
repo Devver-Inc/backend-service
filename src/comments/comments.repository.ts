@@ -1,9 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, QueryFilter } from 'mongoose';
-import { CommentsPaginatedQueryDto } from './_utils/dtos/query/comments-paginated-query.dto';
+import { escapeRegex } from 'src/_utils/functions/escape-regex.function';
+import { CommentsPaginatedQueryDto } from './_utils/dto/query/comments-paginated-query.dto';
 import { CommentDomain } from './comment.domain';
 import { Comment, CommentDocument } from './comments.schema';
+import { MongoId } from 'src/_utils/types';
+
+export type CommentLean = Comment & { _id: MongoId };
 
 @Injectable()
 export class CommentsRepository {
@@ -28,13 +32,13 @@ export class CommentsRepository {
     organizationId: string,
     query: CommentsPaginatedQueryDto,
     projectId: string,
-  ): Promise<{ comments: CommentDocument[]; totalCount: number }> {
+  ): Promise<{ comments: CommentLean[]; totalCount: number }> {
     const { toMongoDbSort, skip, limit } = query;
 
     const filter: QueryFilter<Comment> = { organizationId };
 
     if (query.search) {
-      filter.content = { $regex: query.search, $options: 'i' };
+      filter.content = { $regex: escapeRegex(query.search), $options: 'i' };
       filter.projectId = projectId;
     }
 
@@ -44,6 +48,7 @@ export class CommentsRepository {
         .sort(toMongoDbSort.$sort)
         .skip(skip)
         .limit(limit)
+        .lean()
         .exec(),
       this.commentsModel.countDocuments(filter).exec(),
     ]);

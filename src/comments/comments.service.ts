@@ -3,9 +3,9 @@ import { toPaginatedDto } from 'src/_utils/pagination/pagination.mapper';
 import { PaginationDto } from 'src/_utils/pagination/responses/pagination.dto';
 import { LogtoUserWithOrganizations } from 'src/logto/_utils/types/user-with-organization.type';
 import { ProjectsRepository } from 'src/projects/projects.repository';
-import { CommentsPaginatedQueryDto } from './_utils/dtos/query/comments-paginated-query.dto';
-import { CreateCommentDto } from './_utils/dtos/requests/create-comment.dto';
-import { GetCommentDto } from './_utils/dtos/responses/get-comment.dto';
+import { CommentsPaginatedQueryDto } from './_utils/dto/query/comments-paginated-query.dto';
+import { CreateCommentDto } from './_utils/dto/requests/create-comment.dto';
+import { GetCommentDto } from './_utils/dto/responses/get-comment.dto';
 import { CommentDomain } from './comment.domain';
 import { CommentsMapper } from './comments.mapper';
 import { CommentsRepository } from './comments.repository';
@@ -53,7 +53,12 @@ export class CommentsService {
       user.currentOrganization.id,
     );
 
-    const domain = CommentDomain.create(dto, user.id, projectId);
+    const domain = CommentDomain.create(
+      dto,
+      user.id,
+      user.currentOrganization.id,
+      projectId,
+    );
     const comment = await this.commentsRepository.create(domain);
 
     return this.commentsMapper.toGetCommentDto(comment);

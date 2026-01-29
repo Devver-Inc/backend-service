@@ -207,11 +207,15 @@ export class OrganizationsController {
     summary: 'Update invitation status',
     description: 'Accept or revoke an organization invitation',
   })
-  updateInvitationStatus(
+  async updateInvitationStatus(
     @ConnectedUser() user: LogtoUser,
     @Param('invitationId', LogtoInvitationByIdPipe) invitation: LogtoInvitation,
     @Body() dto: UpdateInvitationStatusDto,
-  ): void {
-    this.organizationsService.updateInvitationStatus(user, invitation, dto);
+  ): Promise<void> {
+    await this.organizationsService.updateInvitationStatus(
+      user,
+      invitation,
+      dto,
+    );
   }
 }

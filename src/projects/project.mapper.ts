@@ -6,12 +6,15 @@ import {
   GetProjectLightDto,
 } from './_utils/dto/responses/get-project.dto';
 import { ProjectDocument } from './project.schema';
+import { ProjectLean } from './projects.repository';
 
 @Injectable()
 export class ProjectsMapper {
   constructor(private readonly usersMapper: UsersMapper) {}
 
-  toProjectLightDto = (project: ProjectDocument): GetProjectLightDto => ({
+  toProjectLightDto = (
+    project: ProjectDocument | ProjectLean,
+  ): GetProjectLightDto => ({
     id: project._id.toString(),
     name: project.name,
     description: project.description ?? null,

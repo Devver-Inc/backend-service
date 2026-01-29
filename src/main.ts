@@ -4,7 +4,12 @@ import { useContainer } from 'class-validator';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { EnvironmentVariables, ServerConfig } from './_utils/config/env.config';
+import helmet from 'helmet';
+import {
+  CorsConfig,
+  EnvironmentVariables,
+  ServerConfig,
+} from './_utils/config/env.config';
 import SwaggerCustomOptionsConfig from './_utils/config/swagger-custom-options.config';
 import ValidationPipeOptionsConfig from './_utils/config/validation-pipe-options.config';
 import { MongoErrorException } from './_utils/exceptions/mongo-error.exception';
@@ -15,11 +20,21 @@ async function bootstrap() {
 
   useContainer(app.select(AppModule), { fallbackOnErrors: true });
 
+  const configService = app.get(ConfigService<EnvironmentVariables, true>);
+  const corsConfig = configService.get<CorsConfig>('CORS');
+
+  app.use(helmet());
+
   app
     .useGlobalFilters(new MongoErrorException())
     .setGlobalPrefix('api/v1')
     .useGlobalPipes(new ValidationPipe(ValidationPipeOptionsConfig))
-    .enableCors();
+    .enableCors({
+      origin: corsConfig.ALLOWED_ORIGINS,
+      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+      credentials: true,
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Organization-Id'],
+    });
 
   app.set('query parser', 'extended');
 
@@ -33,7 +48,6 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/doc', app, document, SwaggerCustomOptionsConfig);
 
-  const configService = app.get(ConfigService<EnvironmentVariables, true>);
   return app.listen(configService.get<ServerConfig>('SERVER').PORT);
 }
 
