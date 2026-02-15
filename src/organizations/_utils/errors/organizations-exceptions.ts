@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  InternalServerErrorException,
 } from '@nestjs/common';
 
 @Injectable()
@@ -30,4 +31,8 @@ export class OrganizationsExceptions {
   INVITATION_NOT_FOR_CURRENT_USER = new ForbiddenException(
     'INVITATION_NOT_FOR_CURRENT_USER',
   );
+  ADMIN_ORGANIZATION_ROLE_NOT_FOUND = () =>
+    new InternalServerErrorException(
+      'ADMIN_ORGANIZATION_ROLE_NOT_FOUND: ensure the "admin" organization role exists in Logto.',
+    );
 }
