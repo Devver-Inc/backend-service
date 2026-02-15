@@ -47,7 +47,7 @@ export class OrganizationsService {
       description: createOrganizationDto.description,
       customData: this.organizationsMapper.toOrganizationCustomDataType(
         user.id,
-        [user.id],
+        [],
       ),
     });
 
@@ -105,30 +105,30 @@ export class OrganizationsService {
     user: LogtoUserWithOrganizations,
     updateOrganizationDto: UpdateOrganizationDto,
   ): Promise<GetOrganizationLightDto> {
-    const fileMapping = updateOrganizationDto.logoFile
+    const { logoFile } = updateOrganizationDto;
+    const orgId = user.currentOrganization.id;
+
+    const fileMapping = logoFile
       ? [
           {
-            file: updateOrganizationDto.logoFile,
+            file: logoFile,
             key: this.minioMapper.toOrganizationLogoKey(
-              user.currentOrganization.id,
-              updateOrganizationDto.logoFile.extension,
+              orgId,
+              logoFile.extension,
             ),
           },
         ]
       : [];
 
+    const logoUrl = logoFile
+      ? this.minioMapper.toOrganizationLogoUrl(orgId, logoFile.extension)
+      : user.currentOrganization.customData.logoUrl;
+
     return this.fileUploadService.uploadFilesWithCleanup(
       fileMapping,
       async () => {
-        const logoUrl = updateOrganizationDto.logoFile
-          ? this.minioMapper.toOrganizationLogoUrl(
-              user.currentOrganization.id,
-              updateOrganizationDto.logoFile.extension,
-            )
-          : user.currentOrganization.customData.logoUrl;
-
         const updatedOrganization = await this.logtoRequests.updateOrganization(
-          user.currentOrganization.id,
+          orgId,
           {
             name: updateOrganizationDto.name,
             description: updateOrganizationDto.description,
@@ -138,7 +138,6 @@ export class OrganizationsService {
             },
           },
         );
-
         return this.organizationsMapper.toOrganizationLightDto(
           updatedOrganization,
         );
