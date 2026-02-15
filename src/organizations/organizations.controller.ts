@@ -61,6 +61,19 @@ export class OrganizationsController {
   }
 
   @Protect({ skipOrganizationCheck: true })
+  @Get('list')
+  @ApiOperation({
+    summary: 'List organizations for the current user',
+    description:
+      'Returns all organizations the user belongs to. No organization context required. Use to restore or pick current org on first load.',
+  })
+  getMyOrganizations(
+    @ConnectedUser() user: LogtoUser,
+  ): Promise<GetOrganizationLightDto[]> {
+    return this.organizationsService.getMyOrganizations(user);
+  }
+
+  @Protect({ skipOrganizationCheck: true })
   @Get('invitations')
   async getOrganizationInvitations(
     @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,

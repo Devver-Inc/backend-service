@@ -25,7 +25,11 @@ import { UpdateInvitationStatusEnum } from './_utils/enums/update-invitations-st
 import { OrganizationsMapper } from './organization.mapper';
 import { FileUploadService } from 'src/minio/file-upload.service';
 import { OrganizationsExceptions } from './_utils/errors/organizations-exceptions';
-import { LogtoRolesEnum } from 'src/logto/_utils/types/roles.type';
+import {
+  LogtoRolesEnum,
+  RoleTypeEnum,
+} from 'src/logto/_utils/types/roles.type';
+import { toValidatedOrganizations } from 'src/logto/_utils/schemas/logto-organization.schema';
 
 @Injectable()
 export class OrganizationsService {
@@ -36,7 +40,17 @@ export class OrganizationsService {
     private readonly fileUploadService: FileUploadService,
     private readonly minioMapper: MinioMapper,
     private readonly exceptions: OrganizationsExceptions,
-  ) {}
+  ) { }
+
+  async getMyOrganizations(user: LogtoUser): Promise<GetOrganizationLightDto[]> {
+    const raw = await this.logtoRequests.getUserOrganizations(user.id);
+    const list = Array.isArray(raw) ? raw : [];
+    if (!list.length) return [];
+    const organizations = toValidatedOrganizations(list);
+    return Promise.all(
+      organizations.map((org) => this.organizationsMapper.toOrganizationLightDto(org)),
+    );
+  }
 
   async createOrganization(
     createOrganizationDto: CreateOrganizationDto,
@@ -53,14 +67,14 @@ export class OrganizationsService {
 
     const fileMapping = createOrganizationDto.logoFile
       ? [
-          {
-            file: createOrganizationDto.logoFile,
-            key: this.minioMapper.toOrganizationLogoKey(
-              organization.id,
-              createOrganizationDto.logoFile.extension,
-            ),
-          },
-        ]
+        {
+          file: createOrganizationDto.logoFile,
+          key: this.minioMapper.toOrganizationLogoKey(
+            organization.id,
+            createOrganizationDto.logoFile.extension,
+          ),
+        },
+      ]
       : [];
 
     return this.fileUploadService.uploadFilesWithCleanup(
@@ -68,9 +82,9 @@ export class OrganizationsService {
       async () => {
         const logoUrl = createOrganizationDto.logoFile
           ? this.minioMapper.toOrganizationLogoUrl(
-              organization.id,
-              createOrganizationDto.logoFile.extension,
-            )
+            organization.id,
+            createOrganizationDto.logoFile.extension,
+          )
           : undefined;
 
         const updatedOrganization = await this.logtoRequests.updateOrganization(
@@ -88,10 +102,11 @@ export class OrganizationsService {
           [user.id],
         );
 
+        const adminRoleId = await this.getAdminOrganizationRoleIds();
         await this.logtoRequests.assignRolesToOrganizationMembers(
           updatedOrganization.id,
           [user.id],
-          [LogtoRolesEnum.ADMIN],
+          [adminRoleId],
         );
 
         return this.organizationsMapper.toOrganizationLightDto(
@@ -99,6 +114,17 @@ export class OrganizationsService {
         );
       },
     );
+  }
+
+  private async getAdminOrganizationRoleIds(): Promise<string> {
+    const roles = await this.logtoRequests.getOrganizationsRoles();
+    const adminRole = roles?.find(
+      (r) => r.name === LogtoRolesEnum.ADMIN && r.type === RoleTypeEnum.USER,
+    );
+    if (!adminRole) {
+      throw this.exceptions.ADMIN_ORGANIZATION_ROLE_NOT_FOUND();
+    }
+    return adminRole.id;
   }
 
   async updateOrganization(
@@ -110,14 +136,14 @@ export class OrganizationsService {
 
     const fileMapping = logoFile
       ? [
-          {
-            file: logoFile,
-            key: this.minioMapper.toOrganizationLogoKey(
-              orgId,
-              logoFile.extension,
-            ),
-          },
-        ]
+        {
+          file: logoFile,
+          key: this.minioMapper.toOrganizationLogoKey(
+            orgId,
+            logoFile.extension,
+          ),
+        },
+      ]
       : [];
 
     const logoUrl = logoFile
