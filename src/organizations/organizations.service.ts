@@ -25,6 +25,7 @@ import { UpdateInvitationStatusEnum } from './_utils/enums/update-invitations-st
 import { OrganizationsMapper } from './organization.mapper';
 import { FileUploadService } from 'src/minio/file-upload.service';
 import { OrganizationsExceptions } from './_utils/errors/organizations-exceptions';
+import { LogtoRolesEnum } from 'src/logto/_utils/types/roles.type';
 
 @Injectable()
 export class OrganizationsService {
@@ -85,6 +86,12 @@ export class OrganizationsService {
         await this.logtoRequests.addUsersToOrganization(
           updatedOrganization.id,
           [user.id],
+        );
+
+        await this.logtoRequests.assignRolesToOrganizationMembers(
+          updatedOrganization.id,
+          [user.id],
+          [LogtoRolesEnum.ADMIN],
         );
 
         return this.organizationsMapper.toOrganizationLightDto(
