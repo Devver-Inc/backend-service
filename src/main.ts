@@ -12,7 +12,7 @@ import {
 } from './_utils/config/env.config';
 import SwaggerCustomOptionsConfig from './_utils/config/swagger-custom-options.config';
 import ValidationPipeOptionsConfig from './_utils/config/validation-pipe-options.config';
-import { MongoErrorException } from './_utils/exceptions/mongo-error.exception';
+import { MongoExceptionFilter } from './_utils/exceptions/mongo-error.exception';
 import { NestExpressApplication } from '@nestjs/platform-express';
 
 async function bootstrap() {
@@ -26,15 +26,10 @@ async function bootstrap() {
   app.use(helmet());
 
   app
-    .useGlobalFilters(new MongoErrorException())
+    .useGlobalFilters(new MongoExceptionFilter())
     .setGlobalPrefix('api/v1')
     .useGlobalPipes(new ValidationPipe(ValidationPipeOptionsConfig))
-    .enableCors({
-      origin: corsConfig.ALLOWED_ORIGINS,
-      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-      credentials: true,
-      allowedHeaders: ['Content-Type', 'Authorization', 'X-Organization-Id'],
-    });
+    .enableCors({ origin: '*' });
 
   app.set('query parser', 'extended');
 

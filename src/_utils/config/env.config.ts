@@ -70,6 +70,14 @@ export class CorsConfig {
   ALLOWED_ORIGINS: string[];
 }
 
+export class DeployAgentConfig {
+  @IsString()
+  DEPLOY_AGENT_SECRET: string;
+
+  @IsString()
+  K8S_BASE_DOMAIN: string;
+}
+
 export class EnvironmentVariables {
   @ValidateNested()
   @Type(() => DatabaseConfig)
@@ -90,6 +98,10 @@ export class EnvironmentVariables {
   @ValidateNested()
   @Type(() => CorsConfig)
   CORS: CorsConfig;
+
+  @ValidateNested()
+  @Type(() => DeployAgentConfig)
+  DEPLOY_AGENT: DeployAgentConfig;
 }
 
 export function validateEnv(config: Record<string, unknown>) {
@@ -122,6 +134,10 @@ export function validateEnv(config: Record<string, unknown>) {
             .split(',')
             .map((origin) => origin.trim())
         : [],
+    },
+    DEPLOY_AGENT: {
+      DEPLOY_AGENT_SECRET: config.DEPLOY_AGENT_SECRET,
+      K8S_BASE_DOMAIN: config.K8S_BASE_DOMAIN,
     },
   };
 
