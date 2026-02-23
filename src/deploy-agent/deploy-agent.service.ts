@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EnvironmentVariables } from 'src/_utils/config/env.config';
 import { ProjectsRepository } from 'src/projects/projects.repository';
@@ -36,10 +36,8 @@ export class DeployAgentService {
       .replace(/^-|-$/g, '');
   }
 
-  // TODO: Check with Victor if the url defined by traefik has a different format than the one we are building here, and adjust accordingly
-  private buildAgentUrl(orgName: string, projectName: string): string {
-    return `https://${this.toSlug(orgName)}.${this.toSlug(projectName)}.${this.baseDomain}`;
-  }
+  private buildAgentUrl = (orgName: string, projectName: string): string =>
+    `https://${this.toSlug(orgName)}.${this.toSlug(projectName)}.${this.baseDomain}`;
 
   private async getAgentUrl(
     projectId: string,
@@ -93,6 +91,23 @@ export class DeployAgentService {
   ): Promise<GetDeploymentDto> {
     const agentUrl = await this.getAgentUrl(projectId, orgName);
     const result = await this.requests.deploy(agentUrl, dto);
+
+    if (!result.success) {
+      await this.repository.upsertDeployment({
+        projectId,
+        organizationId,
+        repo: dto.repo,
+        branch: dto.branch,
+        commit: dto.commit,
+        services: dto.services,
+        links: dto.links,
+        env: dto.env,
+        status: DeploymentStatus.FAILED,
+      });
+
+      throw new BadRequestException(result);
+    }
+
     const doc = await this.repository.upsertDeployment({
       projectId,
       organizationId,
@@ -102,9 +117,7 @@ export class DeployAgentService {
       services: dto.services,
       links: dto.links,
       env: dto.env,
-      status: result.success
-        ? DeploymentStatus.DEPLOYED
-        : DeploymentStatus.FAILED,
+      status: DeploymentStatus.DEPLOYED,
     });
     return this.mapper.toDeploymentDto(doc);
   }
@@ -139,16 +152,23 @@ export class DeployAgentService {
     orgName: string,
   ): Promise<RestoreResultDto> {
     const agentUrl = await this.getAgentUrl(projectId, orgName);
+    let restoredRepos = 0;
+    let restoredDeployments = 0;
 
     const repos = await this.repository.findReposByProject(projectId);
     for (const repo of repos) {
-      await this.requests
-        .createRepo(agentUrl, { name: repo.name })
-        .catch(() => {});
+      await this.requests.createRepo(agentUrl, { name: repo.name }).then(
+        () => {
+          restoredRepos += 1;
+        },
+        () => {},
+      );
     }
 
-    const deployments =
-      await this.repository.findActiveDeploymentsByProject(projectId);
+    const deployments = await this.repository.findDeploymentsByProject(
+      projectId,
+      DeploymentStatus.DEPLOYED,
+    );
     for (const dep of deployments) {
       await this.requests
         .deploy(agentUrl, {
@@ -159,12 +179,19 @@ export class DeployAgentService {
           links: dep.links,
           env: dep.env,
         })
-        .catch(() => {});
+        .then(
+          (result) => {
+            if (result.success) {
+              restoredDeployments += 1;
+            }
+          },
+          () => {},
+        );
     }
 
     return {
-      restoredRepos: repos.length,
-      restoredDeployments: deployments.length,
+      restoredRepos,
+      restoredDeployments,
     };
   }
 }

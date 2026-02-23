@@ -1,5 +1,7 @@
 import {
   BadRequestException,
+  HttpException,
+  HttpStatus,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
@@ -14,6 +16,7 @@ import {
   CreateRepoRequest,
   DeployRequest,
   DeployResponse,
+  ErrorCode,
   ErrorResponse,
   LogsResponse,
   RepoResponse,
@@ -34,23 +37,118 @@ export class DeployAgentRequests {
     return { 'x-devver-secret': this.secret };
   }
 
-  private handleError(err: unknown): never {
+  private getStatusCode(error: AxiosError): number {
+    return error.response?.status ?? HttpStatus.INTERNAL_SERVER_ERROR;
+  }
+
+  private parseErrorPayload(data: unknown): Partial<ErrorResponse['error']> {
+    if (!data || typeof data !== 'object') return {};
+
+    const payload = data as {
+      error?:
+        | string
+        | {
+            code?: string;
+            message?: string;
+            details?: string;
+            logs?: string;
+            step?: number;
+            stage?: string;
+            service?: string;
+            rollback?: {
+              attempted?: boolean;
+              success?: boolean;
+              message?: string;
+            };
+          };
+      message?: string;
+    };
+
+    if (typeof payload.error === 'string') {
+      return { message: payload.error };
+    }
+
+    if (payload.error && typeof payload.error === 'object') {
+      return {
+        code: payload.error.code as ErrorCode,
+        message: payload.error.message,
+        details: payload.error.details,
+        logs: payload.error.logs,
+        step: payload.error.step,
+        stage: payload.error.stage,
+        service: payload.error.service,
+        rollback:
+          payload.error.rollback?.attempted !== undefined &&
+          payload.error.rollback?.success !== undefined
+            ? {
+                attempted: payload.error.rollback.attempted,
+                success: payload.error.rollback.success,
+                message: payload.error.rollback.message,
+              }
+            : undefined,
+      };
+    }
+
+    if (payload.message) {
+      return { message: payload.message };
+    }
+
+    return {};
+  }
+
+  private buildStructuredError(
+    err: AxiosError,
+    fallbackCode: ErrorCode,
+  ): ErrorResponse {
+    const statusCode = this.getStatusCode(err);
+    const parsed = this.parseErrorPayload(err.response?.data);
+    const message =
+      parsed.message ?? err.message ?? 'Deploy agent request failed';
+
+    return {
+      success: false,
+      error: {
+        code:
+          statusCode === HttpStatus.UNAUTHORIZED
+            ? ErrorCode.UNAUTHORIZED
+            : (parsed.code ?? fallbackCode),
+        message,
+        details: parsed.details,
+        logs: parsed.logs,
+        step: parsed.step,
+        stage: parsed.stage,
+        service: parsed.service,
+        rollback: parsed.rollback,
+      },
+      duration: 0,
+    };
+  }
+
+  private handleError(err: unknown, fallbackCode: ErrorCode): never {
     if (err instanceof AxiosError && err.response) {
-      const message: string = err.response.data?.error ?? err.message;
+      const structuredError = this.buildStructuredError(err, fallbackCode);
       switch (err.response.status) {
         case 401:
-          throw new UnauthorizedException(message);
+          throw new UnauthorizedException(structuredError);
         case 404:
-          throw new NotFoundException(message);
+          throw new NotFoundException(structuredError);
         case 400:
-          throw new BadRequestException(message);
+          throw new BadRequestException(structuredError);
         default:
           if (err.response.status >= 500)
-            throw new InternalServerErrorException(message);
-          throw new BadRequestException(message);
+            throw new InternalServerErrorException(structuredError);
+          throw new HttpException(structuredError, err.response.status);
       }
     }
-    throw new InternalServerErrorException('Deploy agent unreachable');
+
+    throw new InternalServerErrorException({
+      success: false,
+      error: {
+        code: fallbackCode,
+        message: 'Deploy agent unreachable',
+      },
+      duration: 0,
+    });
   }
 
   async createRepo(
@@ -65,7 +163,7 @@ export class DeployAgentRequests {
       );
       return data;
     } catch (err) {
-      this.handleError(err);
+      this.handleError(err, ErrorCode.REPO_CREATE_FAILED);
     }
   }
 
@@ -78,7 +176,7 @@ export class DeployAgentRequests {
         ),
       );
     } catch (err) {
-      this.handleError(err);
+      this.handleError(err, ErrorCode.REPO_DELETE_FAILED);
     }
   }
 
@@ -96,7 +194,7 @@ export class DeployAgentRequests {
       );
       return data;
     } catch (err) {
-      this.handleError(err);
+      this.handleError(err, ErrorCode.DEPLOY_ERROR);
     }
   }
 
@@ -113,7 +211,7 @@ export class DeployAgentRequests {
         ),
       );
     } catch (err) {
-      this.handleError(err);
+      this.handleError(err, ErrorCode.DEPLOYMENT_DELETE_FAILED);
     }
   }
 
@@ -127,7 +225,7 @@ export class DeployAgentRequests {
       );
       return data;
     } catch (err) {
-      this.handleError(err);
+      this.handleError(err, ErrorCode.LOGS_FETCH_FAILED);
     }
   }
 }
