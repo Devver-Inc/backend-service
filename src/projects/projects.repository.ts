@@ -5,9 +5,9 @@ import { escapeRegex } from 'src/_utils/functions/escape-regex.function';
 import { ProjectsPaginatedQueryDto } from './_utils/dto/query/projects-paginated-query.dto';
 import { ProjectDomain } from './project.domain';
 import { Project, ProjectDocument } from './project.schema';
-import { MongoId } from 'src/_utils/types';
+import { LeanWithMongoId } from 'src/_utils/types';
 
-export type ProjectLean = Project & { _id: MongoId };
+export type ProjectLean = LeanWithMongoId<Project>;
 
 @Injectable()
 export class ProjectsRepository {
@@ -17,31 +17,28 @@ export class ProjectsRepository {
     @InjectModel(Project.name) private projectModel: Model<Project>,
   ) {}
 
-  async create(domain: ProjectDomain): Promise<ProjectDocument> {
-    return this.projectModel.create(domain);
-  }
+  create = (domain: ProjectDomain): Promise<ProjectDocument> =>
+    this.projectModel.create(domain);
 
-  async findById(id: string): Promise<ProjectDocument> {
-    return this.projectModel
+  findById = (id: string): Promise<ProjectDocument> =>
+    this.projectModel
       .findById(id)
       .orFail(new NotFoundException(this.NOT_FOUND_ERROR))
       .exec();
-  }
 
   findByProjectAndOrganizationId = (
     projectId: string,
     organizationId: string,
-  ): Promise<ProjectDocument> => {
-    return this.projectModel
+  ): Promise<ProjectDocument> =>
+    this.projectModel
       .findOne({ _id: projectId, organizationId })
       .orFail(new NotFoundException(this.NOT_FOUND_ERROR))
       .exec();
-  };
 
-  async findByOrganizationId(
+  findByOrganizationId = async (
     organizationId: string,
     query: ProjectsPaginatedQueryDto,
-  ): Promise<{ projects: ProjectLean[]; totalCount: number }> {
+  ): Promise<{ projects: ProjectLean[]; totalCount: number }> => {
     const filter: QueryFilter<Project> = { organizationId };
 
     if (query.search) {
@@ -62,13 +59,14 @@ export class ProjectsRepository {
     ]);
 
     return { projects, totalCount };
-  }
+  };
 
-  async save(project: ProjectDocument): Promise<ProjectDocument> {
-    return project.save();
-  }
+  save = (project: ProjectDocument): Promise<ProjectDocument> => project.save();
 
-  async deleteById(id: string): Promise<void> {
-    await this.projectModel.findByIdAndDelete(id).orFail().exec();
-  }
+  deleteById = async (id: string): Promise<void> => {
+    await this.projectModel
+      .findByIdAndDelete(id)
+      .orFail(new NotFoundException(this.NOT_FOUND_ERROR))
+      .exec();
+  };
 }

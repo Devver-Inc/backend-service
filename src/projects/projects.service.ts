@@ -43,6 +43,9 @@ export class ProjectsService {
     return this.projectsMapper.toProjectLightDto(project);
   }
 
+  findProjectById = (projectId: string): Promise<ProjectDocument> =>
+    this.projectsRepository.findById(projectId);
+
   async getProjects(
     user: LogtoUserWithOrganizations,
     query: ProjectsPaginatedQueryDto,
