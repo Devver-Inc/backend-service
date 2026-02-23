@@ -20,8 +20,8 @@ export class DeployAgentService {
   private readonly baseDomain: string;
 
   constructor(
-    private readonly repository: DeployAgentRepository,
-    private readonly requests: DeployAgentRequests,
+    private readonly deployAgentRepository: DeployAgentRepository,
+    private readonly deployAgentRequests: DeployAgentRequests,
     private readonly deployAgentMapper: DeployAgentMapper,
     private readonly projectsService: ProjectsService,
     configService: ConfigService<EnvironmentVariables, true>,
@@ -44,12 +44,12 @@ export class DeployAgentService {
       .then((project) => this.buildAgentUrl(orgName, project.name));
 
   listRepos = (projectId: string): Promise<GetRepoDto[]> =>
-    this.repository
+    this.deployAgentRepository
       .findReposByProject(projectId)
       .then((docs) => docs.map(this.deployAgentMapper.toRepoDto));
 
   listDeployments = (projectId: string): Promise<GetDeploymentDto[]> =>
-    this.repository
+    this.deployAgentRepository
       .findDeploymentsByProject(projectId)
       .then((docs) => docs.map(this.deployAgentMapper.toDeploymentDto));
 
@@ -59,7 +59,7 @@ export class DeployAgentService {
     deploymentId: string,
   ): Promise<GetLogsDto> =>
     this.getAgentUrl(projectId, orgName).then((agentUrl) =>
-      this.requests.getLogs(agentUrl, deploymentId),
+      this.deployAgentRequests.getLogs(agentUrl, deploymentId),
     );
 
   createRepo = async (
@@ -69,10 +69,10 @@ export class DeployAgentService {
     dto: CreateRepoDto,
   ): Promise<GetRepoDto> => {
     const agentUrl = await this.getAgentUrl(projectId, orgName);
-    const agentRepo = await this.requests.createRepo(agentUrl, {
+    const agentRepo = await this.deployAgentRequests.createRepo(agentUrl, {
       name: dto.name,
     });
-    return this.repository
+    return this.deployAgentRepository
       .createRepo({
         projectId,
         organizationId,
@@ -87,11 +87,14 @@ export class DeployAgentService {
     orgName: string,
     name: string,
   ): Promise<void> => {
-    await this.repository.findRepo(projectId, name);
+    await this.deployAgentRepository.findRepo(projectId, name);
     const agentUrl = await this.getAgentUrl(projectId, orgName);
-    await this.requests.deleteRepo(agentUrl, name);
-    await this.repository.markDeploymentsByRepoRemoved(projectId, name);
-    await this.repository.deleteRepo(projectId, name);
+    await this.deployAgentRequests.deleteRepo(agentUrl, name);
+    await this.deployAgentRepository.markDeploymentsByRepoRemoved(
+      projectId,
+      name,
+    );
+    await this.deployAgentRepository.deleteRepo(projectId, name);
   };
 
   deploy = async (
@@ -101,7 +104,7 @@ export class DeployAgentService {
     dto: CreateDeploymentDto,
   ): Promise<GetDeploymentDto> => {
     const agentUrl = await this.getAgentUrl(projectId, orgName);
-    const result = await this.requests.deploy(agentUrl, dto);
+    const result = await this.deployAgentRequests.deploy(agentUrl, dto);
 
     const deploymentData = {
       projectId,
@@ -115,14 +118,14 @@ export class DeployAgentService {
     };
 
     if (!result.success) {
-      await this.repository.upsertDeployment({
+      await this.deployAgentRepository.upsertDeployment({
         ...deploymentData,
         status: DeploymentStatus.FAILED,
       });
       throw new BadRequestException(result);
     }
 
-    return this.repository
+    return this.deployAgentRepository
       .upsertDeployment({
         ...deploymentData,
         status: DeploymentStatus.DEPLOYED,
@@ -137,8 +140,12 @@ export class DeployAgentService {
     branch: string,
   ): Promise<void> => {
     const agentUrl = await this.getAgentUrl(projectId, orgName);
-    await this.requests.removeDeployment(agentUrl, repo, branch);
-    await this.repository.markDeploymentRemoved(projectId, repo, branch);
+    await this.deployAgentRequests.removeDeployment(agentUrl, repo, branch);
+    await this.deployAgentRepository.markDeploymentRemoved(
+      projectId,
+      repo,
+      branch,
+    );
   };
 
   restoreState = async (
@@ -149,9 +156,10 @@ export class DeployAgentService {
     let restoredRepos = 0;
     let restoredDeployments = 0;
 
-    const repos = await this.repository.findReposByProject(projectId);
+    const repos =
+      await this.deployAgentRepository.findReposByProject(projectId);
     for (const repo of repos) {
-      await this.requests
+      await this.deployAgentRequests
         .createRepo(agentUrl, { name: repo.name })
         .then(() => {
           restoredRepos += 1;
@@ -159,12 +167,13 @@ export class DeployAgentService {
         .catch(() => {});
     }
 
-    const deployments = await this.repository.findDeploymentsByProject(
-      projectId,
-      DeploymentStatus.DEPLOYED,
-    );
+    const deployments =
+      await this.deployAgentRepository.findDeploymentsByProject(
+        projectId,
+        DeploymentStatus.DEPLOYED,
+      );
     for (const dep of deployments) {
-      await this.requests
+      await this.deployAgentRequests
         .deploy(agentUrl, {
           repo: dep.repo,
           branch: dep.branch,
