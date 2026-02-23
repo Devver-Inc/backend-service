@@ -9,6 +9,7 @@ import { MinioModule } from './minio/minio.module';
 import { ProjectsModule } from './projects/projects.module';
 import { UsersModule } from './users/users.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
+import { DeployAgentModule } from './deploy-agent/deploy-agent.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
     ProjectsModule,
     CommentsModule,
     DeploymentsModule,
+    DeployAgentModule,
   ],
 })
 export class AppModule {}

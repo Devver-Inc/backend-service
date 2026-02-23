@@ -1,20 +1,18 @@
 import { Injectable } from '@nestjs/common';
+import { DocOrLean } from 'src/_utils/types';
 import { LogtoUser } from 'src/logto/_utils/types/responses/responses.type';
 import { UsersMapper } from 'src/users/user.mapper';
 import {
   GetProjectDto,
   GetProjectLightDto,
 } from './_utils/dto/responses/get-project.dto';
-import { ProjectDocument } from './project.schema';
-import { ProjectLean } from './projects.repository';
+import { Project, ProjectDocument } from './project.schema';
 
 @Injectable()
 export class ProjectsMapper {
   constructor(private readonly usersMapper: UsersMapper) {}
 
-  toProjectLightDto = (
-    project: ProjectDocument | ProjectLean,
-  ): GetProjectLightDto => ({
+  toProjectLightDto = (project: DocOrLean<Project>): GetProjectLightDto => ({
     id: project._id.toString(),
     name: project.name,
     description: project.description ?? null,

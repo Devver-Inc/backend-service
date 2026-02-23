@@ -83,6 +83,13 @@ export class GitHubConfig {
   @IsString()
   GITHUB_BRANCH: string;
 }
+export class DeployAgentConfig {
+  @IsString()
+  DEPLOY_AGENT_SECRET: string;
+
+  @IsString()
+  K8S_BASE_DOMAIN: string;
+}
 
 export class EnvironmentVariables {
   @ValidateNested()
@@ -108,6 +115,10 @@ export class EnvironmentVariables {
   @ValidateNested()
   @Type(() => GitHubConfig)
   GITHUB: GitHubConfig;
+
+  @ValidateNested()
+  @Type(() => DeployAgentConfig)
+  DEPLOY_AGENT: DeployAgentConfig;
 }
 
 export function validateEnv(config: Record<string, unknown>) {
@@ -146,6 +157,10 @@ export function validateEnv(config: Record<string, unknown>) {
       GITHUB_OWNER: config.GITHUB_OWNER,
       GITHUB_REPO: config.GITHUB_REPO,
       GITHUB_BRANCH: config.GITHUB_BRANCH,
+    },
+    DEPLOY_AGENT: {
+      DEPLOY_AGENT_SECRET: config.DEPLOY_AGENT_SECRET,
+      K8S_BASE_DOMAIN: config.K8S_BASE_DOMAIN,
     },
   };
 
