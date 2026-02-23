@@ -1,0 +1,35 @@
+{
+  "organizationName": "devver",
+  "projectName": "postgres-db",
+  "organizationDomain": "devver.app",
+  "container": {
+    "image": "postgres:15-alpine",
+    "port": 5432,
+    "type": "app",
+    "command": [],
+    "args": []
+  },
+  "resources": {
+    "requestsMemory": "512Mi",
+    "requestsCpu": "500m",
+    "limitsMemory": "1Gi",
+    "limitsCpu": "1000m"
+  },
+  "persistence": {
+    "enabled": true,
+    "size": "50Gi",
+    "mountPath": "/var/lib/postgresql/data"
+  },
+  "replicaCount": 1,
+  "httpPort": 5432,
+  "httpsPort": 5432,
+  "labels": {
+    "app": "postgres",
+    "environment": "production",
+    "type": "database"
+  },
+  "annotations": {
+    "description": "PostgreSQL database deployment",
+    "backup": "enabled"
+  }
+}

@@ -1,4 +1,3 @@
-import { exit } from 'node:process';
 import { Logger } from '@nestjs/common';
 import { plainToInstance, Transform, Type } from 'class-transformer';
 import {
@@ -8,6 +7,7 @@ import {
   ValidateNested,
   validateSync,
 } from 'class-validator';
+import { exit } from 'node:process';
 
 export class DatabaseConfig {
   @IsString()
@@ -70,6 +70,20 @@ export class CorsConfig {
   ALLOWED_ORIGINS: string[];
 }
 
+export class GitHubConfig {
+  @IsString()
+  GITHUB_TOKEN: string;
+
+  @IsString()
+  GITHUB_OWNER: string;
+
+  @IsString()
+  GITHUB_REPO: string;
+
+  @IsString()
+  GITHUB_BRANCH: string;
+}
+
 export class EnvironmentVariables {
   @ValidateNested()
   @Type(() => DatabaseConfig)
@@ -90,6 +104,10 @@ export class EnvironmentVariables {
   @ValidateNested()
   @Type(() => CorsConfig)
   CORS: CorsConfig;
+
+  @ValidateNested()
+  @Type(() => GitHubConfig)
+  GITHUB: GitHubConfig;
 }
 
 export function validateEnv(config: Record<string, unknown>) {
@@ -122,6 +140,12 @@ export function validateEnv(config: Record<string, unknown>) {
             .split(',')
             .map((origin) => origin.trim())
         : [],
+    },
+    GITHUB: {
+      GITHUB_TOKEN: config.GITHUB_TOKEN,
+      GITHUB_OWNER: config.GITHUB_OWNER,
+      GITHUB_REPO: config.GITHUB_REPO,
+      GITHUB_BRANCH: config.GITHUB_BRANCH,
     },
   };
 

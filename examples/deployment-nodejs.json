@@ -1,0 +1,36 @@
+{
+  "organizationName": "devver",
+  "projectName": "nodejs-api",
+  "organizationDomain": "devver.app",
+  "container": {
+    "image": "node:20-alpine",
+    "port": 3000,
+    "type": "app",
+    "command": ["node"],
+    "args": ["server.js"]
+  },
+  "resources": {
+    "requestsMemory": "256Mi",
+    "requestsCpu": "250m",
+    "limitsMemory": "512Mi",
+    "limitsCpu": "500m"
+  },
+  "persistence": {
+    "enabled": true,
+    "size": "5Gi",
+    "mountPath": "/app/uploads"
+  },
+  "replicaCount": 3,
+  "httpPort": 3000,
+  "httpsPort": 443,
+  "labels": {
+    "app": "nodejs-api",
+    "environment": "production",
+    "language": "nodejs",
+    "version": "v20"
+  },
+  "annotations": {
+    "description": "Node.js REST API deployment",
+    "maintainer": "backend-team"
+  }
+}
