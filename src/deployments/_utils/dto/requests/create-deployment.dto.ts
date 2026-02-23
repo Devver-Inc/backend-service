@@ -16,6 +16,10 @@ import { ResourcesConfigDto } from './resources-config.dto';
 export class CreateDeploymentDto {
   @IsString()
   @IsNotEmpty()
+  projectId: string;
+
+  @IsString()
+  @IsNotEmpty()
   organizationName: string;
 
   @IsString()

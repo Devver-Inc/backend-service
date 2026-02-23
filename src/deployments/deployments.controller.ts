@@ -5,15 +5,20 @@ import {
   Get,
   HttpCode,
   Param,
+  Patch,
   Post,
-  Put,
 } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
+import { ApiResponseDecorator } from 'src/_utils/decorators/api-response.decorator';
 import { Protect } from 'src/_utils/decorators/protect.decorator';
 import { ConnectedUserWithOrgs } from 'src/logto/_utils/decorator/connected-user.decorator';
 import { UserRoleEnum } from 'src/logto/_utils/enums/permissions.enum';
 import { LogtoUserWithOrganizations } from 'src/logto/_utils/types/user-with-organization.type';
 import { CreateDeploymentDto } from './_utils/dto/requests/create-deployment.dto';
+import {
+  GetDeploymentDto,
+  GetDeploymentLightDto,
+} from './_utils/dto/responses/get-deployment.dto';
 import { DeploymentsService } from './deployments.service';
 
 @ApiTags('Deployments')
@@ -24,68 +29,74 @@ export class DeploymentsController {
   @Protect({ roles: [UserRoleEnum.ADMIN] })
   @Post()
   @ApiOperation({ summary: 'Create a new deployment' })
+  @ApiResponseDecorator(GetDeploymentDto)
   async createDeployment(
     @Body() createDeploymentDto: CreateDeploymentDto,
-  ): Promise<{
-    success: boolean;
-    message: string;
-    organizationName: string;
-    projectName: string;
-    path: string;
-  }> {
-    return this.deploymentsService.createDeployment(createDeploymentDto);
-  }
-
-  @Protect({ roles: [UserRoleEnum.ADMIN] })
-  @Put()
-  @ApiOperation({ summary: 'Update an existing deployment' })
-  async updateDeployment(
-    @Body() updateDeploymentDto: CreateDeploymentDto,
     @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
-  ): Promise<{
-    success: boolean;
-    message: string;
-    organizationName: string;
-    projectName: string;
-    path: string;
-  }> {
-    return this.deploymentsService.updateDeployment(updateDeploymentDto);
-  }
-
-  @Protect({ roles: [UserRoleEnum.ADMIN] })
-  @Delete(':organizationName/:projectName')
-  @HttpCode(200)
-  @ApiParam({ name: 'organizationName', type: String })
-  @ApiParam({ name: 'projectName', type: String })
-  @ApiOperation({ summary: 'Delete a deployment' })
-  async deleteDeployment(
-    @Param('organizationName') organizationName: string,
-    @Param('projectName') projectName: string,
-    @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
-  ): Promise<{
-    success: boolean;
-    message: string;
-  }> {
-    return this.deploymentsService.deleteDeployment(
-      organizationName,
-      projectName,
-    );
+  ): Promise<GetDeploymentDto> {
+    return this.deploymentsService.createDeployment(createDeploymentDto, user);
   }
 
   @Protect()
-  @Get(':organizationName/:projectName/exists')
-  @ApiParam({ name: 'organizationName', type: String })
-  @ApiParam({ name: 'projectName', type: String })
-  @ApiOperation({ summary: 'Check if a deployment exists' })
-  async checkDeploymentExists(
-    @Param('organizationName') organizationName: string,
-    @Param('projectName') projectName: string,
+  @Get()
+  @ApiOperation({ summary: 'Get all deployments for current organization' })
+  @ApiResponseDecorator(GetDeploymentLightDto)
+  async getDeployments(
     @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
-  ): Promise<{ exists: boolean }> {
-    const exists = await this.deploymentsService.deploymentExists(
-      organizationName,
-      projectName,
+  ): Promise<GetDeploymentLightDto[]> {
+    return this.deploymentsService.getDeployments(user);
+  }
+
+  @Protect()
+  @Get('project/:projectId')
+  @ApiParam({ name: 'projectId', type: String })
+  @ApiOperation({ summary: 'Get deployments for a specific project' })
+  @ApiResponseDecorator(GetDeploymentLightDto)
+  async getDeploymentsByProject(
+    @Param('projectId') projectId: string,
+    @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
+  ): Promise<GetDeploymentLightDto[]> {
+    return this.deploymentsService.getDeploymentsByProject(projectId, user);
+  }
+
+  @Protect()
+  @Get(':deploymentId')
+  @ApiParam({ name: 'deploymentId', type: String })
+  @ApiOperation({ summary: 'Get deployment by ID' })
+  @ApiResponseDecorator(GetDeploymentDto)
+  async getDeploymentById(
+    @Param('deploymentId') deploymentId: string,
+    @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
+  ): Promise<GetDeploymentDto> {
+    return this.deploymentsService.getDeploymentById(deploymentId, user);
+  }
+
+  @Protect({ roles: [UserRoleEnum.ADMIN] })
+  @Patch(':deploymentId')
+  @ApiParam({ name: 'deploymentId', type: String })
+  @ApiOperation({ summary: 'Update an existing deployment' })
+  @ApiResponseDecorator(GetDeploymentDto)
+  async updateDeployment(
+    @Param('deploymentId') deploymentId: string,
+    @Body() updateDeploymentDto: CreateDeploymentDto,
+    @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
+  ): Promise<GetDeploymentDto> {
+    return this.deploymentsService.updateDeployment(
+      deploymentId,
+      updateDeploymentDto,
+      user,
     );
-    return { exists };
+  }
+
+  @Protect({ roles: [UserRoleEnum.ADMIN] })
+  @Delete(':deploymentId')
+  @HttpCode(204)
+  @ApiParam({ name: 'deploymentId', type: String })
+  @ApiOperation({ summary: 'Delete a deployment' })
+  async deleteDeployment(
+    @Param('deploymentId') deploymentId: string,
+    @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
+  ): Promise<void> {
+    return this.deploymentsService.deleteDeployment(deploymentId, user);
   }
 }
