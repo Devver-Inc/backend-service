@@ -5,9 +5,9 @@ import { escapeRegex } from 'src/_utils/functions/escape-regex.function';
 import { CommentsPaginatedQueryDto } from './_utils/dto/query/comments-paginated-query.dto';
 import { CommentDomain } from './comment.domain';
 import { Comment, CommentDocument } from './comments.schema';
-import { MongoId } from 'src/_utils/types';
+import { LeanWithMongoId } from 'src/_utils/types';
 
-export type CommentLean = Comment & { _id: MongoId };
+export type CommentLean = LeanWithMongoId<Comment>;
 
 @Injectable()
 export class CommentsRepository {
@@ -17,22 +17,20 @@ export class CommentsRepository {
     @InjectModel(Comment.name) private commentsModel: Model<Comment>,
   ) {}
 
-  async create(domain: CommentDomain): Promise<CommentDocument> {
-    return this.commentsModel.create(domain);
-  }
+  create = (domain: CommentDomain): Promise<CommentDocument> =>
+    this.commentsModel.create(domain);
 
-  async findById(id: string): Promise<CommentDocument> {
-    return this.commentsModel
+  findById = (id: string): Promise<CommentDocument> =>
+    this.commentsModel
       .findById(id)
       .orFail(new NotFoundException(this.NOT_FOUND_ERROR))
       .exec();
-  }
 
-  async findByOrganizationId(
+  findByOrganizationId = async (
     organizationId: string,
     query: CommentsPaginatedQueryDto,
     projectId: string,
-  ): Promise<{ comments: CommentLean[]; totalCount: number }> {
+  ): Promise<{ comments: CommentLean[]; totalCount: number }> => {
     const { toMongoDbSort, skip, limit } = query;
 
     const filter: QueryFilter<Comment> = { organizationId };
@@ -54,13 +52,14 @@ export class CommentsRepository {
     ]);
 
     return { comments, totalCount };
-  }
+  };
 
-  async save(comment: CommentDocument): Promise<CommentDocument> {
-    return comment.save();
-  }
+  save = (comment: CommentDocument): Promise<CommentDocument> => comment.save();
 
-  async deleteById(id: string): Promise<void> {
-    await this.commentsModel.findByIdAndDelete(id).orFail().exec();
-  }
+  deleteById = async (id: string): Promise<void> => {
+    await this.commentsModel
+      .findByIdAndDelete(id)
+      .orFail(new NotFoundException(this.NOT_FOUND_ERROR))
+      .exec();
+  };
 }

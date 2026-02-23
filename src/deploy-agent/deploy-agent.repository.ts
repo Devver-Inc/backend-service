@@ -8,12 +8,16 @@ import {
 } from './_utils/types/deployment.types';
 import { Deployment, DeploymentDocument } from './schemas/deployment.schema';
 import { DeployRepo, DeployRepoDocument } from './schemas/repo.schema';
-
+import { LeanWithMongoId } from 'src/_utils/types';
 export type { CreateRepoData, CreateDeploymentData };
+
+export type DeployRepoLean = LeanWithMongoId<DeployRepo>;
+export type DeploymentLean = LeanWithMongoId<Deployment>;
 
 @Injectable()
 export class DeployAgentRepository {
-  NOT_FOUND_ERROR = 'REPO_NOT_FOUND';
+  REPO_NOT_FOUND = 'REPO_NOT_FOUND';
+  DEPLOYMENT_NOT_FOUND = 'DEPLOYMENT_NOT_FOUND';
 
   constructor(
     @InjectModel(DeployRepo.name) private repoModel: Model<DeployRepo>,
@@ -23,16 +27,13 @@ export class DeployAgentRepository {
   createRepo = (data: CreateRepoData): Promise<DeployRepoDocument> =>
     this.repoModel.create(data);
 
-  findReposByProject = (projectId: string): Promise<DeployRepoDocument[]> =>
-    this.repoModel.find({ projectId }).exec();
+  findReposByProject = (projectId: string): Promise<DeployRepoLean[]> =>
+    this.repoModel.find({ projectId }).lean().exec();
 
-  findRepo = (
-    projectId: string,
-    name: string,
-  ): Promise<DeployRepoDocument | null> =>
+  findRepo = (projectId: string, name: string): Promise<DeployRepoDocument> =>
     this.repoModel
       .findOne({ projectId, name })
-      .orFail(new NotFoundException(this.NOT_FOUND_ERROR))
+      .orFail(new NotFoundException(this.REPO_NOT_FOUND))
       .exec();
 
   deleteRepo = (projectId: string, name: string): Promise<void> =>
@@ -50,36 +51,39 @@ export class DeployAgentRepository {
         { $set: { ...data } },
         { upsert: true, new: true },
       )
+      .orFail(new NotFoundException(this.DEPLOYMENT_NOT_FOUND))
       .exec();
 
   findDeploymentsByProject = async (
     projectId: string,
     status?: DeploymentStatus,
-  ): Promise<DeploymentDocument[]> => {
+  ): Promise<DeploymentLean[]> => {
     const filter: Record<string, unknown> = { projectId };
     if (status) filter.status = status;
-    return this.deploymentModel.find(filter).exec();
+    return this.deploymentModel.find(filter).lean().exec();
   };
 
   findActiveDeploymentsByProject = (
     projectId: string,
-  ): Promise<DeploymentDocument[]> =>
+  ): Promise<DeploymentLean[]> =>
     this.deploymentModel
       .find({ projectId, status: { $ne: DeploymentStatus.REMOVED } })
+      .lean()
       .exec();
 
-  markDeploymentRemoved = (
+  markDeploymentRemoved = async (
     projectId: string,
     repo: string,
     branch: string,
-  ): Promise<void> =>
-    this.deploymentModel
+  ): Promise<void> => {
+    await this.deploymentModel
       .updateOne(
         { projectId, repo, branch },
         { $set: { status: DeploymentStatus.REMOVED } },
       )
-      .exec()
-      .then(() => {});
+      .orFail(new NotFoundException(this.DEPLOYMENT_NOT_FOUND))
+      .exec();
+  };
 
   markDeploymentsByRepoRemoved = (
     projectId: string,

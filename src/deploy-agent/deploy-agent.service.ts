@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EnvironmentVariables } from 'src/_utils/config/env.config';
-import { ProjectsRepository } from 'src/projects/projects.repository';
+import { ProjectsService } from 'src/projects/projects.service';
 import { CreateDeploymentDto } from './_utils/dto/requests/create-deployment.dto';
 import { CreateRepoDto } from './_utils/dto/requests/create-repo.dto';
 import {
@@ -22,93 +22,88 @@ export class DeployAgentService {
   constructor(
     private readonly repository: DeployAgentRepository,
     private readonly requests: DeployAgentRequests,
-    private readonly mapper: DeployAgentMapper,
-    private readonly projectsRepository: ProjectsRepository,
+    private readonly deployAgentMapper: DeployAgentMapper,
+    private readonly projectsService: ProjectsService,
     configService: ConfigService<EnvironmentVariables, true>,
   ) {
     this.baseDomain = configService.get('DEPLOY_AGENT').K8S_BASE_DOMAIN;
   }
 
-  private toSlug(value: string): string {
-    return value
+  private toSlug = (value: string): string =>
+    value
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '');
-  }
 
   private buildAgentUrl = (orgName: string, projectName: string): string =>
     `https://${this.toSlug(orgName)}.${this.toSlug(projectName)}.${this.baseDomain}`;
 
-  private async getAgentUrl(
+  private getAgentUrl = (projectId: string, orgName: string): Promise<string> =>
+    this.projectsService
+      .findProjectById(projectId)
+      .then((project) => this.buildAgentUrl(orgName, project.name));
+
+  listRepos = (projectId: string): Promise<GetRepoDto[]> =>
+    this.repository
+      .findReposByProject(projectId)
+      .then((docs) => docs.map(this.deployAgentMapper.toRepoDto));
+
+  listDeployments = (projectId: string): Promise<GetDeploymentDto[]> =>
+    this.repository
+      .findDeploymentsByProject(projectId)
+      .then((docs) => docs.map(this.deployAgentMapper.toDeploymentDto));
+
+  getLogs = (
     projectId: string,
     orgName: string,
-  ): Promise<string> {
-    const project = await this.projectsRepository.findById(projectId);
-    return this.buildAgentUrl(orgName, project.name);
-  }
+    deploymentId: string,
+  ): Promise<GetLogsDto> =>
+    this.getAgentUrl(projectId, orgName).then((agentUrl) =>
+      this.requests.getLogs(agentUrl, deploymentId),
+    );
 
-  async createRepo(
+  createRepo = async (
     projectId: string,
     organizationId: string,
     orgName: string,
     dto: CreateRepoDto,
-  ): Promise<GetRepoDto> {
+  ): Promise<GetRepoDto> => {
     const agentUrl = await this.getAgentUrl(projectId, orgName);
     const agentRepo = await this.requests.createRepo(agentUrl, {
       name: dto.name,
     });
-    const doc = await this.repository.createRepo({
-      projectId,
-      organizationId,
-      name: agentRepo.name,
-      pushUrl: agentRepo.pushUrl,
-    });
-    return this.mapper.toRepoDto(doc);
-  }
+    return this.repository
+      .createRepo({
+        projectId,
+        organizationId,
+        name: agentRepo.name,
+        pushUrl: agentRepo.pushUrl,
+      })
+      .then(this.deployAgentMapper.toRepoDto);
+  };
 
-  async deleteRepo(
+  deleteRepo = async (
     projectId: string,
     orgName: string,
     name: string,
-  ): Promise<void> {
+  ): Promise<void> => {
     await this.repository.findRepo(projectId, name);
     const agentUrl = await this.getAgentUrl(projectId, orgName);
     await this.requests.deleteRepo(agentUrl, name);
     await this.repository.markDeploymentsByRepoRemoved(projectId, name);
     await this.repository.deleteRepo(projectId, name);
-  }
+  };
 
-  async listRepos(projectId: string): Promise<GetRepoDto[]> {
-    const docs = await this.repository.findReposByProject(projectId);
-    return docs.map(this.mapper.toRepoDto);
-  }
-
-  async deploy(
+  deploy = async (
     projectId: string,
     organizationId: string,
     orgName: string,
     dto: CreateDeploymentDto,
-  ): Promise<GetDeploymentDto> {
+  ): Promise<GetDeploymentDto> => {
     const agentUrl = await this.getAgentUrl(projectId, orgName);
     const result = await this.requests.deploy(agentUrl, dto);
 
-    if (!result.success) {
-      await this.repository.upsertDeployment({
-        projectId,
-        organizationId,
-        repo: dto.repo,
-        branch: dto.branch,
-        commit: dto.commit,
-        services: dto.services,
-        links: dto.links,
-        env: dto.env,
-        status: DeploymentStatus.FAILED,
-      });
-
-      throw new BadRequestException(result);
-    }
-
-    const doc = await this.repository.upsertDeployment({
+    const deploymentData = {
       projectId,
       organizationId,
       repo: dto.repo,
@@ -117,52 +112,51 @@ export class DeployAgentService {
       services: dto.services,
       links: dto.links,
       env: dto.env,
-      status: DeploymentStatus.DEPLOYED,
-    });
-    return this.mapper.toDeploymentDto(doc);
-  }
+    };
 
-  async listDeployments(projectId: string): Promise<GetDeploymentDto[]> {
-    const docs = await this.repository.findDeploymentsByProject(projectId);
-    return docs.map(this.mapper.toDeploymentDto);
-  }
+    if (!result.success) {
+      await this.repository.upsertDeployment({
+        ...deploymentData,
+        status: DeploymentStatus.FAILED,
+      });
+      throw new BadRequestException(result);
+    }
 
-  async removeDeployment(
+    return this.repository
+      .upsertDeployment({
+        ...deploymentData,
+        status: DeploymentStatus.DEPLOYED,
+      })
+      .then(this.deployAgentMapper.toDeploymentDto);
+  };
+
+  removeDeployment = async (
     projectId: string,
     orgName: string,
     repo: string,
     branch: string,
-  ): Promise<void> {
+  ): Promise<void> => {
     const agentUrl = await this.getAgentUrl(projectId, orgName);
     await this.requests.removeDeployment(agentUrl, repo, branch);
     await this.repository.markDeploymentRemoved(projectId, repo, branch);
-  }
+  };
 
-  async getLogs(
+  restoreState = async (
     projectId: string,
     orgName: string,
-    deploymentId: string,
-  ): Promise<GetLogsDto> {
-    const agentUrl = await this.getAgentUrl(projectId, orgName);
-    return this.requests.getLogs(agentUrl, deploymentId);
-  }
-
-  async restoreState(
-    projectId: string,
-    orgName: string,
-  ): Promise<RestoreResultDto> {
+  ): Promise<RestoreResultDto> => {
     const agentUrl = await this.getAgentUrl(projectId, orgName);
     let restoredRepos = 0;
     let restoredDeployments = 0;
 
     const repos = await this.repository.findReposByProject(projectId);
     for (const repo of repos) {
-      await this.requests.createRepo(agentUrl, { name: repo.name }).then(
-        () => {
+      await this.requests
+        .createRepo(agentUrl, { name: repo.name })
+        .then(() => {
           restoredRepos += 1;
-        },
-        () => {},
-      );
+        })
+        .catch(() => {});
     }
 
     const deployments = await this.repository.findDeploymentsByProject(
@@ -179,19 +173,12 @@ export class DeployAgentService {
           links: dep.links,
           env: dep.env,
         })
-        .then(
-          (result) => {
-            if (result.success) {
-              restoredDeployments += 1;
-            }
-          },
-          () => {},
-        );
+        .then((result) => {
+          if (result.success) restoredDeployments += 1;
+        })
+        .catch(() => {});
     }
 
-    return {
-      restoredRepos,
-      restoredDeployments,
-    };
-  }
+    return { restoredRepos, restoredDeployments };
+  };
 }
