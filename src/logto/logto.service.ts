@@ -153,6 +153,7 @@ export class LogtoService {
         (role) => role.name === roleName && role.type === RoleTypeEnum.USER,
       );
       if (!role) throw new Error(`Role not found: ${roleName}`);
+
       return role.id;
     });
 

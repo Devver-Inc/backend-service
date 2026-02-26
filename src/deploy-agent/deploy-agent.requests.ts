@@ -19,6 +19,7 @@ import {
   ErrorCode,
   ErrorResponse,
   LogsResponse,
+  PM2ActionResponse,
   RepoResponse,
 } from './_utils/types/agent.types';
 
@@ -180,17 +181,12 @@ export class DeployAgentRequests {
     }
   }
 
-  async deploy(
-    agentUrl: string,
-    body: DeployRequest,
-  ): Promise<DeployResponse | ErrorResponse> {
+  async deploy(agentUrl: string, body: DeployRequest): Promise<DeployResponse> {
     try {
       const { data } = await firstValueFrom(
-        this.httpService.post<DeployResponse | ErrorResponse>(
-          `${agentUrl}/deploy`,
-          body,
-          { headers: this.headers },
-        ),
+        this.httpService.post<DeployResponse>(`${agentUrl}/deploy`, body, {
+          headers: this.headers,
+        }),
       );
       return data;
     } catch (err) {
@@ -226,6 +222,60 @@ export class DeployAgentRequests {
       return data;
     } catch (err) {
       this.handleError(err, ErrorCode.LOGS_FETCH_FAILED);
+    }
+  }
+
+  async startProcess(
+    agentUrl: string,
+    name: string,
+  ): Promise<PM2ActionResponse> {
+    try {
+      const { data } = await firstValueFrom(
+        this.httpService.post<PM2ActionResponse>(
+          `${agentUrl}/pm2/start`,
+          { name },
+          { headers: this.headers },
+        ),
+      );
+      return data;
+    } catch (err) {
+      this.handleError(err, ErrorCode.PM2_START_FAILED);
+    }
+  }
+
+  async stopProcess(
+    agentUrl: string,
+    name: string,
+  ): Promise<PM2ActionResponse> {
+    try {
+      const { data } = await firstValueFrom(
+        this.httpService.post<PM2ActionResponse>(
+          `${agentUrl}/pm2/stop`,
+          { name },
+          { headers: this.headers },
+        ),
+      );
+      return data;
+    } catch (err) {
+      this.handleError(err, ErrorCode.PM2_STOP_FAILED);
+    }
+  }
+
+  async restartProcess(
+    agentUrl: string,
+    name: string,
+  ): Promise<PM2ActionResponse> {
+    try {
+      const { data } = await firstValueFrom(
+        this.httpService.post<PM2ActionResponse>(
+          `${agentUrl}/pm2/restart`,
+          { name },
+          { headers: this.headers },
+        ),
+      );
+      return data;
+    } catch (err) {
+      this.handleError(err, ErrorCode.PM2_RESTART_FAILED);
     }
   }
 }

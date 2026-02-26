@@ -3,8 +3,10 @@ import { ConfigService } from '@nestjs/config';
 import { EnvironmentVariables } from 'src/_utils/config/env.config';
 import { ProjectsService } from 'src/projects/projects.service';
 import { CreateDeploymentDto } from './_utils/dto/requests/create-deployment.dto';
+import { ControlPm2ProcessDto } from './_utils/dto/requests/control-pm2-process.dto';
 import { CreateRepoDto } from './_utils/dto/requests/create-repo.dto';
 import {
+  ControlPm2ProcessResultDto,
   GetDeploymentDto,
   GetLogsDto,
   RestoreResultDto,
@@ -60,6 +62,33 @@ export class DeployAgentService {
   ): Promise<GetLogsDto> =>
     this.getAgentUrl(projectId, orgName).then((agentUrl) =>
       this.deployAgentRequests.getLogs(agentUrl, deploymentId),
+    );
+
+  startProcess = (
+    projectId: string,
+    orgName: string,
+    dto: ControlPm2ProcessDto,
+  ): Promise<ControlPm2ProcessResultDto> =>
+    this.getAgentUrl(projectId, orgName).then((agentUrl) =>
+      this.deployAgentRequests.startProcess(agentUrl, dto.name),
+    );
+
+  stopProcess = (
+    projectId: string,
+    orgName: string,
+    dto: ControlPm2ProcessDto,
+  ): Promise<ControlPm2ProcessResultDto> =>
+    this.getAgentUrl(projectId, orgName).then((agentUrl) =>
+      this.deployAgentRequests.stopProcess(agentUrl, dto.name),
+    );
+
+  restartProcess = (
+    projectId: string,
+    orgName: string,
+    dto: ControlPm2ProcessDto,
+  ): Promise<ControlPm2ProcessResultDto> =>
+    this.getAgentUrl(projectId, orgName).then((agentUrl) =>
+      this.deployAgentRequests.restartProcess(agentUrl, dto.name),
     );
 
   createRepo = async (

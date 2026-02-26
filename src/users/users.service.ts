@@ -11,9 +11,8 @@ export class UsersService {
     private readonly logtoRequests: LogtoRequests,
   ) {}
 
-  createAccount(user: LogtoUser) {
-    return this.logtoService.manageUserWithoutOrganization(user);
-  }
+  createAccount = (user: LogtoUser) =>
+    this.logtoService.manageUserWithoutOrganization(user);
 
   async updateAccount(user: LogtoUser, dto: UpdateAccountDto) {
     // if (dto.profilePictureFile) {

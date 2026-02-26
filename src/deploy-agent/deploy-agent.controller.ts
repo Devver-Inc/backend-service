@@ -12,9 +12,11 @@ import { Protect } from 'src/_utils/decorators/protect.decorator';
 import { ConnectedUserWithOrgs } from 'src/logto/_utils/decorator/connected-user.decorator';
 import { UserRoleEnum } from 'src/logto/_utils/enums/permissions.enum';
 import { LogtoUserWithOrganizations } from 'src/logto/_utils/types/user-with-organization.type';
+import { ControlPm2ProcessDto } from './_utils/dto/requests/control-pm2-process.dto';
 import { CreateDeploymentDto } from './_utils/dto/requests/create-deployment.dto';
 import { CreateRepoDto } from './_utils/dto/requests/create-repo.dto';
 import {
+  ControlPm2ProcessResultDto,
   GetDeploymentDto,
   GetLogsDto,
   RestoreResultDto,
@@ -134,6 +136,54 @@ export class DeployAgentController {
       projectId,
       user.currentOrganization.name,
       deploymentId,
+    );
+  }
+
+  @Protect({ roles: [UserRoleEnum.ADMIN, UserRoleEnum.DEVELOPER] })
+  @Post('pm2/start')
+  @ApiOperation({ summary: 'Start a PM2 process by name' })
+  @ApiParam({ name: 'projectId', type: String })
+  async startProcess(
+    @Param('projectId') projectId: string,
+    @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
+    @Body() dto: ControlPm2ProcessDto,
+  ): Promise<ControlPm2ProcessResultDto> {
+    return this.deployAgentService.startProcess(
+      projectId,
+      user.currentOrganization.name,
+      dto,
+    );
+  }
+
+  @Protect({ roles: [UserRoleEnum.ADMIN, UserRoleEnum.DEVELOPER] })
+  @Post('pm2/stop')
+  @ApiOperation({ summary: 'Stop a PM2 process by name' })
+  @ApiParam({ name: 'projectId', type: String })
+  async stopProcess(
+    @Param('projectId') projectId: string,
+    @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
+    @Body() dto: ControlPm2ProcessDto,
+  ): Promise<ControlPm2ProcessResultDto> {
+    return this.deployAgentService.stopProcess(
+      projectId,
+      user.currentOrganization.name,
+      dto,
+    );
+  }
+
+  @Protect({ roles: [UserRoleEnum.ADMIN, UserRoleEnum.DEVELOPER] })
+  @Post('pm2/restart')
+  @ApiOperation({ summary: 'Restart a PM2 process by name' })
+  @ApiParam({ name: 'projectId', type: String })
+  async restartProcess(
+    @Param('projectId') projectId: string,
+    @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
+    @Body() dto: ControlPm2ProcessDto,
+  ): Promise<ControlPm2ProcessResultDto> {
+    return this.deployAgentService.restartProcess(
+      projectId,
+      user.currentOrganization.name,
+      dto,
     );
   }
 
