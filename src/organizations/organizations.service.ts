@@ -29,7 +29,6 @@ import {
   LogtoRolesEnum,
   RoleTypeEnum,
 } from 'src/logto/_utils/types/roles.type';
-import { toValidatedOrganizations } from 'src/logto/_utils/schemas/logto-organization.schema';
 
 @Injectable()
 export class OrganizationsService {
@@ -41,16 +40,6 @@ export class OrganizationsService {
     private readonly minioMapper: MinioMapper,
     private readonly exceptions: OrganizationsExceptions,
   ) { }
-
-  async getMyOrganizations(user: LogtoUser): Promise<GetOrganizationLightDto[]> {
-    const raw = await this.logtoRequests.getUserOrganizations(user.id);
-    const list = Array.isArray(raw) ? raw : [];
-    if (!list.length) return [];
-    const organizations = toValidatedOrganizations(list);
-    return Promise.all(
-      organizations.map((org) => this.organizationsMapper.toOrganizationLightDto(org)),
-    );
-  }
 
   async createOrganization(
     createOrganizationDto: CreateOrganizationDto,

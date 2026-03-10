@@ -43,7 +43,7 @@ import { ApiResponseDecorator } from 'src/_utils/decorators/api-response.decorat
 @ApiTags('Organizations')
 @Controller('organizations')
 export class OrganizationsController {
-  constructor(private readonly organizationsService: OrganizationsService) {}
+  constructor(private readonly organizationsService: OrganizationsService) { }
 
   @Protect({ skipOrganizationCheck: true })
   @Post()
@@ -58,19 +58,6 @@ export class OrganizationsController {
       createOrganizationDto,
       user,
     );
-  }
-
-  @Protect({ skipOrganizationCheck: true })
-  @Get('list')
-  @ApiOperation({
-    summary: 'List organizations for the current user',
-    description:
-      'Returns all organizations the user belongs to. No organization context required. Use to restore or pick current org on first load.',
-  })
-  getMyOrganizations(
-    @ConnectedUser() user: LogtoUser,
-  ): Promise<GetOrganizationLightDto[]> {
-    return this.organizationsService.getMyOrganizations(user);
   }
 
   @Protect({ skipOrganizationCheck: true })
