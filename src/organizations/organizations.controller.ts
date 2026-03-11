@@ -43,7 +43,7 @@ import { ApiResponseDecorator } from 'src/_utils/decorators/api-response.decorat
 @ApiTags('Organizations')
 @Controller('organizations')
 export class OrganizationsController {
-  constructor(private readonly organizationsService: OrganizationsService) { }
+  constructor(private readonly organizationsService: OrganizationsService) {}
 
   @Protect({ skipOrganizationCheck: true })
   @Post()
@@ -66,6 +66,13 @@ export class OrganizationsController {
     @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
   ): Promise<GetInvitationDto[]> {
     return this.organizationsService.getOrganizationInvitations(user);
+  }
+
+  @Protect({ skipOrganizationCheck: true })
+  @Get('roles')
+  @ApiOperation({ summary: 'Get all available organization roles' })
+  getOrganizationRoles(): Promise<{ id: string; name: string }[]> {
+    return this.organizationsService.getOrganizationRoles();
   }
 
   @Protect()

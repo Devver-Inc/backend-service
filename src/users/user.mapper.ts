@@ -9,7 +9,7 @@ export class UsersMapper {
 
   toUserLightDto = (user: LogtoUser): GetUserLightDto => ({
     id: user.id,
-    name: user.name,
+    name: user.name ?? user.username ?? null,
     avatarUrl: user.avatar ?? null,
   });
 }

@@ -1,4 +1,7 @@
-import { DeploymentStatus, ServiceConfig } from '../../../schemas/deployment.schema';
+import {
+  DeploymentStatus,
+  ServiceConfig,
+} from '../../../schemas/deployment.schema';
 
 export class LogEntryDto {
   service: string;

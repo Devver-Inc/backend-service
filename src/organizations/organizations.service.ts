@@ -39,7 +39,7 @@ export class OrganizationsService {
     private readonly fileUploadService: FileUploadService,
     private readonly minioMapper: MinioMapper,
     private readonly exceptions: OrganizationsExceptions,
-  ) { }
+  ) {}
 
   async createOrganization(
     createOrganizationDto: CreateOrganizationDto,
@@ -56,14 +56,14 @@ export class OrganizationsService {
 
     const fileMapping = createOrganizationDto.logoFile
       ? [
-        {
-          file: createOrganizationDto.logoFile,
-          key: this.minioMapper.toOrganizationLogoKey(
-            organization.id,
-            createOrganizationDto.logoFile.extension,
-          ),
-        },
-      ]
+          {
+            file: createOrganizationDto.logoFile,
+            key: this.minioMapper.toOrganizationLogoKey(
+              organization.id,
+              createOrganizationDto.logoFile.extension,
+            ),
+          },
+        ]
       : [];
 
     return this.fileUploadService.uploadFilesWithCleanup(
@@ -71,9 +71,9 @@ export class OrganizationsService {
       async () => {
         const logoUrl = createOrganizationDto.logoFile
           ? this.minioMapper.toOrganizationLogoUrl(
-            organization.id,
-            createOrganizationDto.logoFile.extension,
-          )
+              organization.id,
+              createOrganizationDto.logoFile.extension,
+            )
           : undefined;
 
         const updatedOrganization = await this.logtoRequests.updateOrganization(
@@ -105,6 +105,13 @@ export class OrganizationsService {
     );
   }
 
+  async getOrganizationRoles(): Promise<{ id: string; name: string }[]> {
+    const roles = await this.logtoRequests.getOrganizationsRoles();
+    return (roles ?? [])
+      .filter((r) => r.type === RoleTypeEnum.USER)
+      .map((r) => ({ id: r.id, name: r.name }));
+  }
+
   private async getAdminOrganizationRoleIds(): Promise<string> {
     const roles = await this.logtoRequests.getOrganizationsRoles();
     const adminRole = roles?.find(
@@ -125,14 +132,14 @@ export class OrganizationsService {
 
     const fileMapping = logoFile
       ? [
-        {
-          file: logoFile,
-          key: this.minioMapper.toOrganizationLogoKey(
-            orgId,
-            logoFile.extension,
-          ),
-        },
-      ]
+          {
+            file: logoFile,
+            key: this.minioMapper.toOrganizationLogoKey(
+              orgId,
+              logoFile.extension,
+            ),
+          },
+        ]
       : [];
 
     const logoUrl = logoFile
