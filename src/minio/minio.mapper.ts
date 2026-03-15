@@ -54,4 +54,17 @@ export class MinioMapper {
 
   toOrganizationLogoUrl = (organizationId: string, ext: string): string =>
     `${this.getPublicBaseUrl()}/public/organizations/${organizationId}/logo.${ext}`;
+
+  toObjectKeyFromPublicUrl = (url: string): string | null => {
+    try {
+      const pathname = new URL(url).pathname;
+      const publicIndex = pathname.indexOf('/public/');
+      if (publicIndex === -1) {
+        return null;
+      }
+      return pathname.slice(publicIndex + 1);
+    } catch {
+      return null;
+    }
+  };
 }

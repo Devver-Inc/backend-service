@@ -29,6 +29,7 @@ import {
   LogtoRolesEnum,
   RoleTypeEnum,
 } from 'src/logto/_utils/types/roles.type';
+import { MinioService } from 'src/minio/minio.service';
 
 @Injectable()
 export class OrganizationsService {
@@ -38,6 +39,7 @@ export class OrganizationsService {
     private readonly usersMapper: UsersMapper,
     private readonly fileUploadService: FileUploadService,
     private readonly minioMapper: MinioMapper,
+    private readonly minioService: MinioService,
     private readonly exceptions: OrganizationsExceptions,
   ) {}
 
@@ -127,8 +129,10 @@ export class OrganizationsService {
     user: LogtoUserWithOrganizations,
     updateOrganizationDto: UpdateOrganizationDto,
   ): Promise<GetOrganizationLightDto> {
-    const { logoFile } = updateOrganizationDto;
+    const { logoFile, removeLogo } = updateOrganizationDto;
     const orgId = user.currentOrganization.id;
+    const currentLogoUrl = user.currentOrganization.customData.logoUrl;
+    const shouldRemoveLogo = Boolean(removeLogo) && !logoFile;
 
     const fileMapping = logoFile
       ? [
@@ -142,9 +146,20 @@ export class OrganizationsService {
         ]
       : [];
 
-    const logoUrl = logoFile
-      ? this.minioMapper.toOrganizationLogoUrl(orgId, logoFile.extension)
-      : user.currentOrganization.customData.logoUrl;
+    let logoUrl = currentLogoUrl;
+    if (logoFile) {
+      logoUrl = this.minioMapper.toOrganizationLogoUrl(
+        orgId,
+        logoFile.extension,
+      );
+    } else if (shouldRemoveLogo) {
+      logoUrl = '';
+    }
+
+    const logoKeyToDelete =
+      shouldRemoveLogo && currentLogoUrl
+        ? this.minioMapper.toObjectKeyFromPublicUrl(currentLogoUrl)
+        : null;
 
     return this.fileUploadService.uploadFilesWithCleanup(
       fileMapping,
@@ -160,6 +175,9 @@ export class OrganizationsService {
             },
           },
         );
+        if (logoKeyToDelete) {
+          await this.minioService.deleteFiles([logoKeyToDelete]);
+        }
         return this.organizationsMapper.toOrganizationLightDto(
           updatedOrganization,
         );
