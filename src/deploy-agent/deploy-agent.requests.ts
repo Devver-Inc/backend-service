@@ -209,13 +209,12 @@ export class DeployAgentRequests {
 
   async removeDeployment(
     agentUrl: string,
-    repository: string,
-    branch: string,
+    deploymentId: string,
   ): Promise<void> {
     try {
       await firstValueFrom(
         this.httpService.delete(
-          `${agentUrl}/deployments/${encodeURIComponent(repository)}/${encodeURIComponent(branch)}`,
+          `${agentUrl}/deployments/${encodeURIComponent(deploymentId)}`,
           { headers: this.headers },
         ),
       );

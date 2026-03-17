@@ -85,6 +85,13 @@ export class DeployAgentRepository {
       .exec();
   };
 
+  markDeploymentRemovedById = async (id: string): Promise<void> => {
+    await this.deploymentModel
+      .updateOne({ _id: id }, { $set: { status: DeploymentStatus.REMOVED } })
+      .orFail(new NotFoundException(this.DEPLOYMENT_NOT_FOUND))
+      .exec();
+  };
+
   markDeploymentsByRepoRemoved = (
     projectId: string,
     repo: string,

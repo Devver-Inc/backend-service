@@ -167,16 +167,11 @@ export class DeployAgentService {
   removeDeployment = async (
     projectId: string,
     orgName: string,
-    repo: string,
-    branch: string,
+    deploymentId: string,
   ): Promise<void> => {
     const agentUrl = await this.getAgentUrl(projectId, orgName);
-    await this.deployAgentRequests.removeDeployment(agentUrl, repo, branch);
-    await this.deployAgentRepository.markDeploymentRemoved(
-      projectId,
-      repo,
-      branch,
-    );
+    await this.deployAgentRequests.removeDeployment(agentUrl, deploymentId);
+    await this.deployAgentRepository.markDeploymentRemovedById(deploymentId);
   };
 
   restoreState = async (

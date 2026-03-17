@@ -102,23 +102,20 @@ export class DeployAgentController {
   }
 
   @Protect({ roles: [UserRoleEnum.ADMIN, UserRoleEnum.DEVELOPER] })
-  @Delete('deployments/:repo/:branch')
+  @Delete('deployments/:deploymentId')
   @HttpCode(204)
   @ApiOperation({ summary: 'Remove a deployment' })
   @ApiParam({ name: 'projectId', type: String })
-  @ApiParam({ name: 'repo', type: String })
-  @ApiParam({ name: 'branch', type: String })
+  @ApiParam({ name: 'deploymentId', type: String })
   async removeDeployment(
     @Param('projectId') projectId: string,
     @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
-    @Param('repo') repo: string,
-    @Param('branch') branch: string,
+    @Param('deploymentId') deploymentId: string,
   ): Promise<void> {
     return this.deployAgentService.removeDeployment(
       projectId,
       user.currentOrganization.name,
-      repo,
-      branch,
+      deploymentId,
     );
   }
 
