@@ -12,10 +12,11 @@ export interface CreateDeploymentData {
   organizationId: string;
   repo: string;
   branch: string;
+  deploymentId: string;
   commit?: string;
-  services: Services;
+  service: Services;
   links?: Record<string, Record<string, string>>;
-  env?: Record<string, Record<string, string>>;
+  env?: Record<string, string>;
 }
 
 export enum AgentDeploymentStatus {

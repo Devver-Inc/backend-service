@@ -7,9 +7,9 @@ import {
 
 @ValidatorConstraint({ name: 'atLeastOneService', async: false })
 export class AtLeastOneServiceConstraint implements ValidatorConstraintInterface {
-  validate(services: unknown): boolean {
-    if (!services || typeof services !== 'object') return false;
-    return Object.values(services).some((v) => v != null);
+  validate(service: unknown): boolean {
+    if (!service || typeof service !== 'object') return false;
+    return Object.values(service).some((v) => v != null);
   }
   defaultMessage(_args: ValidationArguments): string {
     return 'At least one service (web or api) must be defined';

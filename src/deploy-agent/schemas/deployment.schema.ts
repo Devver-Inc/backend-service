@@ -22,17 +22,20 @@ export class Deployment {
   @Prop({ required: true })
   branch: string;
 
+  @Prop({ required: true })
+  deploymentId: string;
+
   @Prop()
   commit?: string;
 
   @Prop({ type: Object, required: true })
-  services: Services;
+  service: Services;
 
   @Prop({ type: Object })
   links?: Record<string, Record<string, string>>;
 
   @Prop({ type: Object })
-  env?: Record<string, Record<string, string>>;
+  env?: Record<string, string>;
 
   @Prop({
     type: String,

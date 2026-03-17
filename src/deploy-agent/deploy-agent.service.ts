@@ -15,7 +15,6 @@ import {
 } from './_utils/dto/responses/get-deployment.dto';
 import { GetRepoDto } from './_utils/dto/responses/get-repo.dto';
 import { DeployAgentExceptions } from './_utils/errors/deploy-agent-exceptions';
-import type { ServiceConfig, ServiceName } from './_utils/types/agent.types';
 import { AgentDeploymentStatus } from './_utils/types/deployment.types';
 import { DeployAgentMapper } from './deploy-agent.mapper';
 import { DeployAgentRepository } from './deploy-agent.repository';
@@ -73,9 +72,13 @@ export class DeployAgentService {
     user: LogtoUserWithOrganizations,
   ): Promise<GetAgentDeploymentDto[]> => {
     await this.verifyProjectOwnership(projectId, user);
-    return this.deployAgentRepository
-      .findDeploymentsByProject(projectId)
-      .then((docs) => docs.map(this.deployAgentMapper.toDeploymentDto));
+    const agentUrl = await this.getAgentUrl(
+      projectId,
+      user.currentOrganization.name,
+    );
+    return this.deployAgentRequests
+      .listDeployments(agentUrl)
+      .then((items) => items.map(this.deployAgentMapper.toAgentDeploymentDto));
   };
 
   getLogs = async (
@@ -185,47 +188,32 @@ export class DeployAgentService {
       user.currentOrganization.name,
     );
 
-    const serviceEntries = (
-      Object.entries(dto.services) as [ServiceName, ServiceConfig | undefined][]
-    ).filter(
-      (entry): entry is [ServiceName, ServiceConfig] => entry[1] != null,
-    );
+    const result = await this.deployAgentRequests.deploy(agentUrl, {
+      repo: dto.repo,
+      branch: dto.branch,
+      commit: dto.commit,
+      service: dto.service,
+      env: dto.env,
+    });
 
-    const deploymentData = {
+    if (!result.success) {
+      throw new BadRequestException(result);
+    }
+
+    await this.deployAgentRepository.upsertDeployment({
       projectId,
       organizationId: user.currentOrganization.id,
       repo: dto.repo,
       branch: dto.branch,
+      deploymentId: result.deploymentId,
       commit: dto.commit,
-      services: dto.services,
+      service: dto.service,
       links: dto.links,
       env: dto.env,
-    };
+      status: AgentDeploymentStatus.DEPLOYED,
+    });
 
-    for (const [serviceName, serviceConfig] of serviceEntries) {
-      const result = await this.deployAgentRequests.deploy(agentUrl, {
-        repo: dto.repo,
-        branch: dto.branch,
-        commit: dto.commit,
-        service: { [serviceName]: serviceConfig },
-        env: dto.env?.[serviceName],
-      });
-
-      if (!result.success) {
-        await this.deployAgentRepository.upsertDeployment({
-          ...deploymentData,
-          status: AgentDeploymentStatus.FAILED,
-        });
-        throw new BadRequestException(result);
-      }
-    }
-
-    return this.deployAgentRepository
-      .upsertDeployment({
-        ...deploymentData,
-        status: AgentDeploymentStatus.DEPLOYED,
-      })
-      .then(this.deployAgentMapper.toDeploymentDto);
+    return this.deployAgentMapper.toAgentDeploymentDto(result);
   };
 
   removeDeployment = async (
@@ -239,7 +227,9 @@ export class DeployAgentService {
       user.currentOrganization.name,
     );
     await this.deployAgentRequests.removeDeployment(agentUrl, deploymentId);
-    await this.deployAgentRepository.markDeploymentRemovedById(deploymentId);
+    await this.deployAgentRepository.markDeploymentRemovedByDeploymentId(
+      deploymentId,
+    );
   };
 
   restoreState = async (
@@ -275,33 +265,22 @@ export class DeployAgentService {
         AgentDeploymentStatus.DEPLOYED,
       );
     for (const dep of deployments) {
-      const serviceEntries = (
-        Object.entries(dep.services) as [
-          ServiceName,
-          ServiceConfig | undefined,
-        ][]
-      ).filter(
-        (entry): entry is [ServiceName, ServiceConfig] => entry[1] != null,
-      );
-
-      let allSucceeded = true;
-      for (const [serviceName, serviceConfig] of serviceEntries) {
-        await this.deployAgentRequests
-          .deploy(agentUrl, {
-            repo: dep.repo,
-            branch: dep.branch,
-            commit: dep.commit,
-            service: { [serviceName]: serviceConfig },
-            env: dep.env?.[serviceName],
-          })
-          .then((result) => {
-            if (!result.success) allSucceeded = false;
-          })
-          .catch(() => {
-            allSucceeded = false;
-          });
-      }
-      if (allSucceeded && serviceEntries.length > 0) restoredDeployments += 1;
+      await this.deployAgentRequests
+        .deploy(agentUrl, {
+          repo: dep.repo,
+          branch: dep.branch,
+          commit: dep.commit,
+          service: dep.service,
+          env: dep.env,
+        })
+        .then((result) => {
+          if (result.success) restoredDeployments += 1;
+        })
+        .catch((err: unknown) => {
+          this.logger.warn(
+            `Failed to restore deployment "${dep.deploymentId}": ${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
     }
 
     return { restoredRepos, restoredDeployments };

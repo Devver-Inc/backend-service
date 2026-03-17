@@ -70,7 +70,7 @@ export class CreateAgentDeploymentDto {
   @AtLeastOneService()
   @ValidateNested()
   @Type(() => ServicesDto)
-  services: ServicesDto;
+  service: ServicesDto;
 
   @ApiPropertyOptional({
     type: 'object',
@@ -88,16 +88,10 @@ export class CreateAgentDeploymentDto {
 
   @ApiPropertyOptional({
     type: 'object',
-    additionalProperties: {
-      type: 'object',
-      additionalProperties: { type: 'string' },
-    },
-    example: {
-      api: { NODE_ENV: 'production', PORT: '3000' },
-      web: { API_URL: 'http://api:3000' },
-    },
+    additionalProperties: { type: 'string' },
+    example: { NODE_ENV: 'production', PORT: '3000' },
   })
   @IsOptional()
   @IsObject()
-  env?: Record<string, Record<string, string>>;
+  env?: Record<string, string>;
 }

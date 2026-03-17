@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { Model } from 'mongoose';
 import {
   CreateDeploymentData,
   CreateRepoData,
@@ -62,10 +62,12 @@ export class DeployAgentRepository {
     return this.deploymentModel.find(filter).lean().exec();
   };
 
-  markDeploymentRemovedById = async (id: string): Promise<void> => {
+  markDeploymentRemovedByDeploymentId = async (
+    deploymentId: string,
+  ): Promise<void> => {
     await this.deploymentModel
       .updateOne(
-        { _id: new Types.ObjectId(id) },
+        { deploymentId },
         { $set: { status: AgentDeploymentStatus.REMOVED } },
       )
       .orFail(new NotFoundException(this.DEPLOYMENT_NOT_FOUND))

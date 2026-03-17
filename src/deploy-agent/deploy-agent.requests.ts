@@ -14,6 +14,7 @@ import { AxiosError, isAxiosError } from 'axios';
 import { firstValueFrom } from 'rxjs';
 import { EnvironmentVariables } from 'src/_utils/config/env.config';
 import {
+  AgentDeploymentListItem,
   CreateRepoRequest,
   DeployRequest,
   DeployResponse,
@@ -191,6 +192,20 @@ export class DeployAgentRequests {
       );
     } catch (err) {
       throw this.handleError(err, ErrorCode.REPO_DELETE_FAILED);
+    }
+  }
+
+  async listDeployments(agentUrl: string): Promise<AgentDeploymentListItem[]> {
+    try {
+      const { data } = await firstValueFrom(
+        this.httpService.get<AgentDeploymentListItem[]>(
+          `${agentUrl}/deployments`,
+          { headers: this.headers },
+        ),
+      );
+      return data;
+    } catch (err) {
+      throw this.handleError(err, ErrorCode.DEPLOY_ERROR);
     }
   }
 

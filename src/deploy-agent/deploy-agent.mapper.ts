@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { DocOrLean } from 'src/_utils/types';
 import { GetAgentDeploymentDto } from './_utils/dto/responses/get-deployment.dto';
 import { GetRepoDto } from './_utils/dto/responses/get-repo.dto';
-import { Deployment } from './schemas/deployment.schema';
+import { AgentDeploymentListItem } from './_utils/types/agent.types';
 import { DeployRepo } from './schemas/repo.schema';
 
 @Injectable()
@@ -15,14 +15,14 @@ export class DeployAgentMapper {
     createdAt: doc.createdAt,
   });
 
-  toDeploymentDto = (doc: DocOrLean<Deployment>): GetAgentDeploymentDto => ({
-    id: doc._id.toString(),
-    repo: doc.repo,
-    branch: doc.branch,
-    commit: doc.commit ?? null,
-    services: doc.services,
-    status: doc.status,
-    createdAt: doc.createdAt,
-    updatedAt: doc.updatedAt,
+  toAgentDeploymentDto = (
+    result: AgentDeploymentListItem,
+  ): GetAgentDeploymentDto => ({
+    deploymentId: result.deploymentId,
+    repo: result.repo,
+    branch: result.branch,
+    commit: result.commit,
+    service: result.service,
+    process: result.process,
   });
 }

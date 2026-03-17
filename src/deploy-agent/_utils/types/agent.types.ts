@@ -50,7 +50,6 @@ export interface ServiceConfig {
   start: string;
 }
 
-/** Multi-service map — used internally in backend schema/DTO */
 export interface Services {
   api?: ServiceConfig;
   web?: ServiceConfig;
@@ -61,14 +60,11 @@ export interface CreateRepoRequest {
   baseUrl: string;
 }
 
-/** Single-service request sent to the deploy agent */
 export interface DeployRequest {
   repo: string;
   branch: string;
   commit?: string;
-  /** Exactly one service key must be present */
   service: Partial<Record<ServiceName, ServiceConfig>>;
-  /** Flat env vars applied to the service being deployed */
   env?: Record<string, string>;
 }
 
@@ -91,7 +87,9 @@ export interface ServiceDeployResult {
   url: string;
 }
 
-export interface DeploymentResponse {
+export interface DeployResponse {
+  success: true;
+  duration: number;
   repo: string;
   branch: string;
   deploymentId: string;
@@ -100,9 +98,13 @@ export interface DeploymentResponse {
   process: PM2Process | null;
 }
 
-export interface DeployResponse extends DeploymentResponse {
-  success: true;
-  duration: number;
+export interface AgentDeploymentListItem {
+  repo: string;
+  branch: string;
+  deploymentId: string;
+  commit: string;
+  service: Partial<Record<ServiceName, ServiceDeployResult>>;
+  process: PM2Process | null;
 }
 
 export interface RollbackStatus {
