@@ -421,7 +421,10 @@ export class LogtoRequests {
       this.exceptions.ERROR_UPDATE_USER_PROFILE,
     );
 
-  updateUserProfilePicture = (userId: string, profilePictureUrl: string) =>
+  updateUserProfilePicture = (
+    userId: string,
+    profilePictureUrl: string | null,
+  ) =>
     this.handleResponse(
       this.logtoClient.PATCH('/api/users/{userId}', {
         params: {
