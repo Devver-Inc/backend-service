@@ -1,0 +1,34 @@
+{
+  "projectId": "507f1f77bcf86cd799439011",
+  "organizationName": "devver",
+  "projectName": "my-web-app",
+  "organizationDomain": "devver.app",
+  "container": {
+    "image": "nginx:latest",
+    "port": 80,
+    "type": "app",
+    "command": [],
+    "args": []
+  },
+  "resources": {
+    "requestsMemory": "256Mi",
+    "requestsCpu": "250m",
+    "limitsMemory": "512Mi",
+    "limitsCpu": "500m"
+  },
+  "persistence": {
+    "enabled": true,
+    "size": "10Gi",
+    "mountPath": "/data"
+  },
+  "replicaCount": 2,
+  "httpPort": 80,
+  "httpsPort": 443,
+  "labels": {
+    "environment": "production",
+    "team": "backend"
+  },
+  "annotations": {
+    "description": "My web application deployment"
+  }
+}

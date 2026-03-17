@@ -1,0 +1,41 @@
+# Configuration de l'organisation et du projet
+organization:
+  name: "orgtest"  # Nom de l'organisation
+  domain: "devver.app"  # Domaine principal
+
+project:
+  name: "projtest"  # Nom du projet
+
+# Configuration du conteneur (OS Linux complet ou application)
+container:
+  image: "ubuntu/nginx"  # Image du conteneur (OS Linux ou application)
+  port: 80  # Port exposé par le conteneur
+  type: "app"
+
+
+# Configuration des ressources
+resources:
+  requests:
+    memory: "128Mi"
+    cpu: "100m"
+  limits:
+    memory: "128Mi"
+    cpu: "100m"
+
+# Configuration de la persistance
+persistence:
+  enabled: true
+  size: "10Gi"
+  mountPath: "/data"  # Choix du répertoire à persister
+
+# Configuration du nombre de replicas
+replicaCount: 1
+
+# Configuration des ports
+ports:
+  http: 80
+  https: 443
+
+# Labels et sélecteurs additionnels
+labels: {}
+annotations: {}
