@@ -100,7 +100,9 @@ export class DeployAgentService {
     const agentUrl = await this.getAgentUrl(projectId, orgName);
     const agentRepo = await this.deployAgentRequests.createRepo(agentUrl, {
       name: dto.name,
+      baseUrl: agentUrl,
     });
+
     return this.deployAgentRepository
       .createRepo({
         projectId,
@@ -189,7 +191,7 @@ export class DeployAgentService {
       await this.deployAgentRepository.findReposByProject(projectId);
     for (const repo of repos) {
       await this.deployAgentRequests
-        .createRepo(agentUrl, { name: repo.name })
+        .createRepo(agentUrl, { name: repo.name, baseUrl: repo.pushUrl })
         .then(() => {
           restoredRepos += 1;
         })

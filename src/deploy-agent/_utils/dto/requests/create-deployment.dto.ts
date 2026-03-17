@@ -8,8 +8,9 @@ import {
   MinLength,
   ValidateNested,
 } from 'class-validator';
+import { ServiceConfig, Services } from '../../types/agent.types';
 
-export class ServiceConfigDto {
+export class ServiceConfigDto implements ServiceConfig {
   @ApiPropertyOptional({ example: './apps/api' })
   @IsOptional()
   @IsString()
@@ -37,6 +38,20 @@ export class ServiceConfigDto {
   depends?: string[];
 }
 
+export class ServicesDto implements Services {
+  @ApiPropertyOptional({ type: () => ServiceConfigDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ServiceConfigDto)
+  api?: ServiceConfigDto;
+
+  @ApiPropertyOptional({ type: () => ServiceConfigDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ServiceConfigDto)
+  web?: ServiceConfigDto;
+}
+
 export class CreateDeploymentDto {
   @ApiProperty({ example: 'https://github.com/user/repo.git' })
   @IsString()
@@ -53,27 +68,10 @@ export class CreateDeploymentDto {
   @IsString()
   commit?: string;
 
-  @ApiProperty({
-    type: 'object',
-    additionalProperties: { $ref: '#/components/schemas/ServiceConfigDto' },
-    example: {
-      api: {
-        root: './apps/api',
-        build: 'npm run build',
-        start: 'npm run start:prod',
-        depends: ['database'],
-      },
-      web: {
-        root: './apps/web',
-        build: 'npm run build',
-        start: 'npm run start',
-      },
-    },
-  })
-  @IsObject()
-  @ValidateNested({ each: true })
-  @Type(() => ServiceConfigDto)
-  services: Record<string, ServiceConfigDto>;
+  @ApiProperty({ type: () => ServicesDto })
+  @ValidateNested()
+  @Type(() => ServicesDto)
+  services: ServicesDto;
 
   @ApiPropertyOptional({
     type: 'object',

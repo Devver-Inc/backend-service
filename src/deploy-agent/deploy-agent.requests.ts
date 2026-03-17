@@ -1,15 +1,16 @@
 import {
   BadRequestException,
-  HttpException,
   HttpStatus,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
+  ServiceUnavailableException,
   UnauthorizedException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
-import { AxiosError } from 'axios';
+import { AxiosError, isAxiosError } from 'axios';
 import { firstValueFrom } from 'rxjs';
 import { EnvironmentVariables } from 'src/_utils/config/env.config';
 import {
@@ -46,6 +47,9 @@ export class DeployAgentRequests {
     if (!data || typeof data !== 'object') return {};
 
     const payload = data as {
+      type?: string;
+      on?: string;
+      found?: unknown;
       error?:
         | string
         | {
@@ -64,6 +68,13 @@ export class DeployAgentRequests {
           };
       message?: string;
     };
+
+    if (payload.type === 'validation') {
+      return {
+        message: `Validation failed on ${payload.on}`,
+        details: payload.found ? JSON.stringify(payload.found) : undefined,
+      };
+    }
 
     if (typeof payload.error === 'string') {
       return { message: payload.error };
@@ -126,23 +137,25 @@ export class DeployAgentRequests {
   }
 
   private handleError(err: unknown, fallbackCode: ErrorCode): never {
-    if (err instanceof AxiosError && err.response) {
+    if (isAxiosError(err) && err.response) {
       const structuredError = this.buildStructuredError(err, fallbackCode);
       switch (err.response.status) {
-        case 401:
+        case HttpStatus.UNAUTHORIZED:
           throw new UnauthorizedException(structuredError);
-        case 404:
+        case HttpStatus.NOT_FOUND:
           throw new NotFoundException(structuredError);
-        case 400:
+        case HttpStatus.BAD_REQUEST:
           throw new BadRequestException(structuredError);
+        case HttpStatus.UNPROCESSABLE_ENTITY:
+          throw new UnprocessableEntityException(structuredError);
+        case HttpStatus.INTERNAL_SERVER_ERROR:
+          throw new InternalServerErrorException(structuredError);
         default:
-          if (err.response.status >= 500)
-            throw new InternalServerErrorException(structuredError);
-          throw new HttpException(structuredError, err.response.status);
+          throw new ServiceUnavailableException(structuredError);
       }
     }
 
-    throw new InternalServerErrorException({
+    throw new ServiceUnavailableException({
       success: false,
       error: {
         code: fallbackCode,

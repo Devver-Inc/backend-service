@@ -1,7 +1,4 @@
-import {
-  DeploymentStatus,
-  ServiceConfig,
-} from '../../../schemas/deployment.schema';
+import { DeploymentStatus, Services } from '../../../schemas/deployment.schema';
 import { PM2Action } from '../../types/agent.types';
 
 export class LogEntryDto {
@@ -16,7 +13,7 @@ export class GetDeploymentDto {
   repo: string;
   branch: string;
   commit: string | null;
-  services: Record<string, ServiceConfig>;
+  services: Services;
   status: DeploymentStatus;
   createdAt: Date;
   updatedAt: Date;

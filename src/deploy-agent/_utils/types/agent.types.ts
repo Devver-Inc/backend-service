@@ -48,15 +48,21 @@ export interface ServiceConfig {
   depends?: string[];
 }
 
+export interface Services {
+  api?: ServiceConfig;
+  web?: ServiceConfig;
+}
+
 export interface CreateRepoRequest {
   name: string;
+  baseUrl: string;
 }
 
 export interface DeployRequest {
   repo: string;
   branch: string;
   commit?: string;
-  services: Record<string, ServiceConfig>;
+  services: Services;
   links?: Record<string, Record<string, string>>;
   env?: Record<string, Record<string, string>>;
 }

@@ -1,9 +1,9 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument } from 'mongoose';
-import { ServiceConfig } from '../_utils/types/agent.types';
+import { Services } from '../_utils/types/agent.types';
 import { DeploymentStatus } from '../_utils/types/deployment.types';
 
-export type { ServiceConfig };
+export type { Services };
 export { DeploymentStatus };
 
 export type DeploymentDocument = HydratedDocument<Deployment>;
@@ -26,7 +26,7 @@ export class Deployment {
   commit?: string;
 
   @Prop({ type: Object, required: true })
-  services: Record<string, ServiceConfig>;
+  services: Services;
 
   @Prop({ type: Object })
   links?: Record<string, Record<string, string>>;
