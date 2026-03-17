@@ -3,6 +3,12 @@ import { HydratedDocument, Types } from 'mongoose';
 import { MongooseObjectId } from 'src/_utils/types';
 import { Project, ProjectDocument } from 'src/projects/project.schema';
 
+export enum DeploymentStatus {
+  PENDING = 'pending',
+  DEPLOYED = 'deployed',
+  FAILED = 'failed',
+}
+
 export type DeploymentDocument = HydratedDocument<Deployment>;
 export type DeploymentWithProject = Omit<DeploymentDocument, 'project'> & {
   project: ProjectDocument;
@@ -111,10 +117,10 @@ export class Deployment {
 
   @Prop({
     type: String,
-    enum: ['pending', 'deployed', 'failed'],
-    default: 'pending',
+    enum: Object.values(DeploymentStatus),
+    default: DeploymentStatus.PENDING,
   })
-  status: 'pending' | 'deployed' | 'failed';
+  status: DeploymentStatus;
 
   createdAt: Date;
   updatedAt: Date;

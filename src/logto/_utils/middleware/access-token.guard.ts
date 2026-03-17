@@ -23,10 +23,15 @@ export class AccessTokenGuard implements CanActivate {
       const authInfo = await this.logtoService.createAuthInfo(payload);
       request.auth = authInfo;
       return true;
-    } catch (error) {
-      if (error.status === 401)
-        throw new UnauthorizedException(error.message || 'Unauthorized');
-      throw new ForbiddenException(error.message);
+    } catch (error: unknown) {
+      const status =
+        error != null && typeof error === 'object' && 'status' in error
+          ? (error as { status: number }).status
+          : undefined;
+      if (status === 403) {
+        throw new ForbiddenException('Forbidden');
+      }
+      throw new UnauthorizedException('Unauthorized');
     }
   }
 }

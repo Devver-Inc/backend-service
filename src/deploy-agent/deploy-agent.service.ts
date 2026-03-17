@@ -1,10 +1,11 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EnvironmentVariables } from 'src/_utils/config/env.config';
+import { toSlug } from 'src/_utils/functions/to-slug.function';
+import { LogtoUserWithOrganizations } from 'src/logto/_utils/types/user-with-organization.type';
 import { ProjectsService } from 'src/projects/projects.service';
-import { CreateAgentDeploymentDto } from './_utils/dto/requests/create-deployment.dto';
-import type { ServiceName, ServiceConfig } from './_utils/types/agent.types';
 import { ControlPm2ProcessDto } from './_utils/dto/requests/control-pm2-process.dto';
+import { CreateAgentDeploymentDto } from './_utils/dto/requests/create-deployment.dto';
 import { CreateRepoDto } from './_utils/dto/requests/create-repo.dto';
 import {
   ControlPm2ProcessResultDto,
@@ -13,13 +14,16 @@ import {
   RestoreResultDto,
 } from './_utils/dto/responses/get-deployment.dto';
 import { GetRepoDto } from './_utils/dto/responses/get-repo.dto';
+import { DeployAgentExceptions } from './_utils/errors/deploy-agent-exceptions';
+import type { ServiceConfig, ServiceName } from './_utils/types/agent.types';
+import { AgentDeploymentStatus } from './_utils/types/deployment.types';
 import { DeployAgentMapper } from './deploy-agent.mapper';
 import { DeployAgentRepository } from './deploy-agent.repository';
 import { DeployAgentRequests } from './deploy-agent.requests';
-import { DeploymentStatus } from './_utils/types/deployment.types';
 
 @Injectable()
 export class DeployAgentService {
+  private readonly logger = new Logger(DeployAgentService.name);
   private readonly baseDomain: string;
 
   constructor(
@@ -27,78 +31,115 @@ export class DeployAgentService {
     private readonly deployAgentRequests: DeployAgentRequests,
     private readonly deployAgentMapper: DeployAgentMapper,
     private readonly projectsService: ProjectsService,
+    private readonly exceptions: DeployAgentExceptions,
     configService: ConfigService<EnvironmentVariables, true>,
   ) {
     this.baseDomain = configService.get('DEPLOY_AGENT').K8S_BASE_DOMAIN;
   }
 
-  private toSlug = (value: string): string =>
-    value
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '');
-
   private buildAgentUrl = (orgName: string, projectName: string): string =>
-    `https://${this.toSlug(orgName)}.${this.toSlug(projectName)}.${this.baseDomain}`;
+    `https://${toSlug(orgName)}.${toSlug(projectName)}.${this.baseDomain}`;
 
   private getAgentUrl = (projectId: string, orgName: string): Promise<string> =>
     this.projectsService
       .findProjectById(projectId)
       .then((project) => this.buildAgentUrl(orgName, project.name));
 
-  listRepos = (projectId: string): Promise<GetRepoDto[]> =>
-    this.deployAgentRepository
+  private verifyProjectOwnership = async (
+    projectId: string,
+    user: LogtoUserWithOrganizations,
+  ): Promise<void> => {
+    const project = await this.projectsService.findProjectById(projectId);
+    if (project.organizationId !== user.currentOrganization.id) {
+      throw this.exceptions.PROJECT_ACCESS_DENIED;
+    }
+    if (!user.isAdmin && !project.teamMemberIds.includes(user.id)) {
+      throw this.exceptions.PROJECT_ACCESS_DENIED;
+    }
+  };
+
+  listRepos = async (
+    projectId: string,
+    user: LogtoUserWithOrganizations,
+  ): Promise<GetRepoDto[]> => {
+    await this.verifyProjectOwnership(projectId, user);
+    return this.deployAgentRepository
       .findReposByProject(projectId)
       .then((docs) => docs.map(this.deployAgentMapper.toRepoDto));
+  };
 
-  listDeployments = (projectId: string): Promise<GetAgentDeploymentDto[]> =>
-    this.deployAgentRepository
+  listDeployments = async (
+    projectId: string,
+    user: LogtoUserWithOrganizations,
+  ): Promise<GetAgentDeploymentDto[]> => {
+    await this.verifyProjectOwnership(projectId, user);
+    return this.deployAgentRepository
       .findDeploymentsByProject(projectId)
       .then((docs) => docs.map(this.deployAgentMapper.toDeploymentDto));
+  };
 
-  getLogs = (
+  getLogs = async (
     projectId: string,
-    orgName: string,
     deploymentId: string,
-  ): Promise<GetLogsDto> =>
-    this.getAgentUrl(projectId, orgName).then((agentUrl) =>
-      this.deployAgentRequests.getLogs(agentUrl, deploymentId),
+    user: LogtoUserWithOrganizations,
+  ): Promise<GetLogsDto> => {
+    await this.verifyProjectOwnership(projectId, user);
+    const agentUrl = await this.getAgentUrl(
+      projectId,
+      user.currentOrganization.name,
     );
+    return this.deployAgentRequests.getLogs(agentUrl, deploymentId);
+  };
 
-  startProcess = (
+  startProcess = async (
     projectId: string,
-    orgName: string,
     dto: ControlPm2ProcessDto,
-  ): Promise<ControlPm2ProcessResultDto> =>
-    this.getAgentUrl(projectId, orgName).then((agentUrl) =>
-      this.deployAgentRequests.startProcess(agentUrl, dto.name),
+    user: LogtoUserWithOrganizations,
+  ): Promise<ControlPm2ProcessResultDto> => {
+    await this.verifyProjectOwnership(projectId, user);
+    const agentUrl = await this.getAgentUrl(
+      projectId,
+      user.currentOrganization.name,
     );
+    return this.deployAgentRequests.startProcess(agentUrl, dto.name);
+  };
 
-  stopProcess = (
+  stopProcess = async (
     projectId: string,
-    orgName: string,
     dto: ControlPm2ProcessDto,
-  ): Promise<ControlPm2ProcessResultDto> =>
-    this.getAgentUrl(projectId, orgName).then((agentUrl) =>
-      this.deployAgentRequests.stopProcess(agentUrl, dto.name),
+    user: LogtoUserWithOrganizations,
+  ): Promise<ControlPm2ProcessResultDto> => {
+    await this.verifyProjectOwnership(projectId, user);
+    const agentUrl = await this.getAgentUrl(
+      projectId,
+      user.currentOrganization.name,
     );
+    return this.deployAgentRequests.stopProcess(agentUrl, dto.name);
+  };
 
-  restartProcess = (
+  restartProcess = async (
     projectId: string,
-    orgName: string,
     dto: ControlPm2ProcessDto,
-  ): Promise<ControlPm2ProcessResultDto> =>
-    this.getAgentUrl(projectId, orgName).then((agentUrl) =>
-      this.deployAgentRequests.restartProcess(agentUrl, dto.name),
+    user: LogtoUserWithOrganizations,
+  ): Promise<ControlPm2ProcessResultDto> => {
+    await this.verifyProjectOwnership(projectId, user);
+    const agentUrl = await this.getAgentUrl(
+      projectId,
+      user.currentOrganization.name,
     );
+    return this.deployAgentRequests.restartProcess(agentUrl, dto.name);
+  };
 
   createRepo = async (
     projectId: string,
-    organizationId: string,
-    orgName: string,
     dto: CreateRepoDto,
+    user: LogtoUserWithOrganizations,
   ): Promise<GetRepoDto> => {
-    const agentUrl = await this.getAgentUrl(projectId, orgName);
+    await this.verifyProjectOwnership(projectId, user);
+    const agentUrl = await this.getAgentUrl(
+      projectId,
+      user.currentOrganization.name,
+    );
     const agentRepo = await this.deployAgentRequests.createRepo(agentUrl, {
       name: dto.name,
       baseUrl: agentUrl,
@@ -107,7 +148,7 @@ export class DeployAgentService {
     return this.deployAgentRepository
       .createRepo({
         projectId,
-        organizationId,
+        organizationId: user.currentOrganization.id,
         name: agentRepo.name,
         pushUrl: agentRepo.pushUrl,
       })
@@ -116,11 +157,15 @@ export class DeployAgentService {
 
   deleteRepo = async (
     projectId: string,
-    orgName: string,
     name: string,
+    user: LogtoUserWithOrganizations,
   ): Promise<void> => {
+    await this.verifyProjectOwnership(projectId, user);
     await this.deployAgentRepository.findRepo(projectId, name);
-    const agentUrl = await this.getAgentUrl(projectId, orgName);
+    const agentUrl = await this.getAgentUrl(
+      projectId,
+      user.currentOrganization.name,
+    );
     await this.deployAgentRequests.deleteRepo(agentUrl, name);
     await this.deployAgentRepository.markDeploymentsByRepoRemoved(
       projectId,
@@ -131,11 +176,14 @@ export class DeployAgentService {
 
   deploy = async (
     projectId: string,
-    organizationId: string,
-    orgName: string,
     dto: CreateAgentDeploymentDto,
+    user: LogtoUserWithOrganizations,
   ): Promise<GetAgentDeploymentDto> => {
-    const agentUrl = await this.getAgentUrl(projectId, orgName);
+    await this.verifyProjectOwnership(projectId, user);
+    const agentUrl = await this.getAgentUrl(
+      projectId,
+      user.currentOrganization.name,
+    );
 
     const serviceEntries = (
       Object.entries(dto.services) as [ServiceName, ServiceConfig | undefined][]
@@ -143,15 +191,9 @@ export class DeployAgentService {
       (entry): entry is [ServiceName, ServiceConfig] => entry[1] != null,
     );
 
-    if (serviceEntries.length === 0) {
-      throw new BadRequestException(
-        'At least one service (web or api) must be defined',
-      );
-    }
-
     const deploymentData = {
       projectId,
-      organizationId,
+      organizationId: user.currentOrganization.id,
       repo: dto.repo,
       branch: dto.branch,
       commit: dto.commit,
@@ -172,7 +214,7 @@ export class DeployAgentService {
       if (!result.success) {
         await this.deployAgentRepository.upsertDeployment({
           ...deploymentData,
-          status: DeploymentStatus.FAILED,
+          status: AgentDeploymentStatus.FAILED,
         });
         throw new BadRequestException(result);
       }
@@ -181,26 +223,34 @@ export class DeployAgentService {
     return this.deployAgentRepository
       .upsertDeployment({
         ...deploymentData,
-        status: DeploymentStatus.DEPLOYED,
+        status: AgentDeploymentStatus.DEPLOYED,
       })
       .then(this.deployAgentMapper.toDeploymentDto);
   };
 
   removeDeployment = async (
     projectId: string,
-    orgName: string,
     deploymentId: string,
+    user: LogtoUserWithOrganizations,
   ): Promise<void> => {
-    const agentUrl = await this.getAgentUrl(projectId, orgName);
+    await this.verifyProjectOwnership(projectId, user);
+    const agentUrl = await this.getAgentUrl(
+      projectId,
+      user.currentOrganization.name,
+    );
     await this.deployAgentRequests.removeDeployment(agentUrl, deploymentId);
     await this.deployAgentRepository.markDeploymentRemovedById(deploymentId);
   };
 
   restoreState = async (
     projectId: string,
-    orgName: string,
+    user: LogtoUserWithOrganizations,
   ): Promise<RestoreResultDto> => {
-    const agentUrl = await this.getAgentUrl(projectId, orgName);
+    await this.verifyProjectOwnership(projectId, user);
+    const agentUrl = await this.getAgentUrl(
+      projectId,
+      user.currentOrganization.name,
+    );
     let restoredRepos = 0;
     let restoredDeployments = 0;
 
@@ -212,13 +262,17 @@ export class DeployAgentService {
         .then(() => {
           restoredRepos += 1;
         })
-        .catch(() => {});
+        .catch((err: unknown) => {
+          this.logger.warn(
+            `Failed to restore repo "${repo.name}": ${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
     }
 
     const deployments =
       await this.deployAgentRepository.findDeploymentsByProject(
         projectId,
-        DeploymentStatus.DEPLOYED,
+        AgentDeploymentStatus.DEPLOYED,
       );
     for (const dep of deployments) {
       const serviceEntries = (

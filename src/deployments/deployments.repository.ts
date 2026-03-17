@@ -2,10 +2,16 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { DeploymentDomain } from './deployment.domain';
-import { Deployment, DeploymentDocument } from './deployment.schema';
+import {
+  Deployment,
+  DeploymentDocument,
+  DeploymentStatus,
+} from './deployment.schema';
 
 @Injectable()
 export class DeploymentsRepository {
+  private readonly DEPLOYMENT_NOT_FOUND = 'DEPLOYMENT_NOT_FOUND';
+
   constructor(
     @InjectModel(Deployment.name)
     private readonly deploymentModel: Model<DeploymentDocument>,
@@ -35,7 +41,7 @@ export class DeploymentsRepository {
   async findById(id: string): Promise<DeploymentDocument> {
     return this.deploymentModel
       .findById(id)
-      .orFail(new NotFoundException(`Deployment with id ${id} not found`))
+      .orFail(new NotFoundException(this.DEPLOYMENT_NOT_FOUND))
       .exec();
   }
 
@@ -62,11 +68,11 @@ export class DeploymentsRepository {
 
   async updateStatus(
     id: string,
-    status: 'pending' | 'deployed' | 'failed',
+    status: DeploymentStatus,
   ): Promise<DeploymentDocument> {
     return this.deploymentModel
       .findByIdAndUpdate(id, { status }, { new: true })
-      .orFail(new NotFoundException(`Deployment with id ${id} not found`))
+      .orFail(new NotFoundException(this.DEPLOYMENT_NOT_FOUND))
       .exec();
   }
 
@@ -93,19 +99,20 @@ export class DeploymentsRepository {
         },
         { new: true },
       )
-      .orFail(new NotFoundException(`Deployment with id ${id} not found`))
+      .orFail(new NotFoundException(this.DEPLOYMENT_NOT_FOUND))
       .exec();
   }
 
   async delete(id: string): Promise<void> {
     await this.deploymentModel
       .findByIdAndDelete(id)
-      .orFail(new NotFoundException(`Deployment with id ${id} not found`))
+      .orFail(new NotFoundException(this.DEPLOYMENT_NOT_FOUND))
       .exec();
   }
 
-  deleteByProject = (projectId: string): Promise<unknown> =>
+  deleteByProject = (projectId: string): Promise<void> =>
     this.deploymentModel
       .deleteMany({ project: new Types.ObjectId(projectId) })
-      .exec();
+      .exec()
+      .then(() => {});
 }

@@ -1,4 +1,6 @@
+import { toSlug } from 'src/_utils/functions/to-slug.function';
 import { CreateDeploymentDto } from './_utils/dto/requests/create-deployment.dto';
+import { DeploymentStatus } from './deployment.schema';
 
 interface DeploymentDomainProps {
   organizationId: string;
@@ -36,7 +38,7 @@ interface DeploymentDomainProps {
   labels?: Record<string, string>;
   annotations?: Record<string, string>;
   githubPath: string;
-  status?: 'pending' | 'deployed' | 'failed';
+  status?: DeploymentStatus;
 }
 
 export class DeploymentDomain {
@@ -75,7 +77,7 @@ export class DeploymentDomain {
   readonly labels: Record<string, string>;
   readonly annotations: Record<string, string>;
   readonly githubPath: string;
-  readonly status: 'pending' | 'deployed' | 'failed';
+  readonly status: DeploymentStatus;
 
   private constructor(props: DeploymentDomainProps) {
     this.organizationId = props.organizationId;
@@ -91,7 +93,7 @@ export class DeploymentDomain {
     this.labels = props.labels || {};
     this.annotations = props.annotations || {};
     this.githubPath = props.githubPath;
-    this.status = props.status || 'pending';
+    this.status = props.status ?? DeploymentStatus.PENDING;
   }
 
   static create(
@@ -99,7 +101,7 @@ export class DeploymentDomain {
     organizationId: string,
     projectId: string,
   ): DeploymentDomain {
-    const githubPath = `${dto.organizationName}/${dto.projectName}/values.yaml`;
+    const githubPath = `${toSlug(dto.organizationName)}/${toSlug(dto.projectName)}/values.yaml`;
 
     return new DeploymentDomain({
       organizationId,
@@ -137,7 +139,7 @@ export class DeploymentDomain {
       labels: dto.labels,
       annotations: dto.annotations,
       githubPath,
-      status: 'pending',
+      status: DeploymentStatus.PENDING,
     });
   }
 }

@@ -35,8 +35,9 @@ export class DeployAgentController {
   @ApiParam({ name: 'projectId', type: String })
   async listRepos(
     @Param('projectId') projectId: string,
+    @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
   ): Promise<GetRepoDto[]> {
-    return this.deployAgentService.listRepos(projectId);
+    return this.deployAgentService.listRepos(projectId, user);
   }
 
   @Protect({ roles: [UserRoleEnum.ADMIN, UserRoleEnum.DEVELOPER] })
@@ -48,12 +49,7 @@ export class DeployAgentController {
     @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
     @Body() dto: CreateRepoDto,
   ): Promise<GetRepoDto> {
-    return this.deployAgentService.createRepo(
-      projectId,
-      user.currentOrganization.id,
-      user.currentOrganization.name,
-      dto,
-    );
+    return this.deployAgentService.createRepo(projectId, dto, user);
   }
 
   @Protect({ roles: [UserRoleEnum.ADMIN] })
@@ -67,11 +63,7 @@ export class DeployAgentController {
     @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
     @Param('name') name: string,
   ): Promise<void> {
-    return this.deployAgentService.deleteRepo(
-      projectId,
-      user.currentOrganization.name,
-      name,
-    );
+    return this.deployAgentService.deleteRepo(projectId, name, user);
   }
 
   @Protect({ roles: [UserRoleEnum.ADMIN, UserRoleEnum.DEVELOPER] })
@@ -83,12 +75,7 @@ export class DeployAgentController {
     @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
     @Body() dto: CreateAgentDeploymentDto,
   ): Promise<GetAgentDeploymentDto> {
-    return this.deployAgentService.deploy(
-      projectId,
-      user.currentOrganization.id,
-      user.currentOrganization.name,
-      dto,
-    );
+    return this.deployAgentService.deploy(projectId, dto, user);
   }
 
   @Protect()
@@ -97,8 +84,9 @@ export class DeployAgentController {
   @ApiParam({ name: 'projectId', type: String })
   async listDeployments(
     @Param('projectId') projectId: string,
+    @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
   ): Promise<GetAgentDeploymentDto[]> {
-    return this.deployAgentService.listDeployments(projectId);
+    return this.deployAgentService.listDeployments(projectId, user);
   }
 
   @Protect({ roles: [UserRoleEnum.ADMIN, UserRoleEnum.DEVELOPER] })
@@ -114,8 +102,8 @@ export class DeployAgentController {
   ): Promise<void> {
     return this.deployAgentService.removeDeployment(
       projectId,
-      user.currentOrganization.name,
       deploymentId,
+      user,
     );
   }
 
@@ -129,11 +117,7 @@ export class DeployAgentController {
     @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
     @Param('deploymentId') deploymentId: string,
   ): Promise<GetLogsDto> {
-    return this.deployAgentService.getLogs(
-      projectId,
-      user.currentOrganization.name,
-      deploymentId,
-    );
+    return this.deployAgentService.getLogs(projectId, deploymentId, user);
   }
 
   @Protect({ roles: [UserRoleEnum.ADMIN, UserRoleEnum.DEVELOPER] })
@@ -145,11 +129,7 @@ export class DeployAgentController {
     @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
     @Body() dto: ControlPm2ProcessDto,
   ): Promise<ControlPm2ProcessResultDto> {
-    return this.deployAgentService.startProcess(
-      projectId,
-      user.currentOrganization.name,
-      dto,
-    );
+    return this.deployAgentService.startProcess(projectId, dto, user);
   }
 
   @Protect({ roles: [UserRoleEnum.ADMIN, UserRoleEnum.DEVELOPER] })
@@ -161,11 +141,7 @@ export class DeployAgentController {
     @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
     @Body() dto: ControlPm2ProcessDto,
   ): Promise<ControlPm2ProcessResultDto> {
-    return this.deployAgentService.stopProcess(
-      projectId,
-      user.currentOrganization.name,
-      dto,
-    );
+    return this.deployAgentService.stopProcess(projectId, dto, user);
   }
 
   @Protect({ roles: [UserRoleEnum.ADMIN, UserRoleEnum.DEVELOPER] })
@@ -177,15 +153,11 @@ export class DeployAgentController {
     @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
     @Body() dto: ControlPm2ProcessDto,
   ): Promise<ControlPm2ProcessResultDto> {
-    return this.deployAgentService.restartProcess(
-      projectId,
-      user.currentOrganization.name,
-      dto,
-    );
+    return this.deployAgentService.restartProcess(projectId, dto, user);
   }
 
   @Protect({ roles: [UserRoleEnum.ADMIN] })
-  @Post('deploy-agent/restore')
+  @Post('restore')
   @ApiOperation({
     summary: 'Replay all repos and active deployments to a fresh deploy agent',
   })
@@ -194,9 +166,6 @@ export class DeployAgentController {
     @Param('projectId') projectId: string,
     @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
   ): Promise<RestoreResultDto> {
-    return this.deployAgentService.restoreState(
-      projectId,
-      user.currentOrganization.name,
-    );
+    return this.deployAgentService.restoreState(projectId, user);
   }
 }

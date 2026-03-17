@@ -1,10 +1,10 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument } from 'mongoose';
 import { Services } from '../_utils/types/agent.types';
-import { DeploymentStatus } from '../_utils/types/deployment.types';
+import { AgentDeploymentStatus } from '../_utils/types/deployment.types';
 
 export type { Services };
-export { DeploymentStatus };
+export { AgentDeploymentStatus };
 
 export type DeploymentDocument = HydratedDocument<Deployment>;
 
@@ -36,9 +36,9 @@ export class Deployment {
 
   @Prop({
     type: String,
-    enum: DeploymentStatus,
+    enum: AgentDeploymentStatus,
   })
-  status: DeploymentStatus;
+  status: AgentDeploymentStatus;
 
   createdAt: Date;
   updatedAt: Date;

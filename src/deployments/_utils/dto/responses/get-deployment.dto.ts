@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { DeploymentStatus } from 'src/deployments/deployment.schema';
 
 class ContainerDto {
   @ApiProperty({ example: 'nginx:latest' })
@@ -103,8 +104,8 @@ export class GetDeploymentDto {
   @ApiProperty({ example: 'devver/my-web-app/values.yaml' })
   githubPath: string;
 
-  @ApiProperty({ example: 'deployed', enum: ['pending', 'deployed', 'failed'] })
-  status: 'pending' | 'deployed' | 'failed';
+  @ApiProperty({ example: DeploymentStatus.DEPLOYED, enum: DeploymentStatus })
+  status: DeploymentStatus;
 
   @ApiProperty({ example: '2024-01-15T10:30:00.000Z' })
   createdAt: Date;
@@ -126,8 +127,8 @@ export class GetDeploymentLightDto {
   @ApiProperty({ example: 'nginx:latest' })
   containerImage: string;
 
-  @ApiProperty({ example: 'deployed', enum: ['pending', 'deployed', 'failed'] })
-  status: 'pending' | 'deployed' | 'failed';
+  @ApiProperty({ example: DeploymentStatus.DEPLOYED, enum: DeploymentStatus })
+  status: DeploymentStatus;
 
   @ApiProperty({ example: 2 })
   replicaCount: number;

@@ -5,6 +5,7 @@ import { CommentsController } from './comments.controller';
 import { CommentsMapper } from './comments.mapper';
 import { CommentsRepository } from './comments.repository';
 import { Comment, CommentSchema } from './comments.schema';
+import { CommentsExceptions } from './_utils/errors/comments-exceptions';
 import { CommentsService } from './comments.service';
 
 @Module({
@@ -18,6 +19,11 @@ import { CommentsService } from './comments.service';
     forwardRef(() => ProjectsModule),
   ],
   controllers: [CommentsController],
-  providers: [CommentsService, CommentsMapper, CommentsRepository],
+  providers: [
+    CommentsService,
+    CommentsMapper,
+    CommentsRepository,
+    CommentsExceptions,
+  ],
 })
 export class CommentsModule {}

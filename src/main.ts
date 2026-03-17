@@ -30,6 +30,13 @@ async function bootstrap() {
     .setGlobalPrefix('api/v1')
     .useGlobalPipes(new ValidationPipe(ValidationPipeOptionsConfig))
     .enableCors({ origin: '*' });
+  // .enableCors({
+  //   origin: corsConfig?.ALLOWED_ORIGINS?.length
+  //     ? corsConfig.ALLOWED_ORIGINS
+  //     : ['http://localhost:3000'],
+  //   credentials: true,
+  //   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  // });
 
   app.set('query parser', 'extended');
 

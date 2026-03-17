@@ -9,6 +9,7 @@ import { DeployAgentRequests } from './deploy-agent.requests';
 import { DeployAgentService } from './deploy-agent.service';
 import { Deployment, DeploymentSchema } from './schemas/deployment.schema';
 import { DeployRepo, DeployRepoSchema } from './schemas/repo.schema';
+import { DeployAgentExceptions } from './_utils/errors/deploy-agent-exceptions';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { DeployRepo, DeployRepoSchema } from './schemas/repo.schema';
     DeployAgentRepository,
     DeployAgentRequests,
     DeployAgentMapper,
+    DeployAgentExceptions,
   ],
 })
 export class DeployAgentModule {}

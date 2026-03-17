@@ -2,20 +2,22 @@ import { Injectable } from '@nestjs/common';
 import { toPaginatedDto } from 'src/_utils/pagination/pagination.mapper';
 import { PaginationDto } from 'src/_utils/pagination/responses/pagination.dto';
 import { LogtoUserWithOrganizations } from 'src/logto/_utils/types/user-with-organization.type';
-import { ProjectsRepository } from 'src/projects/projects.repository';
+import { ProjectsService } from 'src/projects/projects.service';
 import { CommentsPaginatedQueryDto } from './_utils/dto/query/comments-paginated-query.dto';
 import { CreateCommentDto } from './_utils/dto/requests/create-comment.dto';
 import { GetCommentDto } from './_utils/dto/responses/get-comment.dto';
 import { CommentDomain } from './comment.domain';
 import { CommentsMapper } from './comments.mapper';
+import { CommentsExceptions } from './_utils/errors/comments-exceptions';
 import { CommentsRepository } from './comments.repository';
 
 @Injectable()
 export class CommentsService {
   constructor(
     private readonly commentsRepository: CommentsRepository,
-    private readonly projectsRepository: ProjectsRepository,
+    private readonly projectsService: ProjectsService,
     private readonly commentsMapper: CommentsMapper,
+    private readonly exceptions: CommentsExceptions,
   ) {}
 
   async getComments(
@@ -23,7 +25,7 @@ export class CommentsService {
     query: CommentsPaginatedQueryDto,
     projectId: string,
   ): Promise<PaginationDto<GetCommentDto[]>> {
-    await this.projectsRepository.findByProjectAndOrganizationId(
+    await this.projectsService.findByProjectAndOrganizationId(
       projectId,
       user.currentOrganization.id,
     );
@@ -48,10 +50,18 @@ export class CommentsService {
     dto: CreateCommentDto,
     projectId: string,
   ): Promise<GetCommentDto> {
-    await this.projectsRepository.findByProjectAndOrganizationId(
+    const project = await this.projectsService.findByProjectAndOrganizationId(
       projectId,
       user.currentOrganization.id,
     );
+
+    if (project.accessControl.restrictToTeamMembers) {
+      const isTeamMember = project.teamMemberIds.includes(user.id);
+
+      if (!user.isAdmin && !isTeamMember) {
+        throw this.exceptions.COMMENT_ACCESS_DENIED;
+      }
+    }
 
     const domain = CommentDomain.create(
       dto,

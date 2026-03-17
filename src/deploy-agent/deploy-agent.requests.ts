@@ -177,7 +177,7 @@ export class DeployAgentRequests {
       );
       return data;
     } catch (err) {
-      this.handleError(err, ErrorCode.REPO_CREATE_FAILED);
+      throw this.handleError(err, ErrorCode.REPO_CREATE_FAILED);
     }
   }
 
@@ -190,7 +190,7 @@ export class DeployAgentRequests {
         ),
       );
     } catch (err) {
-      this.handleError(err, ErrorCode.REPO_DELETE_FAILED);
+      throw this.handleError(err, ErrorCode.REPO_DELETE_FAILED);
     }
   }
 
@@ -203,7 +203,7 @@ export class DeployAgentRequests {
       );
       return data;
     } catch (err) {
-      this.handleError(err, ErrorCode.DEPLOY_ERROR);
+      throw this.handleError(err, ErrorCode.DEPLOY_ERROR);
     }
   }
 
@@ -219,7 +219,7 @@ export class DeployAgentRequests {
         ),
       );
     } catch (err) {
-      this.handleError(err, ErrorCode.DEPLOYMENT_DELETE_FAILED);
+      throw this.handleError(err, ErrorCode.DEPLOYMENT_DELETE_FAILED);
     }
   }
 
@@ -233,7 +233,7 @@ export class DeployAgentRequests {
       );
       return data;
     } catch (err) {
-      this.handleError(err, ErrorCode.LOGS_FETCH_FAILED);
+      throw this.handleError(err, ErrorCode.LOGS_FETCH_FAILED);
     }
   }
 
@@ -251,7 +251,7 @@ export class DeployAgentRequests {
       );
       return data;
     } catch (err) {
-      this.handleError(err, ErrorCode.PM2_START_FAILED);
+      throw this.handleError(err, ErrorCode.PM2_START_FAILED);
     }
   }
 
@@ -269,7 +269,7 @@ export class DeployAgentRequests {
       );
       return data;
     } catch (err) {
-      this.handleError(err, ErrorCode.PM2_STOP_FAILED);
+      throw this.handleError(err, ErrorCode.PM2_STOP_FAILED);
     }
   }
 
@@ -287,7 +287,7 @@ export class DeployAgentRequests {
       );
       return data;
     } catch (err) {
-      this.handleError(err, ErrorCode.PM2_RESTART_FAILED);
+      throw this.handleError(err, ErrorCode.PM2_RESTART_FAILED);
     }
   }
 }

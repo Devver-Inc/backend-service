@@ -1,10 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import {
   CreateDeploymentData,
   CreateRepoData,
-  DeploymentStatus,
+  AgentDeploymentStatus,
 } from './_utils/types/deployment.types';
 import { Deployment, DeploymentDocument } from './schemas/deployment.schema';
 import { DeployRepo, DeployRepoDocument } from './schemas/repo.schema';
@@ -43,7 +43,7 @@ export class DeployAgentRepository {
       .then(() => {});
 
   upsertDeployment = (
-    data: CreateDeploymentData & { status: DeploymentStatus },
+    data: CreateDeploymentData & { status: AgentDeploymentStatus },
   ): Promise<DeploymentDocument> =>
     this.deploymentModel
       .findOneAndUpdate(
@@ -51,43 +51,23 @@ export class DeployAgentRepository {
         { $set: { ...data } },
         { upsert: true, new: true },
       )
-      .orFail(new NotFoundException(this.DEPLOYMENT_NOT_FOUND))
       .exec();
 
   findDeploymentsByProject = async (
     projectId: string,
-    status?: DeploymentStatus,
+    status?: AgentDeploymentStatus,
   ): Promise<DeploymentLean[]> => {
     const filter: Record<string, unknown> = { projectId };
     if (status) filter.status = status;
     return this.deploymentModel.find(filter).lean().exec();
   };
 
-  findActiveDeploymentsByProject = (
-    projectId: string,
-  ): Promise<DeploymentLean[]> =>
-    this.deploymentModel
-      .find({ projectId, status: { $ne: DeploymentStatus.REMOVED } })
-      .lean()
-      .exec();
-
-  markDeploymentRemoved = async (
-    projectId: string,
-    repo: string,
-    branch: string,
-  ): Promise<void> => {
-    await this.deploymentModel
-      .updateOne(
-        { projectId, repo, branch },
-        { $set: { status: DeploymentStatus.REMOVED } },
-      )
-      .orFail(new NotFoundException(this.DEPLOYMENT_NOT_FOUND))
-      .exec();
-  };
-
   markDeploymentRemovedById = async (id: string): Promise<void> => {
     await this.deploymentModel
-      .updateOne({ _id: id }, { $set: { status: DeploymentStatus.REMOVED } })
+      .updateOne(
+        { _id: new Types.ObjectId(id) },
+        { $set: { status: AgentDeploymentStatus.REMOVED } },
+      )
       .orFail(new NotFoundException(this.DEPLOYMENT_NOT_FOUND))
       .exec();
   };
@@ -99,7 +79,7 @@ export class DeployAgentRepository {
     this.deploymentModel
       .updateMany(
         { projectId, repo },
-        { $set: { status: DeploymentStatus.REMOVED } },
+        { $set: { status: AgentDeploymentStatus.REMOVED } },
       )
       .exec()
       .then(() => {});

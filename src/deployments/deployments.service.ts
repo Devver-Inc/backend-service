@@ -1,12 +1,7 @@
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
 import * as yaml from 'js-yaml';
 import { LogtoUserWithOrganizations } from 'src/logto/_utils/types/user-with-organization.type';
-import { ProjectsRepository } from 'src/projects/projects.repository';
+import { ProjectsService } from 'src/projects/projects.service';
 import { CreateDeploymentDto } from './_utils/dto/requests/create-deployment.dto';
 import {
   GetDeploymentDto,
@@ -15,6 +10,8 @@ import {
 import { DeploymentDomain } from './deployment.domain';
 import { DeploymentMapper } from './deployment.mapper';
 import { DeploymentsRepository } from './deployments.repository';
+import { DeploymentStatus } from './deployment.schema';
+import { DeploymentsExceptions } from './_utils/errors/deployments-exceptions';
 import { GitHubService } from './github.service';
 
 @Injectable()
@@ -23,60 +20,72 @@ export class DeploymentsService {
 
   constructor(
     private readonly deploymentsRepository: DeploymentsRepository,
-    private readonly projectsRepository: ProjectsRepository,
+    @Inject(forwardRef(() => ProjectsService))
+    private readonly projectsService: ProjectsService,
     private readonly deploymentMapper: DeploymentMapper,
     private readonly githubService: GitHubService,
+    private readonly exceptions: DeploymentsExceptions,
   ) {}
 
   /**
    * Generate values.yaml content from deployment domain
    */
   private generateValuesYaml(deployment: DeploymentDomain): string {
-    const yamlContent = `# Configuration de l'organisation et du projet
-organization:
-  name: "${deployment.organizationName}"  # Nom de l'organisation
-  domain: "${deployment.organizationDomain}"  # Domaine principal
+    const obj = {
+      organization: {
+        name: deployment.organizationName,
+        domain: deployment.organizationDomain,
+      },
+      project: {
+        name: deployment.projectName,
+      },
+      container: {
+        image: deployment.container.image,
+        port: deployment.container.port,
+        type: deployment.container.type,
+        command:
+          deployment.container.command &&
+          deployment.container.command.length > 0
+            ? deployment.container.command
+            : [],
+        args:
+          deployment.container.args && deployment.container.args.length > 0
+            ? deployment.container.args
+            : [],
+      },
+      resources: {
+        requests: {
+          memory: deployment.resources.requests.memory,
+          cpu: deployment.resources.requests.cpu,
+        },
+        limits: {
+          memory: deployment.resources.limits.memory,
+          cpu: deployment.resources.limits.cpu,
+        },
+      },
+      persistence: {
+        enabled: deployment.persistence.enabled,
+        ...(deployment.persistence.size
+          ? { size: deployment.persistence.size }
+          : {}),
+        ...(deployment.persistence.mountPath
+          ? { mountPath: deployment.persistence.mountPath }
+          : {}),
+      },
+      replicaCount: deployment.replicaCount,
+      ports: {
+        http: deployment.ports.http,
+        https: deployment.ports.https,
+      },
+      labels:
+        Object.keys(deployment.labels).length > 0 ? deployment.labels : {},
+      annotations:
+        Object.keys(deployment.annotations).length > 0
+          ? deployment.annotations
+          : {},
+    };
 
-project:
-  name: "${deployment.projectName}"  # Nom du projet
-
-# Configuration du conteneur (OS Linux complet ou application)
-container:
-  image: "${deployment.container.image}"  # Image du conteneur (OS Linux ou application)
-  port: ${deployment.container.port}  # Port exposé par le conteneur
-  type: "${deployment.container.type}"
-  ${deployment.container.command && deployment.container.command.length > 0 ? `command: ${JSON.stringify(deployment.container.command)}` : 'command: []'}
-  ${deployment.container.args && deployment.container.args.length > 0 ? `args: ${JSON.stringify(deployment.container.args)}` : 'args: []'}
-
-# Configuration des ressources
-resources:
-  requests:
-    memory: "${deployment.resources.requests.memory}"
-    cpu: "${deployment.resources.requests.cpu}"
-  limits:
-    memory: "${deployment.resources.limits.memory}"
-    cpu: "${deployment.resources.limits.cpu}"
-
-# Configuration de la persistance
-persistence:
-  enabled: ${deployment.persistence.enabled}
-${deployment.persistence.size ? `  size: "${deployment.persistence.size}"` : '  # size: "10Gi"'}
-${deployment.persistence.mountPath ? `  mountPath: "${deployment.persistence.mountPath}"  # Choix du répertoire à persister` : '  # mountPath: "/data"'}
-
-# Configuration du nombre de replicas
-replicaCount: ${deployment.replicaCount}
-
-# Configuration des ports
-ports:
-  http: ${deployment.ports.http}
-  https: ${deployment.ports.https}
-
-# Labels et sélecteurs additionnels
-labels: ${Object.keys(deployment.labels).length > 0 ? yaml.dump(deployment.labels).trim() : '{}'}
-annotations: ${Object.keys(deployment.annotations).length > 0 ? yaml.dump(deployment.annotations).trim() : '{}'}
-`;
-
-    return yamlContent;
+    return yaml.dump(obj);
   }
 
   /**
@@ -87,11 +96,10 @@ annotations: ${Object.keys(deployment.annotations).length > 0 ? yaml.dump(deploy
     user: LogtoUserWithOrganizations,
   ): Promise<GetDeploymentDto> {
     // Verify project exists and belongs to organization
-    const project =
-      await this.projectsRepository.findByProjectAndOrganizationId(
-        dto.projectId,
-        user.currentOrganization.id,
-      );
+    await this.projectsService.findByProjectAndOrganizationId(
+      dto.projectId,
+      user.currentOrganization.id,
+    );
 
     // Check if deployment already exists for this project
     const existingDeployment =
@@ -101,9 +109,7 @@ annotations: ${Object.keys(deployment.annotations).length > 0 ? yaml.dump(deploy
       );
 
     if (existingDeployment) {
-      throw new BadRequestException(
-        'Deployment already exists for this project',
-      );
+      throw this.exceptions.DEPLOYMENT_ALREADY_EXISTS;
     }
 
     // Create deployment domain
@@ -134,7 +140,7 @@ annotations: ${Object.keys(deployment.annotations).length > 0 ? yaml.dump(deploy
       // Update status to deployed
       const updatedDeployment = await this.deploymentsRepository.updateStatus(
         deployment._id.toString(),
-        'deployed',
+        DeploymentStatus.DEPLOYED,
       );
 
       this.logger.log(
@@ -149,7 +155,7 @@ annotations: ${Object.keys(deployment.annotations).length > 0 ? yaml.dump(deploy
       const deployment = await this.deploymentsRepository.create(domain);
       await this.deploymentsRepository.updateStatus(
         deployment._id.toString(),
-        'failed',
+        DeploymentStatus.FAILED,
       );
 
       throw error;
@@ -167,7 +173,7 @@ annotations: ${Object.keys(deployment.annotations).length > 0 ? yaml.dump(deploy
 
     // Verify deployment belongs to user's organization
     if (deployment.organizationId !== user.currentOrganization.id) {
-      throw new NotFoundException('Deployment not found');
+      throw this.exceptions.DEPLOYMENT_NOT_FOUND;
     }
 
     return this.deploymentMapper.toGetDeploymentDto(deployment);
@@ -194,7 +200,7 @@ annotations: ${Object.keys(deployment.annotations).length > 0 ? yaml.dump(deploy
     user: LogtoUserWithOrganizations,
   ): Promise<GetDeploymentLightDto[]> {
     // Verify project belongs to organization
-    await this.projectsRepository.findByProjectAndOrganizationId(
+    await this.projectsService.findByProjectAndOrganizationId(
       projectId,
       user.currentOrganization.id,
     );
@@ -219,11 +225,11 @@ annotations: ${Object.keys(deployment.annotations).length > 0 ? yaml.dump(deploy
 
     // Verify deployment belongs to user's organization
     if (existingDeployment.organizationId !== user.currentOrganization.id) {
-      throw new NotFoundException('Deployment not found');
+      throw this.exceptions.DEPLOYMENT_NOT_FOUND;
     }
 
     // Verify project exists and belongs to organization
-    await this.projectsRepository.findByProjectAndOrganizationId(
+    await this.projectsService.findByProjectAndOrganizationId(
       dto.projectId,
       user.currentOrganization.id,
     );
@@ -251,15 +257,12 @@ annotations: ${Object.keys(deployment.annotations).length > 0 ? yaml.dump(deploy
       );
 
       // Update deployment in database
-      const updatedDeployment = await this.deploymentsRepository.update(
-        deploymentId,
-        domain,
-      );
+      await this.deploymentsRepository.update(deploymentId, domain);
 
       // Update status to deployed
       const finalDeployment = await this.deploymentsRepository.updateStatus(
         deploymentId,
-        'deployed',
+        DeploymentStatus.DEPLOYED,
       );
 
       this.logger.log(
@@ -271,11 +274,17 @@ annotations: ${Object.keys(deployment.annotations).length > 0 ? yaml.dump(deploy
       this.logger.error('Failed to update deployment:', error);
 
       // Update status to failed
-      await this.deploymentsRepository.updateStatus(deploymentId, 'failed');
+      await this.deploymentsRepository.updateStatus(
+        deploymentId,
+        DeploymentStatus.FAILED,
+      );
 
       throw error;
     }
   }
+
+  deleteByProject = (projectId: string): Promise<void> =>
+    this.deploymentsRepository.deleteByProject(projectId);
 
   /**
    * Delete a deployment
@@ -288,7 +297,7 @@ annotations: ${Object.keys(deployment.annotations).length > 0 ? yaml.dump(deploy
 
     // Verify deployment belongs to user's organization
     if (deployment.organizationId !== user.currentOrganization.id) {
-      throw new NotFoundException('Deployment not found');
+      throw this.exceptions.DEPLOYMENT_NOT_FOUND;
     }
 
     this.logger.log(`Deleting deployment at ${deployment.githubPath}`);

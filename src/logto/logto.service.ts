@@ -116,7 +116,11 @@ export class LogtoService {
     const organizationWithNameAlreadyExists = organizations?.some(
       (org) => org.name === organizationName,
     );
-    if (organizationWithNameAlreadyExists) return;
+
+    if (organizationWithNameAlreadyExists) {
+      return;
+    }
+
     const newOrganization = await this.logtoRequests.createOrganization({
       name: organizationName,
       description: organizationDescription,

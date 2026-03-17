@@ -212,7 +212,7 @@ export class OrganizationsController {
     description: 'Invitation ID',
   })
   @ApiOperation({
-    summary: 'Get get invitation by id',
+    summary: 'Get invitation by id',
     description: 'List all pending invitations for the authenticated user',
   })
   async getInvitationById(

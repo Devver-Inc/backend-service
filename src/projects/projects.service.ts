@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { toPaginatedDto } from 'src/_utils/pagination/pagination.mapper';
 import { PaginationDto } from 'src/_utils/pagination/responses/pagination.dto';
+import { DeploymentsService } from 'src/deployments/deployments.service';
 import { LogtoUserWithOrganizations } from 'src/logto/_utils/types/user-with-organization.type';
 import { LogtoRequests } from 'src/logto/logto.requests';
 import { ProjectsPaginatedQueryDto } from './_utils/dto/query/projects-paginated-query.dto';
@@ -24,6 +25,8 @@ export class ProjectsService {
     private readonly projectsMapper: ProjectsMapper,
     private readonly logtoRequests: LogtoRequests,
     private readonly exceptions: ProjectsExceptions,
+    @Inject(forwardRef(() => DeploymentsService))
+    private readonly deploymentsService: DeploymentsService,
   ) {}
 
   async createProject(
@@ -46,14 +49,31 @@ export class ProjectsService {
   findProjectById = (projectId: string): Promise<ProjectDocument> =>
     this.projectsRepository.findById(projectId);
 
+  findByProjectAndOrganizationId = (
+    projectId: string,
+    organizationId: string,
+  ): Promise<ProjectDocument> =>
+    this.projectsRepository.findByProjectAndOrganizationId(
+      projectId,
+      organizationId,
+    );
+
   async getProjects(
     user: LogtoUserWithOrganizations,
     query: ProjectsPaginatedQueryDto,
   ): Promise<PaginationDto<GetProjectLightDto[]>> {
     const organizationId = user.currentOrganization.id;
 
-    const { projects, totalCount } =
-      await this.projectsRepository.findByOrganizationId(organizationId, query);
+    const { projects, totalCount } = user.isAdmin
+      ? await this.projectsRepository.findByOrganizationId(
+          organizationId,
+          query,
+        )
+      : await this.projectsRepository.findByOrganizationAndMember(
+          organizationId,
+          user.id,
+          query,
+        );
 
     return toPaginatedDto(
       projects,
@@ -86,6 +106,7 @@ export class ProjectsService {
     user: LogtoUserWithOrganizations,
   ): Promise<void> {
     await this.getProjectWithAccessCheck(projectId, user);
+    await this.deploymentsService.deleteByProject(projectId);
     await this.projectsRepository.deleteById(projectId);
   }
 
@@ -135,6 +156,10 @@ export class ProjectsService {
       throw this.exceptions.PROJECT_ACCESS_DENIED;
     }
 
+    if (!user.isAdmin && !domain.isTeamMember(user.id)) {
+      throw this.exceptions.PROJECT_ACCESS_DENIED;
+    }
+
     return project;
   }
 
@@ -142,7 +167,9 @@ export class ProjectsService {
     organizationId: string,
     userIds?: string[],
   ): Promise<void> {
-    if (!userIds?.length) return;
+    if (!userIds?.length) {
+      return;
+    }
 
     const { members } = await this.logtoRequests.getOrganizationMembers(
       organizationId,

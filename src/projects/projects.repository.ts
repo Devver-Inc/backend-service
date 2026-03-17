@@ -61,6 +61,36 @@ export class ProjectsRepository {
     return { projects, totalCount };
   };
 
+  findByOrganizationAndMember = async (
+    organizationId: string,
+    userId: string,
+    query: ProjectsPaginatedQueryDto,
+  ): Promise<{ projects: ProjectLean[]; totalCount: number }> => {
+    const filter: QueryFilter<Project> = {
+      organizationId,
+      teamMemberIds: userId,
+    };
+
+    if (query.search) {
+      filter.name = { $regex: escapeRegex(query.search), $options: 'i' };
+    }
+
+    const sortDirection = query.sortDirection === 'ASC' ? 1 : -1;
+
+    const [projects, totalCount] = await Promise.all([
+      this.projectModel
+        .find(filter)
+        .sort({ [query.sortBy || 'createdAt']: sortDirection })
+        .skip(query.skip)
+        .limit(query.limit || 10)
+        .lean()
+        .exec(),
+      this.projectModel.countDocuments(filter).exec(),
+    ]);
+
+    return { projects, totalCount };
+  };
+
   save = (project: ProjectDocument): Promise<ProjectDocument> => project.save();
 
   deleteById = async (id: string): Promise<void> => {

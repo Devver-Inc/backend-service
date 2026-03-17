@@ -18,7 +18,7 @@ export interface CreateDeploymentData {
   env?: Record<string, Record<string, string>>;
 }
 
-export enum DeploymentStatus {
+export enum AgentDeploymentStatus {
   DEPLOYED = 'deployed',
   FAILED = 'failed',
   REMOVED = 'removed',

@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Octokit } from '@octokit/rest';
 import { EnvironmentVariables } from 'src/_utils/config/env.config';
+import { toSlug } from 'src/_utils/functions/to-slug.function';
 
 @Injectable()
 export class GitHubService {
@@ -114,7 +115,7 @@ export class GitHubService {
     projectName: string,
     yamlContent: string,
   ): Promise<void> {
-    const path = `${organizationName}/${projectName}/values.yaml`;
+    const path = `${toSlug(organizationName)}/${toSlug(projectName)}/values.yaml`;
     const message = `Deploy ${projectName} for ${organizationName}`;
 
     await this.createOrUpdateFile(path, yamlContent, message);

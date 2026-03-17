@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, QueryFilter } from 'mongoose';
+import { Model, QueryFilter, Types } from 'mongoose';
 import { escapeRegex } from 'src/_utils/functions/escape-regex.function';
 import { CommentsPaginatedQueryDto } from './_utils/dto/query/comments-paginated-query.dto';
 import { CommentDomain } from './comment.domain';
@@ -33,12 +33,13 @@ export class CommentsRepository {
   ): Promise<{ comments: CommentLean[]; totalCount: number }> => {
     const { toMongoDbSort, skip, limit } = query;
 
-    const filter: QueryFilter<Comment> = { organizationId };
-
-    if (query.search) {
-      filter.content = { $regex: escapeRegex(query.search), $options: 'i' };
-      filter.projectId = projectId;
-    }
+    const filter: QueryFilter<Comment> = {
+      organizationId,
+      project: new Types.ObjectId(projectId),
+      ...(query.search && {
+        content: { $regex: escapeRegex(query.search), $options: 'i' },
+      }),
+    };
 
     const [comments, totalCount] = await Promise.all([
       this.commentsModel
