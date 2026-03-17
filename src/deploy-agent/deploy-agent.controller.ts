@@ -13,11 +13,11 @@ import { ConnectedUserWithOrgs } from 'src/logto/_utils/decorator/connected-user
 import { UserRoleEnum } from 'src/logto/_utils/enums/permissions.enum';
 import { LogtoUserWithOrganizations } from 'src/logto/_utils/types/user-with-organization.type';
 import { ControlPm2ProcessDto } from './_utils/dto/requests/control-pm2-process.dto';
-import { CreateDeploymentDto } from './_utils/dto/requests/create-deployment.dto';
+import { CreateAgentDeploymentDto } from './_utils/dto/requests/create-deployment.dto';
 import { CreateRepoDto } from './_utils/dto/requests/create-repo.dto';
 import {
   ControlPm2ProcessResultDto,
-  GetDeploymentDto,
+  GetAgentDeploymentDto,
   GetLogsDto,
   RestoreResultDto,
 } from './_utils/dto/responses/get-deployment.dto';
@@ -81,8 +81,8 @@ export class DeployAgentController {
   async deploy(
     @Param('projectId') projectId: string,
     @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
-    @Body() dto: CreateDeploymentDto,
-  ): Promise<GetDeploymentDto> {
+    @Body() dto: CreateAgentDeploymentDto,
+  ): Promise<GetAgentDeploymentDto> {
     return this.deployAgentService.deploy(
       projectId,
       user.currentOrganization.id,
@@ -97,7 +97,7 @@ export class DeployAgentController {
   @ApiParam({ name: 'projectId', type: String })
   async listDeployments(
     @Param('projectId') projectId: string,
-  ): Promise<GetDeploymentDto[]> {
+  ): Promise<GetAgentDeploymentDto[]> {
     return this.deployAgentService.listDeployments(projectId);
   }
 

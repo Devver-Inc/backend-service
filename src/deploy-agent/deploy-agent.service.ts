@@ -2,12 +2,12 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EnvironmentVariables } from 'src/_utils/config/env.config';
 import { ProjectsService } from 'src/projects/projects.service';
-import { CreateDeploymentDto } from './_utils/dto/requests/create-deployment.dto';
+import { CreateAgentDeploymentDto } from './_utils/dto/requests/create-deployment.dto';
 import { ControlPm2ProcessDto } from './_utils/dto/requests/control-pm2-process.dto';
 import { CreateRepoDto } from './_utils/dto/requests/create-repo.dto';
 import {
   ControlPm2ProcessResultDto,
-  GetDeploymentDto,
+  GetAgentDeploymentDto,
   GetLogsDto,
   RestoreResultDto,
 } from './_utils/dto/responses/get-deployment.dto';
@@ -50,7 +50,7 @@ export class DeployAgentService {
       .findReposByProject(projectId)
       .then((docs) => docs.map(this.deployAgentMapper.toRepoDto));
 
-  listDeployments = (projectId: string): Promise<GetDeploymentDto[]> =>
+  listDeployments = (projectId: string): Promise<GetAgentDeploymentDto[]> =>
     this.deployAgentRepository
       .findDeploymentsByProject(projectId)
       .then((docs) => docs.map(this.deployAgentMapper.toDeploymentDto));
@@ -132,8 +132,8 @@ export class DeployAgentService {
     projectId: string,
     organizationId: string,
     orgName: string,
-    dto: CreateDeploymentDto,
-  ): Promise<GetDeploymentDto> => {
+    dto: CreateAgentDeploymentDto,
+  ): Promise<GetAgentDeploymentDto> => {
     const agentUrl = await this.getAgentUrl(projectId, orgName);
     const result = await this.deployAgentRequests.deploy(agentUrl, dto);
 

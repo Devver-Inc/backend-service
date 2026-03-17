@@ -52,7 +52,7 @@ export class ServicesDto implements Services {
   web?: ServiceConfigDto;
 }
 
-export class CreateDeploymentDto {
+export class CreateAgentDeploymentDto {
   @ApiProperty({ example: 'https://github.com/user/repo.git' })
   @IsString()
   @MinLength(1)

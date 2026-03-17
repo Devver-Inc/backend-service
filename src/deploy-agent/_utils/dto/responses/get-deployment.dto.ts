@@ -8,7 +8,7 @@ export class LogEntryDto {
   timestamp: string;
 }
 
-export class GetDeploymentDto {
+export class GetAgentDeploymentDto {
   id: string;
   repo: string;
   branch: string;

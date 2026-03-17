@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { DocOrLean } from 'src/_utils/types';
-import { GetDeploymentDto } from './_utils/dto/responses/get-deployment.dto';
+import { GetAgentDeploymentDto } from './_utils/dto/responses/get-deployment.dto';
 import { GetRepoDto } from './_utils/dto/responses/get-repo.dto';
 import { Deployment } from './schemas/deployment.schema';
 import { DeployRepo } from './schemas/repo.schema';
@@ -15,7 +15,7 @@ export class DeployAgentMapper {
     createdAt: doc.createdAt,
   });
 
-  toDeploymentDto = (doc: DocOrLean<Deployment>): GetDeploymentDto => ({
+  toDeploymentDto = (doc: DocOrLean<Deployment>): GetAgentDeploymentDto => ({
     id: doc._id.toString(),
     repo: doc.repo,
     branch: doc.branch,
