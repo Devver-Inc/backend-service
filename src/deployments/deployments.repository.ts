@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { DeploymentDomain } from './deployment.domain';
 import { Deployment, DeploymentDocument } from './deployment.schema';
 
@@ -33,57 +33,48 @@ export class DeploymentsRepository {
   }
 
   async findById(id: string): Promise<DeploymentDocument> {
-    const deployment = await this.deploymentModel.findById(id).exec();
-
-    if (!deployment) {
-      throw new NotFoundException(`Deployment with id ${id} not found`);
-    }
-
-    return deployment;
-  }
-
-  async findByOrganizationAndProject(
-    organizationId: string,
-    projectId: string,
-  ): Promise<DeploymentDocument | null> {
     return this.deploymentModel
-      .findOne({
-        organizationId: organizationId,
-        project: projectId as any,
-      })
+      .findById(id)
+      .orFail(new NotFoundException(`Deployment with id ${id} not found`))
       .exec();
   }
 
-  async findByOrganizationId(
+  findByOrganizationAndProject = (
     organizationId: string,
-  ): Promise<DeploymentDocument[]> {
-    return this.deploymentModel.find({ organizationId }).exec();
-  }
+    projectId: string,
+  ): Promise<DeploymentDocument | null> =>
+    this.deploymentModel
+      .findOne({
+        organizationId,
+        project: new Types.ObjectId(projectId),
+      })
+      .exec();
 
-  async findByProjectId(projectId: string): Promise<DeploymentDocument[]> {
-    return this.deploymentModel.find({ project: projectId as any }).exec();
-  }
+  findByOrganizationId = (
+    organizationId: string,
+  ): Promise<DeploymentDocument[]> =>
+    this.deploymentModel.find({ organizationId }).exec();
+
+  findByProjectId = (projectId: string): Promise<DeploymentDocument[]> =>
+    this.deploymentModel
+      .find({ project: new Types.ObjectId(projectId) })
+      .exec();
 
   async updateStatus(
     id: string,
     status: 'pending' | 'deployed' | 'failed',
   ): Promise<DeploymentDocument> {
-    const deployment = await this.deploymentModel
+    return this.deploymentModel
       .findByIdAndUpdate(id, { status }, { new: true })
+      .orFail(new NotFoundException(`Deployment with id ${id} not found`))
       .exec();
-
-    if (!deployment) {
-      throw new NotFoundException(`Deployment with id ${id} not found`);
-    }
-
-    return deployment;
   }
 
   async update(
     id: string,
     domain: DeploymentDomain,
   ): Promise<DeploymentDocument> {
-    const deployment = await this.deploymentModel
+    return this.deploymentModel
       .findByIdAndUpdate(
         id,
         {
@@ -102,24 +93,19 @@ export class DeploymentsRepository {
         },
         { new: true },
       )
+      .orFail(new NotFoundException(`Deployment with id ${id} not found`))
       .exec();
-
-    if (!deployment) {
-      throw new NotFoundException(`Deployment with id ${id} not found`);
-    }
-
-    return deployment;
   }
 
   async delete(id: string): Promise<void> {
-    const result = await this.deploymentModel.findByIdAndDelete(id).exec();
-
-    if (!result) {
-      throw new NotFoundException(`Deployment with id ${id} not found`);
-    }
+    await this.deploymentModel
+      .findByIdAndDelete(id)
+      .orFail(new NotFoundException(`Deployment with id ${id} not found`))
+      .exec();
   }
 
-  async deleteByProject(projectId: string): Promise<void> {
-    await this.deploymentModel.deleteMany({ project: projectId as any }).exec();
-  }
+  deleteByProject = (projectId: string): Promise<unknown> =>
+    this.deploymentModel
+      .deleteMany({ project: new Types.ObjectId(projectId) })
+      .exec();
 }

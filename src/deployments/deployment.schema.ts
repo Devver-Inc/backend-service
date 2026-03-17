@@ -1,9 +1,12 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument } from 'mongoose';
-import { MongooseObjectId, Populated } from 'src/_utils/types';
+import { HydratedDocument, Types } from 'mongoose';
+import { MongooseObjectId } from 'src/_utils/types';
 import { Project, ProjectDocument } from 'src/projects/project.schema';
 
 export type DeploymentDocument = HydratedDocument<Deployment>;
+export type DeploymentWithProject = Omit<DeploymentDocument, 'project'> & {
+  project: ProjectDocument;
+};
 
 @Schema({ timestamps: true, versionKey: false })
 export class Deployment {
@@ -11,7 +14,7 @@ export class Deployment {
   organizationId: string;
 
   @Prop({ type: MongooseObjectId, ref: Project.name, required: true })
-  project: Populated<ProjectDocument>;
+  project: Types.ObjectId;
 
   @Prop({ type: String, required: true })
   organizationName: string;
@@ -112,6 +115,9 @@ export class Deployment {
     default: 'pending',
   })
   status: 'pending' | 'deployed' | 'failed';
+
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export const DeploymentSchema = SchemaFactory.createForClass(Deployment);

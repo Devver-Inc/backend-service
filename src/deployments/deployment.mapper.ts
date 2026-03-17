@@ -49,8 +49,8 @@ export class DeploymentMapper {
       annotations: Object.fromEntries(deployment.annotations),
       githubPath: deployment.githubPath,
       status: deployment.status,
-      createdAt: (deployment as any).createdAt,
-      updatedAt: (deployment as any).updatedAt,
+      createdAt: deployment.createdAt,
+      updatedAt: deployment.updatedAt,
     };
   };
 
@@ -65,8 +65,8 @@ export class DeploymentMapper {
       status: deployment.status,
       replicaCount: deployment.replicaCount,
       githubPath: deployment.githubPath,
-      createdAt: (deployment as any).createdAt,
-      updatedAt: (deployment as any).updatedAt,
+      createdAt: deployment.createdAt,
+      updatedAt: deployment.updatedAt,
     };
   };
 }

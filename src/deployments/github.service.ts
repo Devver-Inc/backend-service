@@ -73,8 +73,12 @@ export class GitHubService {
         if ('sha' in data) {
           sha = data.sha;
         }
-      } catch (error: any) {
-        if (error.status !== 404) {
+      } catch (error) {
+        if (
+          error instanceof Error &&
+          'status' in error &&
+          (error as Error & { status: number }).status !== 404
+        ) {
           throw error;
         }
         // File doesn't exist, which is fine for creation
@@ -161,8 +165,12 @@ export class GitHubService {
         ref: this.branch,
       });
       return true;
-    } catch (error: any) {
-      if (error.status === 404) {
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        'status' in error &&
+        (error as Error & { status: number }).status === 404
+      ) {
         return false;
       }
       throw error;
