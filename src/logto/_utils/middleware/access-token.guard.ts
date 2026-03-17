@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 
 import { LogtoService } from '../../logto.service';
+import { ErrorCodes } from 'src/_utils/enums/error-codes.enum';
 
 @Injectable()
 export class AccessTokenGuard implements CanActivate {
@@ -29,9 +30,9 @@ export class AccessTokenGuard implements CanActivate {
           ? (error as { status: number }).status
           : undefined;
       if (status === 403) {
-        throw new ForbiddenException('Forbidden');
+        throw new ForbiddenException(ErrorCodes.FORBIDDEN);
       }
-      throw new UnauthorizedException('Unauthorized');
+      throw new UnauthorizedException(ErrorCodes.UNAUTHORIZED);
     }
   }
 }

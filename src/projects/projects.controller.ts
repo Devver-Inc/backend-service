@@ -4,12 +4,13 @@ import {
   Delete,
   Get,
   HttpCode,
+  HttpStatus,
   Param,
   Patch,
   Post,
   Query,
 } from '@nestjs/common';
-import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ApiResponseDecorator } from 'src/_utils/decorators/api-response.decorator';
 import { Protect } from 'src/_utils/decorators/protect.decorator';
 import { PaginationDto } from 'src/_utils/pagination/responses/pagination.dto';
@@ -34,6 +35,8 @@ export class ProjectsController {
   @Protect({ roles: [UserRoleEnum.ADMIN] })
   @Post()
   @ApiOperation({ summary: 'Create a new project' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'UNAUTHORIZED' })
+  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'FORBIDDEN' })
   async createProject(
     @Body() createProjectDto: CreateProjectDto,
     @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
@@ -44,6 +47,7 @@ export class ProjectsController {
   @Protect()
   @Get()
   @ApiOperation({ summary: 'List all projects in current organization' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'UNAUTHORIZED' })
   @ApiResponseDecorator(GetProjectLightDto)
   async getProjects(
     @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
@@ -56,6 +60,15 @@ export class ProjectsController {
   @Get(':projectId')
   @ApiParam({ name: 'projectId', type: String })
   @ApiOperation({ summary: 'Get project details' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'UNAUTHORIZED' })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'PROJECT_ACCESS_DENIED',
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'PROJECT_NOT_FOUND',
+  })
   async getProjectById(
     @Param('projectId') projectId: string,
     @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
@@ -67,6 +80,12 @@ export class ProjectsController {
   @Patch(':projectId')
   @ApiParam({ name: 'projectId', type: String })
   @ApiOperation({ summary: 'Update project' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'UNAUTHORIZED' })
+  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'FORBIDDEN' })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'PROJECT_NOT_FOUND',
+  })
   async updateProject(
     @Param('projectId') projectId: string,
     @Body() updateProjectDto: UpdateProjectDto,
@@ -84,6 +103,12 @@ export class ProjectsController {
   @HttpCode(204)
   @ApiParam({ name: 'projectId', type: String })
   @ApiOperation({ summary: 'Delete project' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'UNAUTHORIZED' })
+  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'FORBIDDEN' })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'PROJECT_NOT_FOUND',
+  })
   async deleteProject(
     @Param('projectId') projectId: string,
     @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
@@ -95,6 +120,16 @@ export class ProjectsController {
   @Post(':projectId/members')
   @ApiParam({ name: 'projectId', type: String })
   @ApiOperation({ summary: 'Add team members to project' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'UNAUTHORIZED' })
+  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'FORBIDDEN' })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'SOME_MEMBERS_NOT_IN_ORGANIZATION',
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'PROJECT_NOT_FOUND',
+  })
   async addTeamMembers(
     @Param('projectId') projectId: string,
     @Body() addTeamMembersDto: AddTeamMembersDto,
@@ -112,6 +147,16 @@ export class ProjectsController {
   @ApiParam({ name: 'projectId', type: String })
   @ApiParam({ name: 'userId', type: String })
   @ApiOperation({ summary: 'Remove team member from project' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'UNAUTHORIZED' })
+  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'FORBIDDEN' })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'USER_NOT_TEAM_MEMBER',
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'PROJECT_NOT_FOUND',
+  })
   async removeTeamMember(
     @Param('projectId') projectId: string,
     @Param('userId') userId: string,

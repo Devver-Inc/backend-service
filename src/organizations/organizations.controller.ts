@@ -4,13 +4,20 @@ import {
   Delete,
   Get,
   HttpCode,
+  HttpStatus,
   Param,
   Patch,
   Post,
   Put,
   Query,
 } from '@nestjs/common';
-import { ApiConsumes, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
+import {
+  ApiConsumes,
+  ApiOperation,
+  ApiParam,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { FormDataRequest } from 'nestjs-form-data';
 import { PaginationDto } from 'src/_utils/pagination/responses/pagination.dto';
 import {
@@ -51,6 +58,7 @@ export class OrganizationsController {
   @FormDataRequest()
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Create a new Organization' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'UNAUTHORIZED' })
   async createOrganization(
     @Body() createOrganizationDto: CreateOrganizationDto,
     @ConnectedUser() user: LogtoUser,
@@ -63,6 +71,7 @@ export class OrganizationsController {
 
   @Protect({ skipOrganizationCheck: true })
   @Get('invitations')
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'UNAUTHORIZED' })
   async getOrganizationInvitations(
     @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
   ): Promise<GetInvitationDto[]> {
@@ -72,6 +81,7 @@ export class OrganizationsController {
   @Protect({ skipOrganizationCheck: true })
   @Get('roles')
   @ApiOperation({ summary: 'Get all available organization roles' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'UNAUTHORIZED' })
   getOrganizationRoles(): Promise<{ id: string; name: string }[]> {
     return this.organizationsService.getOrganizationRoles();
   }
@@ -79,6 +89,7 @@ export class OrganizationsController {
   @Protect()
   @Get()
   @ApiOperation({ summary: 'Get current Organization information' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'UNAUTHORIZED' })
   getOrganizationInformations(
     @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
   ): Promise<GetOrganizationLightDto> {
@@ -88,6 +99,8 @@ export class OrganizationsController {
   @Protect({ roles: [UserRoleEnum.ADMIN] })
   @Get('details')
   @ApiOperation({ summary: 'Get current Organization details' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'UNAUTHORIZED' })
+  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'FORBIDDEN' })
   getOrganizationDetails(
     @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
   ): Promise<GetOrganizationDetailsDto> {
@@ -97,6 +110,7 @@ export class OrganizationsController {
   @Protect()
   @Get('members')
   @ApiOperation({ summary: 'Get current Organization members' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'UNAUTHORIZED' })
   @ApiResponseDecorator(GetUserLightDto)
   getOrganizationMembers(
     @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
@@ -111,6 +125,8 @@ export class OrganizationsController {
   @Protect({ roles: [UserRoleEnum.ADMIN] })
   @Patch()
   @ApiOperation({ summary: 'Update current organization' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'UNAUTHORIZED' })
+  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'FORBIDDEN' })
   async updateOrganization(
     @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
     @Body() updateOrganizationDto: UpdateOrganizationDto,
@@ -126,6 +142,8 @@ export class OrganizationsController {
   @FormDataRequest()
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Upload current organization logo' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'UNAUTHORIZED' })
+  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'FORBIDDEN' })
   async uploadOrganizationLogo(
     @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
     @Body() dto: UpdateOrganizationLogoDto,
@@ -136,6 +154,8 @@ export class OrganizationsController {
   @Protect({ roles: [UserRoleEnum.ADMIN] })
   @Delete('logo')
   @ApiOperation({ summary: 'Delete current organization logo' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'UNAUTHORIZED' })
+  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'FORBIDDEN' })
   async deleteOrganizationLogo(
     @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
   ): Promise<GetOrganizationLightDto> {
@@ -146,6 +166,12 @@ export class OrganizationsController {
   @Delete()
   @HttpCode(204)
   @ApiOperation({ summary: 'Delete current organization' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'UNAUTHORIZED' })
+  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'FORBIDDEN' })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'CANNOT_DELETE_ORGANIZATION_WITH_MULTIPLE_MEMBERS',
+  })
   async deleteOrganization(
     @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
   ): Promise<void> {
@@ -156,6 +182,13 @@ export class OrganizationsController {
   @Put('owner/:newOwnerId')
   @ApiParam({ name: 'newOwnerId', type: String })
   @ApiOperation({ summary: 'Transfer ownership of current organization' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'UNAUTHORIZED' })
+  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'FORBIDDEN' })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description:
+      'CANNOT_TRANSFER_OWNERSHIP_TO_YOURSELF | NEW_OWNER_MUST_BE_ADMINISTRATOR',
+  })
   async transferOwnership(
     @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
     @Param('newOwnerId', LogtoUserByIdPipe) newOwner: LogtoUser,
@@ -167,6 +200,17 @@ export class OrganizationsController {
   @Delete('users/:userId')
   @ApiParam({ name: 'userId', type: String })
   @ApiOperation({ summary: 'Remove a user from current organization' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'UNAUTHORIZED' })
+  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'FORBIDDEN' })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description:
+      'USER_NOT_IN_ORGANIZATION | CANNOT_REMOVE_OWNER_FROM_ORGANIZATION',
+  })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'NOT_ALLOWED_TO_REMOVE_USER',
+  })
   async removeUserFromOrganization(
     @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
     @Param('userId', LogtoUserByIdPipe) userToRemove: LogtoUser,
@@ -182,6 +226,12 @@ export class OrganizationsController {
   @ApiOperation({
     summary: 'Create a new organization invitation',
     description: 'Invite a user to join an organization by email',
+  })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'UNAUTHORIZED' })
+  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'FORBIDDEN' })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'USER_MUST_HAVE_VERIFIED_EMAIL_FOR_INVITATIONS',
   })
   async createInvitation(
     @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
@@ -199,6 +249,7 @@ export class OrganizationsController {
     summary: 'Get invitations for current user',
     description: 'List all pending invitations for the authenticated user',
   })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'UNAUTHORIZED' })
   async getMyInvitations(
     @ConnectedUser() user: LogtoUser,
   ): Promise<GetInvitationDto[]> {
@@ -233,6 +284,11 @@ export class OrganizationsController {
   @ApiOperation({
     summary: 'Update invitation status',
     description: 'Accept or revoke an organization invitation',
+  })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'UNAUTHORIZED' })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'INVITATION_NOT_FOR_CURRENT_USER',
   })
   async updateInvitationStatus(
     @ConnectedUser() user: LogtoUser,

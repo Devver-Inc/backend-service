@@ -10,6 +10,7 @@ import {
   UserRoleEnum,
 } from 'src/logto/_utils/enums/permissions.enum';
 import { RequireOrganizationGuard } from '../guards/require-organization.guard';
+import { ErrorCodes } from '../enums/error-codes.enum';
 
 export type ProtectOptions = {
   roles?: UserRoleEnum[];
@@ -28,7 +29,7 @@ export function Protect(opts?: ProtectOptions) {
     SetMetadata(ROLES_KEY, opts),
     ApiBearerAuth(),
     UseGuards(...guards),
-    ApiUnauthorizedResponse({ description: 'Unauthorized' }),
+    ApiUnauthorizedResponse({ description: ErrorCodes.UNAUTHORIZED }),
     ProtectedAutoRolesDecorator(opts),
   );
 }

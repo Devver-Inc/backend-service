@@ -7,7 +7,7 @@ import {
   Patch,
   Post,
 } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { FormDataRequest } from 'nestjs-form-data';
 import { ConnectedUser } from 'src/logto/_utils/decorator/connected-user.decorator';
 import { LogtoUser } from 'src/logto/_utils/types/responses/responses.type';
@@ -23,6 +23,8 @@ export class UsersController {
 
   @Protect()
   @Post('/account')
+  @ApiOperation({ summary: 'Create account for current user' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'UNAUTHORIZED' })
   createAccountForUser(@ConnectedUser() user: LogtoUser) {
     return this.usersService.createAccount(user);
   }
@@ -30,6 +32,8 @@ export class UsersController {
   @Protect()
   @Patch('me')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Update current user account' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'UNAUTHORIZED' })
   updateAccount(
     @ConnectedUser() user: LogtoUser,
     @Body() dto: UpdateAccountDto,
@@ -41,6 +45,8 @@ export class UsersController {
   @Post('me/picture')
   @FormDataRequest()
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Upload profile picture for current user' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'UNAUTHORIZED' })
   uploadProfilePicture(
     @ConnectedUser() user: LogtoUser,
     @Body() dto: UpdateProfilePictureDto,
@@ -51,6 +57,8 @@ export class UsersController {
   @Protect()
   @Delete('me/picture')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Delete profile picture for current user' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'UNAUTHORIZED' })
   deleteProfilePicture(@ConnectedUser() user: LogtoUser) {
     return this.usersService.deleteProfilePicture(user);
   }

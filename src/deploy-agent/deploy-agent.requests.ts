@@ -15,9 +15,12 @@ import { firstValueFrom } from 'rxjs';
 import { EnvironmentVariables } from 'src/_utils/config/env.config';
 import {
   AgentDeploymentListItem,
+  AgentErrorCode,
+  BackendErrorCode,
   CreateRepoRequest,
   DeployRequest,
   DeployResponse,
+  DeployStage,
   ErrorCode,
   ErrorResponse,
   LogsResponse,
@@ -73,7 +76,6 @@ export class DeployAgentRequests {
     if (payload.type === 'validation') {
       return {
         message: `Validation failed on ${payload.on}`,
-        details: payload.found ? JSON.stringify(payload.found) : undefined,
       };
     }
 
@@ -83,12 +85,11 @@ export class DeployAgentRequests {
 
     if (payload.error && typeof payload.error === 'object') {
       return {
-        code: payload.error.code as ErrorCode,
+        code: payload.error.code as AgentErrorCode,
         message: payload.error.message,
-        details: payload.error.details,
         logs: payload.error.logs,
         step: payload.error.step,
-        stage: payload.error.stage,
+        stage: payload.error.stage as DeployStage | undefined,
         service: payload.error.service,
         rollback:
           payload.error.rollback?.attempted !== undefined &&
@@ -123,10 +124,9 @@ export class DeployAgentRequests {
       error: {
         code:
           statusCode === HttpStatus.UNAUTHORIZED
-            ? ErrorCode.UNAUTHORIZED
+            ? BackendErrorCode.UNAUTHORIZED
             : (parsed.code ?? fallbackCode),
         message,
-        details: parsed.details,
         logs: parsed.logs,
         step: parsed.step,
         stage: parsed.stage,
@@ -178,7 +178,7 @@ export class DeployAgentRequests {
       );
       return data;
     } catch (err) {
-      throw this.handleError(err, ErrorCode.REPO_CREATE_FAILED);
+      throw this.handleError(err, BackendErrorCode.REPO_CREATE_FAILED);
     }
   }
 
@@ -191,7 +191,7 @@ export class DeployAgentRequests {
         ),
       );
     } catch (err) {
-      throw this.handleError(err, ErrorCode.REPO_DELETE_FAILED);
+      throw this.handleError(err, BackendErrorCode.REPO_DELETE_FAILED);
     }
   }
 
@@ -205,7 +205,7 @@ export class DeployAgentRequests {
       );
       return data;
     } catch (err) {
-      throw this.handleError(err, ErrorCode.DEPLOY_ERROR);
+      throw this.handleError(err, AgentErrorCode.DEPLOY_ERROR);
     }
   }
 
@@ -218,7 +218,7 @@ export class DeployAgentRequests {
       );
       return data;
     } catch (err) {
-      throw this.handleError(err, ErrorCode.DEPLOY_ERROR);
+      throw this.handleError(err, AgentErrorCode.DEPLOY_ERROR);
     }
   }
 
@@ -234,7 +234,7 @@ export class DeployAgentRequests {
         ),
       );
     } catch (err) {
-      throw this.handleError(err, ErrorCode.DEPLOYMENT_DELETE_FAILED);
+      throw this.handleError(err, BackendErrorCode.DEPLOYMENT_DELETE_FAILED);
     }
   }
 
@@ -248,7 +248,7 @@ export class DeployAgentRequests {
       );
       return data;
     } catch (err) {
-      throw this.handleError(err, ErrorCode.LOGS_FETCH_FAILED);
+      throw this.handleError(err, BackendErrorCode.LOGS_FETCH_FAILED);
     }
   }
 
@@ -266,7 +266,7 @@ export class DeployAgentRequests {
       );
       return data;
     } catch (err) {
-      throw this.handleError(err, ErrorCode.PM2_START_FAILED);
+      throw this.handleError(err, BackendErrorCode.PM2_START_FAILED);
     }
   }
 
@@ -284,7 +284,7 @@ export class DeployAgentRequests {
       );
       return data;
     } catch (err) {
-      throw this.handleError(err, ErrorCode.PM2_STOP_FAILED);
+      throw this.handleError(err, BackendErrorCode.PM2_STOP_FAILED);
     }
   }
 
@@ -302,7 +302,7 @@ export class DeployAgentRequests {
       );
       return data;
     } catch (err) {
-      throw this.handleError(err, ErrorCode.PM2_RESTART_FAILED);
+      throw this.handleError(err, BackendErrorCode.PM2_RESTART_FAILED);
     }
   }
 }

@@ -19,17 +19,20 @@ export enum DeployStage {
   ROLLBACK = 'rollback',
 }
 
-export enum ErrorCode {
+export enum AgentErrorCode {
   REPO_NOT_FOUND = 'REPO_NOT_FOUND',
-  VALIDATION_ERROR = 'VALIDATION_ERROR',
+  GIT_ERROR = 'GIT_ERROR',
   INSTALL_ERROR = 'INSTALL_ERROR',
   BUILD_ERROR = 'BUILD_ERROR',
   PROCESS_ERROR = 'PROCESS_ERROR',
   NGINX_ERROR = 'NGINX_ERROR',
-  GIT_ERROR = 'GIT_ERROR',
-  PORT_CONFLICT = 'PORT_CONFLICT',
   ROLLBACK_ERROR = 'ROLLBACK_ERROR',
   DEPLOY_ERROR = 'DEPLOY_ERROR',
+  PORT_CONFLICT = 'PORT_CONFLICT',
+  VALIDATION_ERROR = 'VALIDATION_ERROR',
+}
+
+export enum BackendErrorCode {
   UNAUTHORIZED = 'UNAUTHORIZED',
   REPO_CREATE_FAILED = 'REPO_CREATE_FAILED',
   REPO_DELETE_FAILED = 'REPO_DELETE_FAILED',
@@ -39,6 +42,8 @@ export enum ErrorCode {
   PM2_STOP_FAILED = 'PM2_STOP_FAILED',
   PM2_RESTART_FAILED = 'PM2_RESTART_FAILED',
 }
+
+export type ErrorCode = AgentErrorCode | BackendErrorCode;
 
 export type ServiceName = 'web' | 'api';
 
@@ -87,9 +92,7 @@ export interface ServiceDeployResult {
   url: string;
 }
 
-export interface DeployResponse {
-  success: true;
-  duration: number;
+export interface DeploymentResponse {
   repo: string;
   branch: string;
   deploymentId: string;
@@ -98,13 +101,11 @@ export interface DeployResponse {
   process: PM2Process | null;
 }
 
-export interface AgentDeploymentListItem {
-  repo: string;
-  branch: string;
-  deploymentId: string;
-  commit: string;
-  service: Partial<Record<ServiceName, ServiceDeployResult>>;
-  process: PM2Process | null;
+export type AgentDeploymentListItem = DeploymentResponse;
+
+export interface DeployResponse extends DeploymentResponse {
+  success: true;
+  duration: number;
 }
 
 export interface RollbackStatus {
@@ -118,10 +119,9 @@ export interface ErrorResponse {
   error: {
     code: ErrorCode;
     message: string;
-    details?: string;
     logs?: string;
     step?: number;
-    stage?: DeployStage | string;
+    stage?: DeployStage;
     service?: string;
     rollback?: RollbackStatus;
   };

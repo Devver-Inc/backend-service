@@ -1,5 +1,13 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
-import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpStatus,
+  Param,
+  Post,
+  Query,
+} from '@nestjs/common';
+import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ApiResponseDecorator } from 'src/_utils/decorators/api-response.decorator';
 import { Protect } from 'src/_utils/decorators/protect.decorator';
 import { PaginationDto } from 'src/_utils/pagination/responses/pagination.dto';
@@ -18,6 +26,11 @@ export class CommentsController {
   @Protect()
   @Get(':projectId')
   @ApiOperation({ summary: 'Get comments for an project' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'UNAUTHORIZED' })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'COMMENT_ACCESS_DENIED',
+  })
   @ApiResponseDecorator(GetCommentDto)
   @ApiParam({ name: 'projectId', description: 'ID of the project' })
   async getComments(
@@ -31,6 +44,11 @@ export class CommentsController {
   @Protect()
   @Post(':projectId')
   @ApiOperation({ summary: 'Create comment' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'UNAUTHORIZED' })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'COMMENT_ACCESS_DENIED',
+  })
   @ApiParam({ name: 'projectId', description: 'ID of the project' })
   async createComment(
     @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,

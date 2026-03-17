@@ -4,11 +4,12 @@ import {
   Delete,
   Get,
   HttpCode,
+  HttpStatus,
   Param,
   Patch,
   Post,
 } from '@nestjs/common';
-import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ApiResponseDecorator } from 'src/_utils/decorators/api-response.decorator';
 import { Protect } from 'src/_utils/decorators/protect.decorator';
 import { ConnectedUserWithOrgs } from 'src/logto/_utils/decorator/connected-user.decorator';
@@ -29,6 +30,12 @@ export class DeploymentsController {
   @Protect({ roles: [UserRoleEnum.ADMIN] })
   @Post()
   @ApiOperation({ summary: 'Create a new deployment' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'UNAUTHORIZED' })
+  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'FORBIDDEN' })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'DEPLOYMENT_ALREADY_EXISTS',
+  })
   @ApiResponseDecorator(GetDeploymentDto)
   async createDeployment(
     @Body() createDeploymentDto: CreateDeploymentDto,
@@ -40,6 +47,7 @@ export class DeploymentsController {
   @Protect()
   @Get()
   @ApiOperation({ summary: 'Get all deployments for current organization' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'UNAUTHORIZED' })
   @ApiResponseDecorator(GetDeploymentLightDto)
   async getDeployments(
     @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
@@ -51,6 +59,7 @@ export class DeploymentsController {
   @Get('project/:projectId')
   @ApiParam({ name: 'projectId', type: String })
   @ApiOperation({ summary: 'Get deployments for a specific project' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'UNAUTHORIZED' })
   @ApiResponseDecorator(GetDeploymentLightDto)
   async getDeploymentsByProject(
     @Param('projectId') projectId: string,
@@ -63,6 +72,11 @@ export class DeploymentsController {
   @Get(':deploymentId')
   @ApiParam({ name: 'deploymentId', type: String })
   @ApiOperation({ summary: 'Get deployment by ID' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'UNAUTHORIZED' })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'DEPLOYMENT_NOT_FOUND',
+  })
   @ApiResponseDecorator(GetDeploymentDto)
   async getDeploymentById(
     @Param('deploymentId') deploymentId: string,
@@ -75,6 +89,12 @@ export class DeploymentsController {
   @Patch(':deploymentId')
   @ApiParam({ name: 'deploymentId', type: String })
   @ApiOperation({ summary: 'Update an existing deployment' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'UNAUTHORIZED' })
+  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'FORBIDDEN' })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'DEPLOYMENT_NOT_FOUND',
+  })
   @ApiResponseDecorator(GetDeploymentDto)
   async updateDeployment(
     @Param('deploymentId') deploymentId: string,
@@ -93,6 +113,12 @@ export class DeploymentsController {
   @HttpCode(204)
   @ApiParam({ name: 'deploymentId', type: String })
   @ApiOperation({ summary: 'Delete a deployment' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'UNAUTHORIZED' })
+  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'FORBIDDEN' })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'DEPLOYMENT_NOT_FOUND',
+  })
   async deleteDeployment(
     @Param('deploymentId') deploymentId: string,
     @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
