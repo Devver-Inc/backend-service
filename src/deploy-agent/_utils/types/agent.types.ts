@@ -11,13 +11,12 @@ export enum LogEntryLevel {
 
 export enum DeployStage {
   VALIDATION = 'validation',
-  CLONE = 'clone',
+  WORKTREE = 'worktree',
   INSTALL = 'install',
   BUILD = 'build',
   PROCESS = 'process',
   NGINX = 'nginx',
   ROLLBACK = 'rollback',
-  DEPLOY = 'deploy',
 }
 
 export enum ErrorCode {
@@ -29,6 +28,7 @@ export enum ErrorCode {
   NGINX_ERROR = 'NGINX_ERROR',
   GIT_ERROR = 'GIT_ERROR',
   PORT_CONFLICT = 'PORT_CONFLICT',
+  ROLLBACK_ERROR = 'ROLLBACK_ERROR',
   DEPLOY_ERROR = 'DEPLOY_ERROR',
   UNAUTHORIZED = 'UNAUTHORIZED',
   REPO_CREATE_FAILED = 'REPO_CREATE_FAILED',
@@ -40,14 +40,17 @@ export enum ErrorCode {
   PM2_RESTART_FAILED = 'PM2_RESTART_FAILED',
 }
 
+export type ServiceName = 'web' | 'api';
+
 export interface ServiceConfig {
   root?: string;
   install?: string;
+  skipInstall?: boolean;
   build: string;
   start: string;
-  depends?: string[];
 }
 
+/** Multi-service map — used internally in backend schema/DTO */
 export interface Services {
   api?: ServiceConfig;
   web?: ServiceConfig;
@@ -58,13 +61,15 @@ export interface CreateRepoRequest {
   baseUrl: string;
 }
 
+/** Single-service request sent to the deploy agent */
 export interface DeployRequest {
   repo: string;
   branch: string;
   commit?: string;
-  services: Services;
-  links?: Record<string, Record<string, string>>;
-  env?: Record<string, Record<string, string>>;
+  /** Exactly one service key must be present */
+  service: Partial<Record<ServiceName, ServiceConfig>>;
+  /** Flat env vars applied to the service being deployed */
+  env?: Record<string, string>;
 }
 
 export interface RepoResponse {
@@ -81,19 +86,22 @@ export interface PM2Process {
   memory: number;
 }
 
+export interface ServiceDeployResult {
+  port: number;
+  url: string;
+}
+
 export interface DeploymentResponse {
   repo: string;
   branch: string;
   deploymentId: string;
-  services: Record<string, number>;
-  processes: PM2Process[];
+  commit: string;
+  service: Partial<Record<ServiceName, ServiceDeployResult>>;
+  process: PM2Process | null;
 }
 
-export interface DeployResponse {
+export interface DeployResponse extends DeploymentResponse {
   success: true;
-  branch: string;
-  commit: string;
-  services: Record<string, { port: number }>;
   duration: number;
 }
 

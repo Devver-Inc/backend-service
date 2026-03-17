@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { EnvironmentVariables } from 'src/_utils/config/env.config';
 import { ProjectsService } from 'src/projects/projects.service';
 import { CreateAgentDeploymentDto } from './_utils/dto/requests/create-deployment.dto';
+import type { ServiceName, ServiceConfig } from './_utils/types/agent.types';
 import { ControlPm2ProcessDto } from './_utils/dto/requests/control-pm2-process.dto';
 import { CreateRepoDto } from './_utils/dto/requests/create-repo.dto';
 import {
@@ -135,7 +136,18 @@ export class DeployAgentService {
     dto: CreateAgentDeploymentDto,
   ): Promise<GetAgentDeploymentDto> => {
     const agentUrl = await this.getAgentUrl(projectId, orgName);
-    const result = await this.deployAgentRequests.deploy(agentUrl, dto);
+
+    const serviceEntries = (
+      Object.entries(dto.services) as [ServiceName, ServiceConfig | undefined][]
+    ).filter(
+      (entry): entry is [ServiceName, ServiceConfig] => entry[1] != null,
+    );
+
+    if (serviceEntries.length === 0) {
+      throw new BadRequestException(
+        'At least one service (web or api) must be defined',
+      );
+    }
 
     const deploymentData = {
       projectId,
@@ -148,12 +160,22 @@ export class DeployAgentService {
       env: dto.env,
     };
 
-    if (!result.success) {
-      await this.deployAgentRepository.upsertDeployment({
-        ...deploymentData,
-        status: DeploymentStatus.FAILED,
+    for (const [serviceName, serviceConfig] of serviceEntries) {
+      const result = await this.deployAgentRequests.deploy(agentUrl, {
+        repo: dto.repo,
+        branch: dto.branch,
+        commit: dto.commit,
+        service: { [serviceName]: serviceConfig },
+        env: dto.env?.[serviceName],
       });
-      throw new BadRequestException(result);
+
+      if (!result.success) {
+        await this.deployAgentRepository.upsertDeployment({
+          ...deploymentData,
+          status: DeploymentStatus.FAILED,
+        });
+        throw new BadRequestException(result);
+      }
     }
 
     return this.deployAgentRepository
@@ -199,19 +221,33 @@ export class DeployAgentService {
         DeploymentStatus.DEPLOYED,
       );
     for (const dep of deployments) {
-      await this.deployAgentRequests
-        .deploy(agentUrl, {
-          repo: dep.repo,
-          branch: dep.branch,
-          commit: dep.commit,
-          services: dep.services,
-          links: dep.links,
-          env: dep.env,
-        })
-        .then((result) => {
-          if (result.success) restoredDeployments += 1;
-        })
-        .catch(() => {});
+      const serviceEntries = (
+        Object.entries(dep.services) as [
+          ServiceName,
+          ServiceConfig | undefined,
+        ][]
+      ).filter(
+        (entry): entry is [ServiceName, ServiceConfig] => entry[1] != null,
+      );
+
+      let allSucceeded = true;
+      for (const [serviceName, serviceConfig] of serviceEntries) {
+        await this.deployAgentRequests
+          .deploy(agentUrl, {
+            repo: dep.repo,
+            branch: dep.branch,
+            commit: dep.commit,
+            service: { [serviceName]: serviceConfig },
+            env: dep.env?.[serviceName],
+          })
+          .then((result) => {
+            if (!result.success) allSucceeded = false;
+          })
+          .catch(() => {
+            allSucceeded = false;
+          });
+      }
+      if (allSucceeded && serviceEntries.length > 0) restoredDeployments += 1;
     }
 
     return { restoredRepos, restoredDeployments };

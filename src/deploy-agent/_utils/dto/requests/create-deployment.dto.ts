@@ -1,7 +1,6 @@
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
-  IsArray,
   IsObject,
   IsOptional,
   IsString,
@@ -21,6 +20,10 @@ export class ServiceConfigDto implements ServiceConfig {
   @IsString()
   install?: string;
 
+  @ApiPropertyOptional({ example: true })
+  @IsOptional()
+  skipInstall?: boolean;
+
   @ApiProperty({ example: 'npm run build' })
   @IsString()
   @MinLength(1)
@@ -30,12 +33,6 @@ export class ServiceConfigDto implements ServiceConfig {
   @IsString()
   @MinLength(1)
   start: string;
-
-  @ApiPropertyOptional({ example: ['database', 'redis'] })
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  depends?: string[];
 }
 
 export class ServicesDto implements Services {
