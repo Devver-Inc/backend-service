@@ -26,6 +26,7 @@ import { UserRoleEnum } from '../logto/_utils/enums/permissions.enum';
 import { CreateInvitationDto } from './_utils/dto/requests/create-invitation.dto';
 import { CreateOrganizationDto } from './_utils/dto/requests/create-organization.dto';
 import { UpdateInvitationStatusDto } from './_utils/dto/requests/update-invitation-status.dto';
+import { UpdateOrganizationLogoDto } from './_utils/dto/requests/update-organization-logo.dto';
 import { UpdateOrganizationDto } from './_utils/dto/requests/update-organization.dto';
 import { GetInvitationDto } from './_utils/dto/responses/get-invitation.dto';
 import { GetOrganizationDetailsDto } from './_utils/dto/responses/get-organization-details.dto';
@@ -109,8 +110,6 @@ export class OrganizationsController {
 
   @Protect({ roles: [UserRoleEnum.ADMIN] })
   @Patch()
-  @FormDataRequest()
-  @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Update current organization' })
   async updateOrganization(
     @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
@@ -120,6 +119,27 @@ export class OrganizationsController {
       user,
       updateOrganizationDto,
     );
+  }
+
+  @Protect({ roles: [UserRoleEnum.ADMIN] })
+  @Post('logo')
+  @FormDataRequest()
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload current organization logo' })
+  async uploadOrganizationLogo(
+    @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
+    @Body() dto: UpdateOrganizationLogoDto,
+  ): Promise<GetOrganizationLightDto> {
+    return this.organizationsService.uploadOrganizationLogo(user, dto);
+  }
+
+  @Protect({ roles: [UserRoleEnum.ADMIN] })
+  @Delete('logo')
+  @ApiOperation({ summary: 'Delete current organization logo' })
+  async deleteOrganizationLogo(
+    @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
+  ): Promise<GetOrganizationLightDto> {
+    return this.organizationsService.deleteOrganizationLogo(user);
   }
 
   @Protect({ roles: [UserRoleEnum.ADMIN] })

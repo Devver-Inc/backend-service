@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   HttpCode,
   HttpStatus,
   Patch,
@@ -11,6 +12,7 @@ import { FormDataRequest } from 'nestjs-form-data';
 import { ConnectedUser } from 'src/logto/_utils/decorator/connected-user.decorator';
 import { LogtoUser } from 'src/logto/_utils/types/responses/responses.type';
 import { UpdateAccountDto } from './_utils/dto/requests/update-account.dto';
+import { UpdateProfilePictureDto } from './_utils/dto/requests/update-profile-picture.dto';
 import { UsersService } from './users.service';
 import { Protect } from 'src/_utils/decorators/protect.decorator';
 
@@ -27,12 +29,29 @@ export class UsersController {
 
   @Protect()
   @Patch('me')
-  @FormDataRequest()
   @HttpCode(HttpStatus.NO_CONTENT)
   updateAccount(
     @ConnectedUser() user: LogtoUser,
     @Body() dto: UpdateAccountDto,
   ) {
     return this.usersService.updateAccount(user, dto);
+  }
+
+  @Protect()
+  @Post('me/picture')
+  @FormDataRequest()
+  @HttpCode(HttpStatus.NO_CONTENT)
+  uploadProfilePicture(
+    @ConnectedUser() user: LogtoUser,
+    @Body() dto: UpdateProfilePictureDto,
+  ) {
+    return this.usersService.uploadProfilePicture(user, dto);
+  }
+
+  @Protect()
+  @Delete('me/picture')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  deleteProfilePicture(@ConnectedUser() user: LogtoUser) {
+    return this.usersService.deleteProfilePicture(user);
   }
 }

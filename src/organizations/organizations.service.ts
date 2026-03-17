@@ -16,6 +16,7 @@ import { UsersMapper } from 'src/users/user.mapper';
 import { CreateInvitationDto } from './_utils/dto/requests/create-invitation.dto';
 import { CreateOrganizationDto } from './_utils/dto/requests/create-organization.dto';
 import { UpdateInvitationStatusDto } from './_utils/dto/requests/update-invitation-status.dto';
+import { UpdateOrganizationLogoDto } from './_utils/dto/requests/update-organization-logo.dto';
 import { UpdateOrganizationDto } from './_utils/dto/requests/update-organization.dto';
 import { GetInvitationDto } from './_utils/dto/responses/get-invitation.dto';
 import { GetOrganizationDetailsDto } from './_utils/dto/responses/get-organization-details.dto';
@@ -129,60 +130,75 @@ export class OrganizationsService {
     user: LogtoUserWithOrganizations,
     updateOrganizationDto: UpdateOrganizationDto,
   ): Promise<GetOrganizationLightDto> {
-    const { logoFile, removeLogo } = updateOrganizationDto;
+    const updatedOrganization = await this.logtoRequests.updateOrganization(
+      user.currentOrganization.id,
+      {
+        name: updateOrganizationDto.name,
+        description: updateOrganizationDto.description,
+      },
+    );
+
+    return this.organizationsMapper.toOrganizationLightDto(updatedOrganization);
+  }
+
+  async uploadOrganizationLogo(
+    user: LogtoUserWithOrganizations,
+    dto: UpdateOrganizationLogoDto,
+  ): Promise<GetOrganizationLightDto> {
     const orgId = user.currentOrganization.id;
-    const currentLogoUrl = user.currentOrganization.customData.logoUrl;
-    const shouldRemoveLogo = Boolean(removeLogo) && !logoFile;
-
-    const fileMapping = logoFile
-      ? [
-          {
-            file: logoFile,
-            key: this.minioMapper.toOrganizationLogoKey(
-              orgId,
-              logoFile.extension,
-            ),
-          },
-        ]
-      : [];
-
-    let logoUrl = currentLogoUrl;
-    if (logoFile) {
-      logoUrl = this.minioMapper.toOrganizationLogoUrl(
-        orgId,
-        logoFile.extension,
-      );
-    } else if (shouldRemoveLogo) {
-      logoUrl = '';
-    }
-
-    const logoKeyToDelete =
-      shouldRemoveLogo && currentLogoUrl
-        ? this.minioMapper.toObjectKeyFromPublicUrl(currentLogoUrl)
-        : null;
-
     return this.fileUploadService.uploadFilesWithCleanup(
-      fileMapping,
+      [
+        {
+          file: dto.logoFile,
+          key: this.minioMapper.toOrganizationLogoKey(
+            orgId,
+            dto.logoFile.extension,
+          ),
+        },
+      ],
       async () => {
         const updatedOrganization = await this.logtoRequests.updateOrganization(
           orgId,
           {
-            name: updateOrganizationDto.name,
-            description: updateOrganizationDto.description,
             customData: {
               ...user.currentOrganization.customData,
-              logoUrl,
+              logoUrl: this.minioMapper.toOrganizationLogoUrl(
+                orgId,
+                dto.logoFile.extension,
+              ),
             },
           },
         );
-        if (logoKeyToDelete) {
-          await this.minioService.deleteFiles([logoKeyToDelete]);
-        }
         return this.organizationsMapper.toOrganizationLightDto(
           updatedOrganization,
         );
       },
     );
+  }
+
+  async deleteOrganizationLogo(
+    user: LogtoUserWithOrganizations,
+  ): Promise<GetOrganizationLightDto> {
+    const currentLogoUrl = user.currentOrganization.customData.logoUrl;
+    const logoKeyToDelete = currentLogoUrl
+      ? this.minioMapper.toObjectKeyFromPublicUrl(currentLogoUrl)
+      : null;
+
+    const updatedOrganization = await this.logtoRequests.updateOrganization(
+      user.currentOrganization.id,
+      {
+        customData: {
+          ...user.currentOrganization.customData,
+          logoUrl: '',
+        },
+      },
+    );
+
+    if (logoKeyToDelete) {
+      await this.minioService.deleteFiles([logoKeyToDelete]);
+    }
+
+    return this.organizationsMapper.toOrganizationLightDto(updatedOrganization);
   }
 
   async deleteOrganization(user: LogtoUserWithOrganizations): Promise<void> {
