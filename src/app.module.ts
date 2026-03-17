@@ -1,13 +1,14 @@
 import { Module } from '@nestjs/common';
-import { UsersModule } from './users/users.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { EnvironmentVariables, validateEnv } from './_utils/config/env.config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { MemoryStoredFile, NestjsFormDataModule } from 'nestjs-form-data';
-import { WebhooksModule } from './webhooks/webhooks.module';
+import { EnvironmentVariables, validateEnv } from './_utils/config/env.config';
+import { CommentsModule } from './comments/comments.module';
+import { DeploymentsModule } from './deployments/deployments.module';
 import { MinioModule } from './minio/minio.module';
 import { ProjectsModule } from './projects/projects.module';
-import { CommentsModule } from './comments/comments.module';
+import { UsersModule } from './users/users.module';
+import { WebhooksModule } from './webhooks/webhooks.module';
 import { DeployAgentModule } from './deploy-agent/deploy-agent.module';
 
 @Module({
@@ -29,6 +30,7 @@ import { DeployAgentModule } from './deploy-agent/deploy-agent.module';
     MinioModule,
     ProjectsModule,
     CommentsModule,
+    DeploymentsModule,
     DeployAgentModule,
   ],
 })

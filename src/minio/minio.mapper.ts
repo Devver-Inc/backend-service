@@ -18,6 +18,17 @@ export class MinioMapper {
     private readonly configService: ConfigService<EnvironmentVariables, true>,
   ) {}
 
+  private getPublicBaseUrl(): string {
+    const minio = this.configService.get<MinioConfig>('MINIO');
+    const port = minio.MINIO_PORT;
+    const isDefaultPort = !port || port === 443 || port === 80;
+    const protocol = port === 443 ? 'https' : 'http';
+    const host = isDefaultPort
+      ? minio.MINIO_ENDPOINT
+      : `${minio.MINIO_ENDPOINT}:${port}`;
+    return `${protocol}://${host}/${minio.MINIO_BUCKET_NAME}`;
+  }
+
   toGetMinioFileDto = (minioFile: MinioFile): GetMinioFileDto => ({
     key: minioFile.key,
     fileName: minioFile.fileName,
@@ -36,11 +47,24 @@ export class MinioMapper {
     `public/users/pfp/${userId}-avatar.${ext}`;
 
   toGetProfilePictureUrl = (userId: string, ext: string): string =>
-    `https://${this.configService.get<MinioConfig>('MINIO').MINIO_ENDPOINT}/${this.configService.get<MinioConfig>('MINIO').MINIO_BUCKET_NAME}/public/users/pfp/${userId}-avatar.${ext}`;
+    `${this.getPublicBaseUrl()}/public/users/pfp/${userId}-avatar.${ext}`;
 
   toOrganizationLogoKey = (organizationId: string, ext: string): string =>
     `public/organizations/${organizationId}/logo.${ext}`;
 
   toOrganizationLogoUrl = (organizationId: string, ext: string): string =>
-    `https://${this.configService.get<MinioConfig>('MINIO').MINIO_ENDPOINT}/${this.configService.get<MinioConfig>('MINIO').MINIO_BUCKET_NAME}/public/organizations/${organizationId}/logo.${ext}`;
+    `${this.getPublicBaseUrl()}/public/organizations/${organizationId}/logo.${ext}`;
+
+  toObjectKeyFromPublicUrl = (url: string): string | null => {
+    try {
+      const pathname = new URL(url).pathname;
+      const publicIndex = pathname.indexOf('/public/');
+      if (publicIndex === -1) {
+        return null;
+      }
+      return pathname.slice(publicIndex + 1);
+    } catch {
+      return null;
+    }
+  };
 }

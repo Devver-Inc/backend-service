@@ -1,0 +1,20 @@
+{
+  "projectId": "507f1f77bcf86cd799439011",
+  "organizationName": "myorg",
+  "projectName": "simple-app",
+  "container": {
+    "image": "nginx:alpine",
+    "port": 80,
+    "type": "app"
+  },
+  "resources": {
+    "requestsMemory": "128Mi",
+    "requestsCpu": "100m",
+    "limitsMemory": "256Mi",
+    "limitsCpu": "200m"
+  },
+  "persistence": {
+    "enabled": false
+  },
+  "replicaCount": 1
+}

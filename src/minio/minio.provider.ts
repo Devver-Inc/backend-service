@@ -36,6 +36,19 @@ export const minioProviders: Provider[] = [
           await minioClient.makeBucket(bucketName, 'eu-west-2');
         }
 
+        const publicReadPolicy = JSON.stringify({
+          Version: '2012-10-17',
+          Statement: [
+            {
+              Effect: 'Allow',
+              Principal: { AWS: ['*'] },
+              Action: ['s3:GetObject'],
+              Resource: [`arn:aws:s3:::${bucketName}/public/*`],
+            },
+          ],
+        });
+        await minioClient.setBucketPolicy(bucketName, publicReadPolicy);
+
         logger.log('Minio client initialized successfully', MINIO_CLIENT_TOKEN);
         return minioClient;
       } catch (error) {
