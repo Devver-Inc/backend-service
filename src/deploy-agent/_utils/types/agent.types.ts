@@ -35,6 +35,9 @@ export enum ErrorCode {
   REPO_DELETE_FAILED = 'REPO_DELETE_FAILED',
   DEPLOYMENT_DELETE_FAILED = 'DEPLOYMENT_DELETE_FAILED',
   LOGS_FETCH_FAILED = 'LOGS_FETCH_FAILED',
+  PM2_START_FAILED = 'PM2_START_FAILED',
+  PM2_STOP_FAILED = 'PM2_STOP_FAILED',
+  PM2_RESTART_FAILED = 'PM2_RESTART_FAILED',
 }
 
 export interface ServiceConfig {
@@ -45,15 +48,21 @@ export interface ServiceConfig {
   depends?: string[];
 }
 
+export interface Services {
+  api?: ServiceConfig;
+  web?: ServiceConfig;
+}
+
 export interface CreateRepoRequest {
   name: string;
+  baseUrl: string;
 }
 
 export interface DeployRequest {
   repo: string;
   branch: string;
   commit?: string;
-  services: Record<string, ServiceConfig>;
+  services: Services;
   links?: Record<string, Record<string, string>>;
   env?: Record<string, Record<string, string>>;
 }
@@ -118,4 +127,16 @@ export interface LogEntry {
 
 export interface LogsResponse {
   logs: LogEntry[];
+}
+
+export enum PM2Action {
+  START = 'start',
+  STOP = 'stop',
+  RESTART = 'restart',
+}
+
+export interface PM2ActionResponse {
+  success: true;
+  name: string;
+  action: PM2Action;
 }

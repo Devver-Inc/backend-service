@@ -18,9 +18,8 @@ export class UsersService {
     private readonly minioService: MinioService,
   ) {}
 
-  createAccount(user: LogtoUser) {
-    return this.logtoService.manageUserWithoutOrganization(user);
-  }
+  createAccount = (user: LogtoUser) =>
+    this.logtoService.manageUserWithoutOrganization(user);
 
   async updateAccount(user: LogtoUser, dto: UpdateAccountDto) {
     await this.logtoRequests.updateUserProfile(user.id, dto);

@@ -1,4 +1,4 @@
-import { ServiceConfig } from './agent.types';
+import { Services } from './agent.types';
 
 export interface CreateRepoData {
   projectId: string;
@@ -13,7 +13,7 @@ export interface CreateDeploymentData {
   repo: string;
   branch: string;
   commit?: string;
-  services: Record<string, ServiceConfig>;
+  services: Services;
   links?: Record<string, Record<string, string>>;
   env?: Record<string, Record<string, string>>;
 }
