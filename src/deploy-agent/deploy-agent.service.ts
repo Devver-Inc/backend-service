@@ -48,13 +48,7 @@ export class DeployAgentService {
     projectId: string,
     user: LogtoUserWithOrganizations,
   ): Promise<void> => {
-    const project = await this.projectsService.findProjectById(projectId);
-    if (project.organizationId !== user.currentOrganization.id) {
-      throw this.exceptions.PROJECT_ACCESS_DENIED;
-    }
-    if (!user.isAdmin && !project.teamMemberIds.includes(user.id)) {
-      throw this.exceptions.PROJECT_ACCESS_DENIED;
-    }
+    await this.projectsService.assertProjectAccess(projectId, user);
   };
 
   listRepos = async (

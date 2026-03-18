@@ -81,6 +81,12 @@ export class ProjectDomain {
     return this.teamMemberIds.includes(userId);
   }
 
+  canUserComment(userId: string, isAdmin: boolean): boolean {
+    if (!this.accessControl.restrictToTeamMembers) return true;
+    if (isAdmin) return true;
+    return this.isTeamMember(userId);
+  }
+
   addTeamMembers(userIds: string[]): ProjectDomain {
     const existingIds = new Set(this.teamMemberIds);
     const newIds = userIds.filter((id) => !existingIds.has(id));

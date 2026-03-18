@@ -1,6 +1,7 @@
 // comment.domain.ts
 import { Position } from 'src/_utils/schemas/position.schema';
 import { CreateCommentDto } from './_utils/dto/requests/create-comment.dto';
+import { CommentDocument } from './comments.schema';
 
 interface CommentDomainProps {
   userId: string;
@@ -38,5 +39,23 @@ export class CommentDomain {
       content: dto.content,
       position: dto.position as Position,
     });
+  }
+
+  static fromDocument(doc: CommentDocument): CommentDomain {
+    return new CommentDomain({
+      userId: doc.userId,
+      organizationId: doc.organizationId,
+      projectId: doc.project.toString(),
+      content: doc.content,
+      position: doc.position,
+    });
+  }
+
+  isAuthor(userId: string): boolean {
+    return this.userId === userId;
+  }
+
+  belongsToProject(projectId: string): boolean {
+    return this.projectId === projectId;
   }
 }

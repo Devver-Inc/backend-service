@@ -23,6 +23,7 @@ import { GetOrganizationDetailsDto } from './_utils/dto/responses/get-organizati
 import { GetOrganizationLightDto } from './_utils/dto/responses/get-organization-light.dto';
 import { InvitationStatusEnum } from './_utils/enums/invitations-status.enum';
 import { UpdateInvitationStatusEnum } from './_utils/enums/update-invitations-status.enum';
+import { OrganizationDomain } from './organization.domain';
 import { OrganizationsMapper } from './organization.mapper';
 import { FileUploadService } from 'src/minio/file-upload.service';
 import { OrganizationsExceptions } from './_utils/errors/organizations-exceptions';
@@ -206,7 +207,12 @@ export class OrganizationsService {
       user.currentOrganization.id,
     );
 
-    if (members.length > 1) {
+    const domain = OrganizationDomain.fromLogtoOrganization(
+      user.currentOrganization,
+      members,
+    );
+
+    if (!domain.canDelete()) {
       throw this.exceptions.CANNOT_DELETE_WITH_MULTIPLE_MEMBERS;
     }
 
@@ -227,22 +233,12 @@ export class OrganizationsService {
     const { members } = await this.logtoRequests.getOrganizationMembers(
       user.currentOrganization.id,
     );
-    const ownerId = user.currentOrganization.customData.ownerId;
-    const adminsIdsSet = new Set<string>(
-      user.currentOrganization.customData.adminIds,
+
+    const domain = OrganizationDomain.fromLogtoOrganization(
+      user.currentOrganization,
+      members,
     );
-    const { owner, admins } = members.reduce(
-      (acc, member) => {
-        if (member.id === ownerId) {
-          acc.owner = member;
-        }
-        if (adminsIdsSet.has(member.id)) {
-          acc.admins.push(member);
-        }
-        return acc;
-      },
-      { owner: null as LogtoUser | null, admins: [] as LogtoUser[] },
-    );
+    const { owner, admins } = domain.classifyMembers(members);
 
     return this.organizationsMapper.toOrganizationDetailsDto(
       user.currentOrganization,
@@ -408,17 +404,28 @@ export class OrganizationsService {
       );
     }
   }
+  // Note: invitation validations (email check, ownership check) are kept here
+  // as they involve external types (LogtoInvitation) that don't belong to OrganizationDomain.
 
   async transferOwnership(
     user: LogtoUserWithOrganizations,
     newOwner: LogtoUser,
   ): Promise<LogtoOrganization> {
-    if (user.currentOrganization.customData.ownerId === newOwner.id) {
+    const domain = OrganizationDomain.fromLogtoOrganization(
+      user.currentOrganization,
+      [],
+    );
+
+    if (domain.isOwner(newOwner.id)) {
       throw this.exceptions.CANNOT_TRANSFER_TO_YOURSELF;
     }
-    if (!user.currentOrganization.customData.adminIds.includes(newOwner.id)) {
+
+    if (!domain.isAdmin(newOwner.id)) {
       throw this.exceptions.NEW_OWNER_NOT_ADMIN;
     }
+
+    domain.withNewOwner(newOwner.id);
+
     return this.logtoRequests.updateOrganization(user.currentOrganization.id, {
       customData: {
         ...user.currentOrganization.customData,
@@ -431,32 +438,37 @@ export class OrganizationsService {
     user: LogtoUserWithOrganizations,
     userToRemove: LogtoUser,
   ): Promise<LogtoOrganization> {
-    if (user.currentOrganization.customData.ownerId === userToRemove.id) {
-      throw this.exceptions.CANNOT_REMOVE_OWNER;
-    }
-
     const currentUserRoles = await this.logtoRequests.getUserRoles(
       user.id,
       user.currentOrganization.id,
     );
-    if (
-      userToRemove.id !== user.id &&
-      !currentUserRoles.some((role) => role.name === UserRoleEnum.ADMIN)
-    ) {
-      throw this.exceptions.NOT_ALLOWED_TO_REMOVE_USER;
-    }
+    const requesterIsAdmin = currentUserRoles.some(
+      (role) => role.name === UserRoleEnum.ADMIN,
+    );
 
     const { members } = await this.logtoRequests.getOrganizationMembers(
       user.currentOrganization.id,
     );
+
+    const domain = OrganizationDomain.fromLogtoOrganization(
+      user.currentOrganization,
+      members,
+    );
+
+    if (domain.isOwner(userToRemove.id)) {
+      throw this.exceptions.CANNOT_REMOVE_OWNER;
+    }
+
+    if (!domain.canRemoveMember(user.id, userToRemove.id, requesterIsAdmin)) {
+      throw this.exceptions.NOT_ALLOWED_TO_REMOVE_USER;
+    }
+
     if (members.length === 1) {
       await this.logtoRequests.deleteOrganization(user.currentOrganization.id);
       return user.currentOrganization;
     }
 
-    if (
-      user.currentOrganization.customData.adminIds.includes(userToRemove.id)
-    ) {
+    if (domain.isAdmin(userToRemove.id)) {
       await this.logtoRequests.updateOrganization(user.currentOrganization.id, {
         customData: {
           ...user.currentOrganization.customData,

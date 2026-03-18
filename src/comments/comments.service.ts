@@ -7,6 +7,7 @@ import { CommentsPaginatedQueryDto } from './_utils/dto/query/comments-paginated
 import { CreateCommentDto } from './_utils/dto/requests/create-comment.dto';
 import { GetCommentDto } from './_utils/dto/responses/get-comment.dto';
 import { CommentDomain } from './comment.domain';
+import { ProjectDomain } from 'src/projects/project.domain';
 import { CommentsMapper } from './comments.mapper';
 import { CommentsExceptions } from './_utils/errors/comments-exceptions';
 import { CommentsRepository } from './comments.repository';
@@ -55,12 +56,9 @@ export class CommentsService {
       user.currentOrganization.id,
     );
 
-    if (project.accessControl.restrictToTeamMembers) {
-      const isTeamMember = project.teamMemberIds.includes(user.id);
-
-      if (!user.isAdmin && !isTeamMember) {
-        throw this.exceptions.COMMENT_ACCESS_DENIED;
-      }
+    const projectDomain = ProjectDomain.fromDocument(project);
+    if (!projectDomain.canUserComment(user.id, user.isAdmin)) {
+      throw this.exceptions.COMMENT_ACCESS_DENIED;
     }
 
     const domain = CommentDomain.create(
