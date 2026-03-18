@@ -86,7 +86,8 @@ export class DeploymentsService {
 
       // Save deployment to database
       const deployment = await this.deploymentsRepository.create(domain);
-      const deployedDomain = DeploymentDomain.fromDocument(deployment).markAsDeployed();
+      const deployedDomain =
+        DeploymentDomain.fromDocument(deployment).markAsDeployed();
 
       // Update status to deployed
       const updatedDeployment = await this.deploymentsRepository.updateStatus(
@@ -104,7 +105,8 @@ export class DeploymentsService {
 
       // Save deployment with failed status
       const deployment = await this.deploymentsRepository.create(domain);
-      const failedDomain = DeploymentDomain.fromDocument(deployment).markAsFailed();
+      const failedDomain =
+        DeploymentDomain.fromDocument(deployment).markAsFailed();
       await this.deploymentsRepository.updateStatus(
         deployment._id.toString(),
         failedDomain.status,
@@ -182,7 +184,8 @@ export class DeploymentsService {
     );
 
     // Update domain preserving identity fields from the existing document
-    const domain = DeploymentDomain.fromDocument(existingDeployment).update(dto);
+    const domain =
+      DeploymentDomain.fromDocument(existingDeployment).update(dto);
 
     this.logger.log(
       `Updating deployment for ${domain.organizationName}/${domain.projectName}`,
