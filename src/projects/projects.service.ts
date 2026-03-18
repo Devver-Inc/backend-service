@@ -1,7 +1,7 @@
-import { forwardRef, Inject, Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { toPaginatedDto } from 'src/_utils/pagination/pagination.mapper';
 import { PaginationDto } from 'src/_utils/pagination/responses/pagination.dto';
-import { DeploymentsService } from 'src/deployments/deployments.service';
+import { GitHubService } from 'src/_shared/github/github.service';
 import { LogtoUserWithOrganizations } from 'src/logto/_utils/types/user-with-organization.type';
 import { LogtoRequests } from 'src/logto/logto.requests';
 import { ProjectsPaginatedQueryDto } from './_utils/dto/query/projects-paginated-query.dto';
@@ -15,18 +15,19 @@ import {
 import { ProjectsExceptions } from './_utils/errors/projects-exceptions';
 import { ProjectDomain } from './project.domain';
 import { ProjectsMapper } from './project.mapper';
-import { ProjectDocument } from './project.schema';
+import { DeploymentStatus, ProjectDocument } from './project.schema';
 import { ProjectsRepository } from './projects.repository';
 
 @Injectable()
 export class ProjectsService {
+  private readonly logger = new Logger(ProjectsService.name);
+
   constructor(
     private readonly projectsRepository: ProjectsRepository,
     private readonly projectsMapper: ProjectsMapper,
     private readonly logtoRequests: LogtoRequests,
     private readonly exceptions: ProjectsExceptions,
-    @Inject(forwardRef(() => DeploymentsService))
-    private readonly deploymentsService: DeploymentsService,
+    private readonly githubService: GitHubService,
   ) {}
 
   async createProject(
@@ -34,14 +35,40 @@ export class ProjectsService {
     user: LogtoUserWithOrganizations,
   ): Promise<GetProjectLightDto> {
     const organizationId = user.currentOrganization.id;
+    const organizationName = user.currentOrganization.name;
 
     await this.validateTeamMembersInOrganization(
       organizationId,
       dto.teamMemberIds,
     );
 
-    const domain = ProjectDomain.create(dto, organizationId, user.id);
+    const domain = ProjectDomain.create(dto, organizationId, user.id, organizationName);
     const project = await this.projectsRepository.create(domain);
+
+    // Push values.yaml to GitHub and update deployment status
+    try {
+      const yamlContent = domain.toValuesYaml(organizationName);
+      await this.githubService.pushValuesYaml(
+        organizationName,
+        dto.name,
+        yamlContent,
+      );
+
+      await this.projectsRepository.updateDeploymentStatus(
+        project._id.toString(),
+        DeploymentStatus.DEPLOYED,
+      );
+
+      this.logger.log(
+        `values.yaml pushed for project ${dto.name} (org: ${organizationName})`,
+      );
+    } catch (error) {
+      this.logger.error('Failed to push values.yaml to GitHub:', error);
+      await this.projectsRepository.updateDeploymentStatus(
+        project._id.toString(),
+        DeploymentStatus.FAILED,
+      );
+    }
 
     return this.projectsMapper.toProjectLightDto(project);
   }
@@ -106,7 +133,6 @@ export class ProjectsService {
     user: LogtoUserWithOrganizations,
   ): Promise<void> {
     await this.getProjectWithAccessCheck(projectId, user);
-    await this.deploymentsService.deleteByProject(projectId);
     await this.projectsRepository.deleteById(projectId);
   }
 

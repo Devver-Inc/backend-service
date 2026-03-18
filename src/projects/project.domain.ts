@@ -1,9 +1,13 @@
 // project.domain.ts
+import * as yaml from 'js-yaml';
+import { toSlug } from 'src/_utils/functions/to-slug.function';
 import { CreateProjectDto } from './_utils/dto/requests/create-project.dto';
 import { UpdateProjectDto } from './_utils/dto/requests/update-project.dto';
 import {
   MachineConfiguration,
   AccessControl,
+  DeploymentConfig,
+  DeploymentStatus,
   ProjectDocument,
 } from './project.schema';
 
@@ -15,6 +19,7 @@ interface ProjectDomainProps {
   machineConfiguration: MachineConfiguration;
   teamMemberIds: string[];
   accessControl: AccessControl;
+  deploymentConfig?: DeploymentConfig;
 }
 
 export class ProjectDomain {
@@ -25,6 +30,7 @@ export class ProjectDomain {
   readonly machineConfiguration: MachineConfiguration;
   readonly teamMemberIds: string[];
   readonly accessControl: AccessControl;
+  readonly deploymentConfig?: DeploymentConfig;
 
   private constructor(props: ProjectDomainProps) {
     this.name = props.name;
@@ -34,13 +40,52 @@ export class ProjectDomain {
     this.machineConfiguration = props.machineConfiguration;
     this.teamMemberIds = props.teamMemberIds;
     this.accessControl = props.accessControl;
+    this.deploymentConfig = props.deploymentConfig;
   }
 
   static create(
     dto: CreateProjectDto,
     organizationId: string,
     userId: string,
+    organizationName: string,
   ): ProjectDomain {
+    const githubPath = `${toSlug(organizationName)}/${toSlug(dto.name)}/values.yaml`;
+
+    const deploymentConfig: DeploymentConfig = {
+      container: {
+        image: dto.container.image,
+        port: dto.container.port,
+        type: dto.container.type as 'app' | 'os',
+        command: dto.container.command ?? [],
+        args: dto.container.args ?? [],
+      },
+      resources: {
+        requests: {
+          memory: dto.resources?.requests?.memory ?? '128Mi',
+          cpu: dto.resources?.requests?.cpu ?? '100m',
+        },
+        limits: {
+          memory: dto.resources?.limits?.memory ?? '128Mi',
+          cpu: dto.resources?.limits?.cpu ?? '100m',
+        },
+      },
+      persistence: {
+        enabled: dto.persistence?.enabled ?? false,
+        app: dto.persistence?.app,
+        root: dto.persistence?.root,
+      },
+      replicaCount: dto.replicaCount ?? 1,
+      ports: {
+        http: dto.httpPort ?? 80,
+        https: dto.httpsPort ?? 443,
+      },
+      labels: new Map(Object.entries(dto.labels ?? {})),
+      annotations: new Map(Object.entries(dto.annotations ?? {})),
+      organizationDomain: dto.organizationDomain ?? 'devver.app',
+      githubPath,
+      status: DeploymentStatus.PENDING,
+    };
+
     return new ProjectDomain({
       name: dto.name,
       description: dto.description,
@@ -58,6 +103,7 @@ export class ProjectDomain {
         restrictToTeamMembers:
           dto.accessControl?.restrictToTeamMembers ?? false,
       },
+      deploymentConfig,
     });
   }
 
@@ -70,7 +116,70 @@ export class ProjectDomain {
       machineConfiguration: doc.machineConfiguration,
       teamMemberIds: doc.teamMemberIds,
       accessControl: doc.accessControl,
+      deploymentConfig: doc.deploymentConfig,
     });
+  }
+
+  setDeploymentConfig(config: DeploymentConfig): ProjectDomain {
+    return new ProjectDomain({ ...this, deploymentConfig: config });
+  }
+
+  toValuesYaml(organizationName: string): string {
+    if (!this.deploymentConfig) {
+      throw new Error('Project has no deployment configuration');
+    }
+
+    const cfg = this.deploymentConfig;
+
+    const toRecord = (
+      map: Map<string, string> | Record<string, string> | undefined,
+    ): Record<string, string> => {
+      if (!map) return {};
+      if (map instanceof Map) return Object.fromEntries(map.entries());
+      return map;
+    };
+
+    const obj = {
+      organization: {
+        name: organizationName,
+        domain: cfg.organizationDomain,
+      },
+      project: {
+        name: this.name,
+      },
+      imagePullSecrets: [{ name: 'ghcr-secret' }],
+      container: {
+        image: cfg.container.image,
+        port: cfg.container.port,
+        type: cfg.container.type,
+        command: cfg.container.command ?? [],
+        args: cfg.container.args ?? [],
+      },
+      resources: {
+        requests: {
+          memory: cfg.resources.requests.memory,
+          cpu: cfg.resources.requests.cpu,
+        },
+        limits: {
+          memory: cfg.resources.limits.memory,
+          cpu: cfg.resources.limits.cpu,
+        },
+      },
+      persistence: {
+        enabled: cfg.persistence.enabled,
+        ...(cfg.persistence.app ? { app: cfg.persistence.app } : {}),
+        ...(cfg.persistence.root ? { root: cfg.persistence.root } : {}),
+      },
+      replicaCount: cfg.replicaCount,
+      ports: {
+        http: cfg.ports.http,
+        https: cfg.ports.https,
+      },
+      labels: toRecord(cfg.labels as unknown as Map<string, string>),
+      annotations: toRecord(cfg.annotations as unknown as Map<string, string>),
+    };
+
+    return yaml.dump(obj);
   }
 
   belongsToOrganization(organizationId: string): boolean {

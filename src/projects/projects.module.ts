@@ -1,6 +1,5 @@
 import { forwardRef, Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { DeploymentsModule } from 'src/deployments/deployments.module';
 import { LogtoModule } from 'src/logto/logto.module';
 import { UsersModule } from 'src/users/users.module';
 import { ProjectsExceptions } from './_utils/errors/projects-exceptions';
@@ -15,7 +14,6 @@ import { ProjectsService } from './projects.service';
     MongooseModule.forFeature([{ name: Project.name, schema: ProjectSchema }]),
     forwardRef(() => LogtoModule),
     forwardRef(() => UsersModule),
-    forwardRef(() => DeploymentsModule),
   ],
   controllers: [ProjectsController],
   providers: [
