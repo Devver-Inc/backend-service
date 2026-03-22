@@ -11,10 +11,10 @@ export enum DeploymentStatus {
 
 @Schema({ _id: false })
 export class MachineConfiguration {
-  @Prop({ required: true, min: 1, max: 16, default: 2 })
+  @Prop({ required: true, min: 0.5, max: 2, default: 0.5 })
   cpuCores: number;
 
-  @Prop({ required: true, min: 1, max: 64, default: 4 })
+  @Prop({ required: true, min: 0.5, max: 2, default: 0.5 })
   ram: number;
 
   @Prop({ required: true, min: 10, max: 500, default: 20 })
