@@ -3,8 +3,8 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { MemoryStoredFile, NestjsFormDataModule } from 'nestjs-form-data';
 import { EnvironmentVariables, validateEnv } from './_utils/config/env.config';
+import { GitHubModule } from './_shared/github/github.module';
 import { CommentsModule } from './comments/comments.module';
-import { DeploymentsModule } from './deployments/deployments.module';
 import { MinioModule } from './minio/minio.module';
 import { ProjectsModule } from './projects/projects.module';
 import { UsersModule } from './users/users.module';
@@ -25,12 +25,12 @@ import { DeployAgentModule } from './deploy-agent/deploy-agent.module';
     }),
     ConfigModule.forRoot({ validate: validateEnv, isGlobal: true }),
     NestjsFormDataModule.config({ isGlobal: true, storage: MemoryStoredFile }),
+    GitHubModule,
     UsersModule,
     WebhooksModule,
     MinioModule,
     ProjectsModule,
     CommentsModule,
-    DeploymentsModule,
     DeployAgentModule,
   ],
 })

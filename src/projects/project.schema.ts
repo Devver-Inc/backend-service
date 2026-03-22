@@ -3,12 +3,18 @@ import { HydratedDocument } from 'mongoose';
 
 export type ProjectDocument = HydratedDocument<Project>;
 
+export enum DeploymentStatus {
+  PENDING = 'pending',
+  DEPLOYED = 'deployed',
+  FAILED = 'failed',
+}
+
 @Schema({ _id: false })
 export class MachineConfiguration {
-  @Prop({ required: true, min: 1, max: 16, default: 2 })
+  @Prop({ required: true, min: 0.5, max: 2, default: 0.5 })
   cpuCores: number;
 
-  @Prop({ required: true, min: 1, max: 64, default: 4 })
+  @Prop({ required: true, min: 0.5, max: 2, default: 0.5 })
   ram: number;
 
   @Prop({ required: true, min: 10, max: 500, default: 20 })
@@ -32,6 +38,24 @@ export class AccessControl {
 
 export const AccessControlSchema = SchemaFactory.createForClass(AccessControl);
 
+// --- DeploymentConfig nested schemas ---
+
+@Schema({ _id: false })
+export class DeploymentConfig {
+  @Prop({ type: String, required: true })
+  githubPath: string;
+
+  @Prop({
+    type: String,
+    enum: Object.values(DeploymentStatus),
+    default: DeploymentStatus.PENDING,
+  })
+  status: DeploymentStatus;
+}
+
+export const DeploymentConfigSchema =
+  SchemaFactory.createForClass(DeploymentConfig);
+
 @Schema({ timestamps: true })
 export class Project {
   @Prop({ required: true, minlength: 1, maxlength: 128 })
@@ -54,6 +78,9 @@ export class Project {
 
   @Prop({ type: AccessControlSchema, required: true })
   accessControl: AccessControl;
+
+  @Prop({ type: DeploymentConfigSchema, required: false })
+  deploymentConfig?: DeploymentConfig;
 
   createdAt: Date;
   updatedAt: Date;

@@ -4,7 +4,7 @@ import { Model, QueryFilter } from 'mongoose';
 import { escapeRegex } from 'src/_utils/functions/escape-regex.function';
 import { ProjectsPaginatedQueryDto } from './_utils/dto/query/projects-paginated-query.dto';
 import { ProjectDomain } from './project.domain';
-import { Project, ProjectDocument } from './project.schema';
+import { DeploymentStatus, Project, ProjectDocument } from './project.schema';
 import { LeanWithMongoId } from 'src/_utils/types';
 
 export type ProjectLean = LeanWithMongoId<Project>;
@@ -99,4 +99,17 @@ export class ProjectsRepository {
       .orFail(new NotFoundException(this.NOT_FOUND_ERROR))
       .exec();
   };
+
+  updateDeploymentStatus = (
+    projectId: string,
+    status: DeploymentStatus,
+  ): Promise<ProjectDocument> =>
+    this.projectModel
+      .findByIdAndUpdate(
+        projectId,
+        { $set: { 'deploymentConfig.status': status } },
+        { new: true },
+      )
+      .orFail(new NotFoundException(this.NOT_FOUND_ERROR))
+      .exec();
 }

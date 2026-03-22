@@ -51,7 +51,7 @@ export class ServicesDto implements Services {
 }
 
 export class CreateAgentDeploymentDto {
-  @ApiProperty({ example: 'https://github.com/user/repo.git' })
+  @ApiProperty({ example: 'my-repo' })
   @IsString()
   @MinLength(1)
   repo: string;
