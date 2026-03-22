@@ -52,36 +52,6 @@ export class ProjectDomain {
     const githubPath = `${toSlug(organizationName)}/${toSlug(dto.name)}/values.yaml`;
 
     const deploymentConfig: DeploymentConfig = {
-      container: {
-        image: dto.container.image,
-        port: dto.container.port,
-        type: dto.container.type as 'app' | 'os',
-        command: dto.container.command ?? [],
-        args: dto.container.args ?? [],
-      },
-      resources: {
-        requests: {
-          memory: dto.resources?.requests?.memory ?? '128Mi',
-          cpu: dto.resources?.requests?.cpu ?? '100m',
-        },
-        limits: {
-          memory: dto.resources?.limits?.memory ?? '128Mi',
-          cpu: dto.resources?.limits?.cpu ?? '100m',
-        },
-      },
-      persistence: {
-        enabled: dto.persistence?.enabled ?? false,
-        app: dto.persistence?.app,
-        root: dto.persistence?.root,
-      },
-      replicaCount: dto.replicaCount ?? 1,
-      ports: {
-        http: dto.httpPort ?? 80,
-        https: dto.httpsPort ?? 443,
-      },
-      labels: new Map(Object.entries(dto.labels ?? {})),
-      annotations: new Map(Object.entries(dto.annotations ?? {})),
-      organizationDomain: dto.organizationDomain ?? 'devver.app',
       githubPath,
       status: DeploymentStatus.PENDING,
     };
@@ -92,8 +62,8 @@ export class ProjectDomain {
       organizationId,
       createdBy: userId,
       machineConfiguration: {
-        cpuCores: dto.machineConfiguration?.cpuCores ?? 2,
-        ram: dto.machineConfiguration?.ram ?? 4,
+        cpuCores: dto.machineConfiguration?.cpuCores ?? 0.5,
+        ram: dto.machineConfiguration?.ram ?? 0.5,
         storage: dto.machineConfiguration?.storage ?? 20,
       },
       teamMemberIds: dto.teamMemberIds ?? [],
@@ -129,54 +99,52 @@ export class ProjectDomain {
       throw new Error('Project has no deployment configuration');
     }
 
-    const cfg = this.deploymentConfig;
-
-    const toRecord = (
-      map: Map<string, string> | Record<string, string> | undefined,
-    ): Record<string, string> => {
-      if (!map) return {};
-      if (map instanceof Map) return Object.fromEntries(map.entries());
-      return map;
-    };
-
     const obj = {
       organization: {
         name: organizationName,
-        domain: cfg.organizationDomain,
+        domain: 'devver.app',
       },
       project: {
         name: this.name,
       },
       imagePullSecrets: [{ name: 'ghcr-secret' }],
       container: {
-        image: cfg.container.image,
-        port: cfg.container.port,
-        type: cfg.container.type,
-        command: cfg.container.command ?? [],
-        args: cfg.container.args ?? [],
+        image: 'ghcr.io/devver-inc/deploy-agent:latest',
+        port: 80,
+        type: 'app',
+        command: [],
+        args: [],
       },
       resources: {
         requests: {
-          memory: cfg.resources.requests.memory,
-          cpu: cfg.resources.requests.cpu,
+          memory: '128Mi',
+          cpu: '100m',
         },
         limits: {
-          memory: cfg.resources.limits.memory,
-          cpu: cfg.resources.limits.cpu,
+          memory: `${Math.round(this.machineConfiguration.ram * 1024)}Mi`,
+          cpu: `${Math.round(this.machineConfiguration.cpuCores * 1000)}m`,
         },
       },
       persistence: {
-        enabled: cfg.persistence.enabled,
-        ...(cfg.persistence.app ? { app: cfg.persistence.app } : {}),
-        ...(cfg.persistence.root ? { root: cfg.persistence.root } : {}),
+        enabled: true,
+        app: {
+          size: '10Gi',
+          mountPath: '/app',
+          storageClass: 'longhorn',
+        },
+        root: {
+          size: '5Gi',
+          mountPath: '/root',
+          storageClass: 'longhorn',
+        },
       },
-      replicaCount: cfg.replicaCount,
+      replicaCount: 1,
       ports: {
-        http: cfg.ports.http,
-        https: cfg.ports.https,
+        http: 80,
+        https: 443,
       },
-      labels: toRecord(cfg.labels as unknown as Map<string, string>),
-      annotations: toRecord(cfg.annotations as unknown as Map<string, string>),
+      labels: {},
+      annotations: {},
     };
 
     return yaml.dump(obj);

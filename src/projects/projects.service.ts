@@ -42,7 +42,12 @@ export class ProjectsService {
       dto.teamMemberIds,
     );
 
-    const domain = ProjectDomain.create(dto, organizationId, user.id, organizationName);
+    const domain = ProjectDomain.create(
+      dto,
+      organizationId,
+      user.id,
+      organizationName,
+    );
     const project = await this.projectsRepository.create(domain);
 
     // Push values.yaml to GitHub and update deployment status
