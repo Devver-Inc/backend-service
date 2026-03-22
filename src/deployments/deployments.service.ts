@@ -1,5 +1,4 @@
 import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
-import * as yaml from 'js-yaml';
 import { LogtoUserWithOrganizations } from 'src/logto/_utils/types/user-with-organization.type';
 import { ProjectsService } from 'src/projects/projects.service';
 import { CreateDeploymentDto } from './_utils/dto/requests/create-deployment.dto';
@@ -10,7 +9,7 @@ import {
 import { DeploymentDomain } from './deployment.domain';
 import { DeploymentMapper } from './deployment.mapper';
 import { DeploymentsRepository } from './deployments.repository';
-import { DeploymentStatus } from './deployment.schema';
+import { DeploymentDocument } from './deployment.schema';
 import { DeploymentsExceptions } from './_utils/errors/deployments-exceptions';
 import { GitHubService } from './github.service';
 
@@ -27,65 +26,16 @@ export class DeploymentsService {
     private readonly exceptions: DeploymentsExceptions,
   ) {}
 
-  /**
-   * Generate values.yaml content from deployment domain
-   */
-  private generateValuesYaml(deployment: DeploymentDomain): string {
-    const obj = {
-      organization: {
-        name: deployment.organizationName,
-        domain: deployment.organizationDomain,
-      },
-      project: {
-        name: deployment.projectName,
-      },
-      container: {
-        image: deployment.container.image,
-        port: deployment.container.port,
-        type: deployment.container.type,
-        command:
-          deployment.container.command &&
-          deployment.container.command.length > 0
-            ? deployment.container.command
-            : [],
-        args:
-          deployment.container.args && deployment.container.args.length > 0
-            ? deployment.container.args
-            : [],
-      },
-      resources: {
-        requests: {
-          memory: deployment.resources.requests.memory,
-          cpu: deployment.resources.requests.cpu,
-        },
-        limits: {
-          memory: deployment.resources.limits.memory,
-          cpu: deployment.resources.limits.cpu,
-        },
-      },
-      persistence: {
-        enabled: deployment.persistence.enabled,
-        ...(deployment.persistence.size
-          ? { size: deployment.persistence.size }
-          : {}),
-        ...(deployment.persistence.mountPath
-          ? { mountPath: deployment.persistence.mountPath }
-          : {}),
-      },
-      replicaCount: deployment.replicaCount,
-      ports: {
-        http: deployment.ports.http,
-        https: deployment.ports.https,
-      },
-      labels:
-        Object.keys(deployment.labels).length > 0 ? deployment.labels : {},
-      annotations:
-        Object.keys(deployment.annotations).length > 0
-          ? deployment.annotations
-          : {},
-    };
-
-    return yaml.dump(obj);
+  private async getDeploymentWithAccessCheck(
+    deploymentId: string,
+    user: LogtoUserWithOrganizations,
+  ): Promise<DeploymentDocument> {
+    const deployment = await this.deploymentsRepository.findById(deploymentId);
+    const domain = DeploymentDomain.fromDocument(deployment);
+    if (!domain.belongsToOrganization(user.currentOrganization.id)) {
+      throw this.exceptions.DEPLOYMENT_NOT_FOUND;
+    }
+    return deployment;
   }
 
   /**
@@ -124,7 +74,7 @@ export class DeploymentsService {
     );
 
     // Generate YAML content
-    const yamlContent = this.generateValuesYaml(domain);
+    const yamlContent = domain.toValuesYaml();
 
     try {
       // Push to GitHub
@@ -136,11 +86,13 @@ export class DeploymentsService {
 
       // Save deployment to database
       const deployment = await this.deploymentsRepository.create(domain);
+      const deployedDomain =
+        DeploymentDomain.fromDocument(deployment).markAsDeployed();
 
       // Update status to deployed
       const updatedDeployment = await this.deploymentsRepository.updateStatus(
         deployment._id.toString(),
-        DeploymentStatus.DEPLOYED,
+        deployedDomain.status,
       );
 
       this.logger.log(
@@ -153,9 +105,11 @@ export class DeploymentsService {
 
       // Save deployment with failed status
       const deployment = await this.deploymentsRepository.create(domain);
+      const failedDomain =
+        DeploymentDomain.fromDocument(deployment).markAsFailed();
       await this.deploymentsRepository.updateStatus(
         deployment._id.toString(),
-        DeploymentStatus.FAILED,
+        failedDomain.status,
       );
 
       throw error;
@@ -169,12 +123,10 @@ export class DeploymentsService {
     deploymentId: string,
     user: LogtoUserWithOrganizations,
   ): Promise<GetDeploymentDto> {
-    const deployment = await this.deploymentsRepository.findById(deploymentId);
-
-    // Verify deployment belongs to user's organization
-    if (deployment.organizationId !== user.currentOrganization.id) {
-      throw this.exceptions.DEPLOYMENT_NOT_FOUND;
-    }
+    const deployment = await this.getDeploymentWithAccessCheck(
+      deploymentId,
+      user,
+    );
 
     return this.deploymentMapper.toGetDeploymentDto(deployment);
   }
@@ -219,14 +171,11 @@ export class DeploymentsService {
     dto: CreateDeploymentDto,
     user: LogtoUserWithOrganizations,
   ): Promise<GetDeploymentDto> {
-    // Find existing deployment
-    const existingDeployment =
-      await this.deploymentsRepository.findById(deploymentId);
-
-    // Verify deployment belongs to user's organization
-    if (existingDeployment.organizationId !== user.currentOrganization.id) {
-      throw this.exceptions.DEPLOYMENT_NOT_FOUND;
-    }
+    // Find existing deployment and verify access
+    const existingDeployment = await this.getDeploymentWithAccessCheck(
+      deploymentId,
+      user,
+    );
 
     // Verify project exists and belongs to organization
     await this.projectsService.findByProjectAndOrganizationId(
@@ -234,19 +183,16 @@ export class DeploymentsService {
       user.currentOrganization.id,
     );
 
-    // Create updated domain
-    const domain = DeploymentDomain.create(
-      dto,
-      user.currentOrganization.id,
-      dto.projectId,
-    );
+    // Update domain preserving identity fields from the existing document
+    const domain =
+      DeploymentDomain.fromDocument(existingDeployment).update(dto);
 
     this.logger.log(
       `Updating deployment for ${domain.organizationName}/${domain.projectName}`,
     );
 
     // Generate YAML content
-    const yamlContent = this.generateValuesYaml(domain);
+    const yamlContent = domain.toValuesYaml();
 
     try {
       // Push to GitHub
@@ -260,9 +206,10 @@ export class DeploymentsService {
       await this.deploymentsRepository.update(deploymentId, domain);
 
       // Update status to deployed
+      const deployedDomain = domain.markAsDeployed();
       const finalDeployment = await this.deploymentsRepository.updateStatus(
         deploymentId,
-        DeploymentStatus.DEPLOYED,
+        deployedDomain.status,
       );
 
       this.logger.log(
@@ -274,9 +221,10 @@ export class DeploymentsService {
       this.logger.error('Failed to update deployment:', error);
 
       // Update status to failed
+      const failedDomain = domain.markAsFailed();
       await this.deploymentsRepository.updateStatus(
         deploymentId,
-        DeploymentStatus.FAILED,
+        failedDomain.status,
       );
 
       throw error;
@@ -293,12 +241,10 @@ export class DeploymentsService {
     deploymentId: string,
     user: LogtoUserWithOrganizations,
   ): Promise<void> {
-    const deployment = await this.deploymentsRepository.findById(deploymentId);
-
-    // Verify deployment belongs to user's organization
-    if (deployment.organizationId !== user.currentOrganization.id) {
-      throw this.exceptions.DEPLOYMENT_NOT_FOUND;
-    }
+    const deployment = await this.getDeploymentWithAccessCheck(
+      deploymentId,
+      user,
+    );
 
     this.logger.log(`Deleting deployment at ${deployment.githubPath}`);
 

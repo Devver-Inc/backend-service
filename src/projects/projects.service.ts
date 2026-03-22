@@ -144,6 +144,13 @@ export class ProjectsService {
     return this.toFullProjectDto(updated);
   }
 
+  async assertProjectAccess(
+    projectId: string,
+    user: LogtoUserWithOrganizations,
+  ): Promise<ProjectDocument> {
+    return this.getProjectWithAccessCheck(projectId, user);
+  }
+
   private async getProjectWithAccessCheck(
     projectId: string,
     user: LogtoUserWithOrganizations,
