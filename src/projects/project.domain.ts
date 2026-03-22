@@ -1,5 +1,4 @@
 // project.domain.ts
-import * as yaml from 'js-yaml';
 import { toSlug } from 'src/_utils/functions/to-slug.function';
 import { CreateProjectDto } from './_utils/dto/requests/create-project.dto';
 import { UpdateProjectDto } from './_utils/dto/requests/update-project.dto';
@@ -94,60 +93,58 @@ export class ProjectDomain {
     return new ProjectDomain({ ...this, deploymentConfig: config });
   }
 
-  toValuesYaml(organizationName: string): string {
+  toValuesYaml(organizationName: string, devverSecret: string): string {
     if (!this.deploymentConfig) {
       throw new Error('Project has no deployment configuration');
     }
 
-    const obj = {
-      organization: {
-        name: organizationName,
-        domain: 'devver.app',
-      },
-      project: {
-        name: this.name,
-      },
-      imagePullSecrets: [{ name: 'ghcr-secret' }],
-      container: {
-        image: 'ghcr.io/devver-inc/deploy-agent:latest',
-        port: 80,
-        type: 'app',
-        command: [],
-        args: [],
-      },
-      resources: {
-        requests: {
-          memory: '128Mi',
-          cpu: '100m',
-        },
-        limits: {
-          memory: `${Math.round(this.machineConfiguration.ram * 1024)}Mi`,
-          cpu: `${Math.round(this.machineConfiguration.cpuCores * 1000)}m`,
-        },
-      },
-      persistence: {
-        enabled: true,
-        app: {
-          size: '10Gi',
-          mountPath: '/app',
-          storageClass: 'longhorn',
-        },
-        root: {
-          size: '5Gi',
-          mountPath: '/root',
-          storageClass: 'longhorn',
-        },
-      },
-      replicaCount: 1,
-      ports: {
-        http: 80,
-        https: 443,
-      },
-      labels: {},
-      annotations: {},
-    };
+    const orgName = toSlug(organizationName);
+    const projectName = toSlug(this.name);
+    const memory = `${Math.round(this.machineConfiguration.ram * 1024)}Mi`;
+    const cpu = `${Math.round(this.machineConfiguration.cpuCores * 1000)}m`;
 
-    return yaml.dump(obj);
+    return [
+      'organization:',
+      `  name: "${orgName}"`,
+      '  domain: "devver.app"',
+      'project:',
+      `  name: "${projectName}"`,
+      'imagePullSecrets:',
+      '  - name: "ghcr-secret"',
+      'container:',
+      '  image: "ghcr.io/devver-inc/deploy-agent:latest"',
+      '  port: 80',
+      '  type: "app"',
+      '  command: []',
+      '  args: []',
+      '  env:',
+      `    DEVVER_SECRET: "${devverSecret}"`,
+      '    NODE_ENV: "production"',
+      '    DEVVER_WIDGET_URL: "https://cdn.jsdelivr.net/gh/Devver-Inc/overlay@main/public/devver-overlay.iife.js"',
+      'resources:',
+      '  requests:',
+      '    memory: "128Mi"',
+      '    cpu: "100m"',
+      '  limits:',
+      `    memory: "${memory}"`,
+      `    cpu: "${cpu}"`,
+      'persistence:',
+      '  enabled: true',
+      '  app:',
+      '    size: "10Gi"',
+      '    mountPath: "/app"',
+      '    storageClass: longhorn',
+      '  root:',
+      '    size: "5Gi"',
+      '    mountPath: "/root"',
+      '    storageClass: longhorn',
+      'replicaCount: 1',
+      'ports:',
+      '  http: 80',
+      '  https: 443',
+      'labels: {}',
+      'annotations: {}',
+    ].join('\n');
   }
 
   belongsToOrganization(organizationId: string): boolean {

@@ -1,7 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { toPaginatedDto } from 'src/_utils/pagination/pagination.mapper';
 import { PaginationDto } from 'src/_utils/pagination/responses/pagination.dto';
 import { GitHubService } from 'src/_shared/github/github.service';
+import { EnvironmentVariables } from 'src/_utils/config/env.config';
 import { LogtoUserWithOrganizations } from 'src/logto/_utils/types/user-with-organization.type';
 import { LogtoRequests } from 'src/logto/logto.requests';
 import { ProjectsPaginatedQueryDto } from './_utils/dto/query/projects-paginated-query.dto';
@@ -28,6 +30,7 @@ export class ProjectsService {
     private readonly logtoRequests: LogtoRequests,
     private readonly exceptions: ProjectsExceptions,
     private readonly githubService: GitHubService,
+    private readonly configService: ConfigService<EnvironmentVariables, true>,
   ) {}
 
   async createProject(
@@ -52,7 +55,10 @@ export class ProjectsService {
 
     // Push values.yaml to GitHub and update deployment status
     try {
-      const yamlContent = domain.toValuesYaml(organizationName);
+      const devverSecret = this.configService.get('DEPLOY_AGENT', {
+        infer: true,
+      }).DEPLOY_AGENT_SECRET;
+      const yamlContent = domain.toValuesYaml(organizationName, devverSecret);
       await this.githubService.pushValuesYaml(
         organizationName,
         dto.name,
