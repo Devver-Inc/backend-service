@@ -10,6 +10,7 @@ import { ProjectsModule } from './projects/projects.module';
 import { UsersModule } from './users/users.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { DeployAgentModule } from './deploy-agent/deploy-agent.module';
+import { EncryptionModule } from './_utils/encryption/encryption.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { DeployAgentModule } from './deploy-agent/deploy-agent.module';
     ProjectsModule,
     CommentsModule,
     DeployAgentModule,
+    EncryptionModule,
   ],
 })
 export class AppModule {}

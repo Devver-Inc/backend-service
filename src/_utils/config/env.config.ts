@@ -91,6 +91,11 @@ export class DeployAgentConfig {
   K8S_BASE_DOMAIN: string;
 }
 
+export class EncryptionConfig {
+  @IsString()
+  ENCRYPTION_KEY: string;
+}
+
 export class EnvironmentVariables {
   @ValidateNested()
   @Type(() => DatabaseConfig)
@@ -119,6 +124,10 @@ export class EnvironmentVariables {
   @ValidateNested()
   @Type(() => DeployAgentConfig)
   DEPLOY_AGENT: DeployAgentConfig;
+
+  @ValidateNested()
+  @Type(() => EncryptionConfig)
+  ENCRYPTION: EncryptionConfig;
 }
 
 export function validateEnv(config: Record<string, unknown>) {
@@ -161,6 +170,9 @@ export function validateEnv(config: Record<string, unknown>) {
     DEPLOY_AGENT: {
       DEPLOY_AGENT_SECRET: config.DEPLOY_AGENT_SECRET,
       K8S_BASE_DOMAIN: config.K8S_BASE_DOMAIN,
+    },
+    ENCRYPTION: {
+      ENCRYPTION_KEY: config.ENCRYPTION_KEY,
     },
   };
 

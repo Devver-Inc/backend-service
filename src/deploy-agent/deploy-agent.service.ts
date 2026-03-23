@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { EncryptionService } from 'src/_utils/encryption/encryption.service';
 import { EnvironmentVariables } from 'src/_utils/config/env.config';
 import { toSlug } from 'src/_utils/functions/to-slug.function';
 import { LogtoUserWithOrganizations } from 'src/logto/_utils/types/user-with-organization.type';
@@ -14,7 +15,6 @@ import {
   RestoreResultDto,
 } from './_utils/dto/responses/get-deployment.dto';
 import { GetRepoDto } from './_utils/dto/responses/get-repo.dto';
-import { DeployAgentExceptions } from './_utils/errors/deploy-agent-exceptions';
 import { AgentDeploymentStatus } from './_utils/types/deployment.types';
 import { DeployAgentMapper } from './deploy-agent.mapper';
 import { DeployAgentRepository } from './deploy-agent.repository';
@@ -30,7 +30,7 @@ export class DeployAgentService {
     private readonly deployAgentRequests: DeployAgentRequests,
     private readonly deployAgentMapper: DeployAgentMapper,
     private readonly projectsService: ProjectsService,
-    private readonly exceptions: DeployAgentExceptions,
+    private readonly encryptionService: EncryptionService,
     configService: ConfigService<EnvironmentVariables, true>,
   ) {
     this.baseDomain = configService.get('DEPLOY_AGENT').K8S_BASE_DOMAIN;
@@ -194,6 +194,10 @@ export class DeployAgentService {
       throw new BadRequestException(result);
     }
 
+    const encryptedEnv = dto.env
+      ? this.encryptionService.encryptRecord(dto.env)
+      : undefined;
+
     await this.deployAgentRepository.upsertDeployment({
       projectId,
       organizationId: user.currentOrganization.id,
@@ -203,7 +207,7 @@ export class DeployAgentService {
       commit: dto.commit,
       service: dto.service,
       links: dto.links,
-      env: dto.env,
+      env: encryptedEnv,
       status: AgentDeploymentStatus.DEPLOYED,
     });
 
@@ -259,13 +263,16 @@ export class DeployAgentService {
         AgentDeploymentStatus.DEPLOYED,
       );
     for (const dep of deployments) {
+      const plainEnv = dep.env
+        ? this.encryptionService.decryptRecord(dep.env)
+        : undefined;
       await this.deployAgentRequests
         .deploy(agentUrl, {
           repo: dep.repo,
           branch: dep.branch,
           commit: dep.commit,
           service: dep.service,
-          env: dep.env,
+          env: plainEnv,
         })
         .then((result) => {
           if (result.success) restoredDeployments += 1;
