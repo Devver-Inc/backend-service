@@ -44,9 +44,7 @@ export class EncryptionService {
     );
   }
 
-  encryptRecord(
-    record: Record<string, string>,
-  ): Record<string, string> {
+  encryptRecord(record: Record<string, string>): Record<string, string> {
     const result: Record<string, string> = {};
     for (const [key, value] of Object.entries(record)) {
       result[key] = this.encrypt(value);
@@ -54,9 +52,7 @@ export class EncryptionService {
     return result;
   }
 
-  decryptRecord(
-    record: Record<string, string>,
-  ): Record<string, string> {
+  decryptRecord(record: Record<string, string>): Record<string, string> {
     const result: Record<string, string> = {};
     for (const [key, value] of Object.entries(record)) {
       result[key] = this.decrypt(value);
