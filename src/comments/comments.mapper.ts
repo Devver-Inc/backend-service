@@ -10,6 +10,6 @@ export class CommentsMapper {
     id: comment._id.toString(),
     userId: comment.userId,
     content: comment.content,
-    position: mapToGetPositionDto(comment.position),
+    position: comment.position ? mapToGetPositionDto(comment.position) : null,
   });
 }

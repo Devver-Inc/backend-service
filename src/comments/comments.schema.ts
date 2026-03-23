@@ -20,8 +20,8 @@ export class Comment {
   @Prop({ type: String, required: true })
   content: string;
 
-  @Prop({ type: Position, required: true })
-  position: Position;
+  @Prop({ type: Position, required: false })
+  position?: Position;
 }
 
 export const CommentSchema = SchemaFactory.createForClass(Comment);

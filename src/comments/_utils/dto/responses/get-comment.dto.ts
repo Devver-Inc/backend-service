@@ -11,6 +11,6 @@ export class GetCommentDto {
   @ApiProperty({ example: 'This looks great!' })
   content: string;
 
-  @ApiProperty({ type: () => GetPositionDto })
-  position: GetPositionDto;
+  @ApiProperty({ type: () => GetPositionDto, required: false })
+  position: GetPositionDto | null;
 }

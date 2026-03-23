@@ -17,8 +17,8 @@ export class GetUserDto {
   })
   avatarUrl: string | null;
 
-  @ApiPropertyOptional({ type: () => GetOrganizationLightDto })
-  organization?: GetOrganizationLightDto;
+  @ApiPropertyOptional({ type: () => GetOrganizationLightDto, nullable: true })
+  organization: GetOrganizationLightDto | null;
 
   @ApiProperty({ example: 1705315800000 })
   lastSignInAt: number;

@@ -2,17 +2,15 @@ import { IsInt, IsNumber, Max, Min } from 'class-validator';
 import { Optional } from 'class-validator-extended';
 
 export class MachineConfigurationDto {
-  @Optional()
   @IsNumber()
   @Min(0.5)
   @Max(2)
-  cpuCores?: number;
+  cpuCores: number;
 
-  @Optional()
   @IsNumber()
   @Min(0.5)
   @Max(2)
-  ram?: number;
+  ram: number;
 
   @Optional()
   @IsInt()

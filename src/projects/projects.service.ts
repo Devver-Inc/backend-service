@@ -53,7 +53,6 @@ export class ProjectsService {
     );
     const project = await this.projectsRepository.create(domain);
 
-    // Push values.yaml to GitHub and update deployment status
     try {
       const devverSecret = this.configService.get('DEPLOY_AGENT', {
         infer: true,
@@ -217,10 +216,7 @@ export class ProjectsService {
 
     const { members } = await this.logtoRequests.getOrganizationMembers(
       organizationId,
-      {
-        q: userIds.join(' '),
-        page_size: userIds.length,
-      },
+      { page_size: 100 },
     );
 
     const foundIds = new Set(members.map((m) => m.id));
@@ -247,10 +243,14 @@ export class ProjectsService {
     const [createdBy, { members: teamMembers }] = await Promise.all([
       this.logtoRequests.fetchUserSafe(project.createdBy),
       project.teamMemberIds.length
-        ? this.logtoRequests.getOrganizationMembers(project.organizationId, {
-            q: project.teamMemberIds.join(' '),
-          })
-        : { members: [] },
+        ? this.logtoRequests
+            .getOrganizationMembers(project.organizationId, { page_size: 100 })
+            .then(({ members }) => ({
+              members: members.filter((m) =>
+                project.teamMemberIds.includes(m.id),
+              ),
+            }))
+        : Promise.resolve({ members: [] }),
     ]);
 
     return this.projectsMapper.toProjectDto(project, createdBy, teamMembers);

@@ -8,7 +8,7 @@ interface CommentDomainProps {
   organizationId: string;
   projectId: string;
   content: string;
-  position: Position;
+  position?: Position;
 }
 
 export class CommentDomain {
@@ -16,7 +16,7 @@ export class CommentDomain {
   readonly organizationId: string;
   readonly projectId: string;
   readonly content: string;
-  readonly position: Position;
+  readonly position?: Position;
 
   private constructor(props: CommentDomainProps) {
     this.userId = props.userId;
