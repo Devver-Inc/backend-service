@@ -16,7 +16,4 @@ export class ProjectsExceptions {
     'SOME_MEMBERS_NOT_IN_ORGANIZATION',
   );
   USER_NOT_TEAM_MEMBER = new BadRequestException('USER_NOT_TEAM_MEMBER');
-  PROJECT_NAME_ALREADY_EXISTS = new BadRequestException(
-    'PROJECT_NAME_ALREADY_EXISTS',
-  );
 }

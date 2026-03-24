@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, QueryFilter } from 'mongoose';
 import { escapeRegex } from 'src/_utils/functions/escape-regex.function';
@@ -17,8 +17,21 @@ export class ProjectsRepository {
     @InjectModel(Project.name) private projectModel: Model<Project>,
   ) {}
 
-  create = (domain: ProjectDomain): Promise<ProjectDocument> =>
-    this.projectModel.create(domain);
+  create = async (domain: ProjectDomain): Promise<ProjectDocument> => {
+    try {
+      return await this.projectModel.create(domain);
+    } catch (err: unknown) {
+      if (
+        typeof err === 'object' &&
+        err !== null &&
+        'code' in err &&
+        (err as { code: unknown }).code === 11000
+      ) {
+        throw new BadRequestException('PROJECT_NAME_ALREADY_EXISTS');
+      }
+      throw err;
+    }
+  };
 
   findById = (id: string): Promise<ProjectDocument> =>
     this.projectModel

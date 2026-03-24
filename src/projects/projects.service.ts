@@ -51,19 +51,7 @@ export class ProjectsService {
       user.id,
       organizationName,
     );
-    const project = await this.projectsRepository
-      .create(domain)
-      .catch((err: unknown) => {
-        if (
-          typeof err === 'object' &&
-          err !== null &&
-          'code' in err &&
-          (err as { code: unknown }).code === 11000
-        ) {
-          throw this.exceptions.PROJECT_NAME_ALREADY_EXISTS;
-        }
-        throw err;
-      });
+    const project = await this.projectsRepository.create(domain);
 
     try {
       const devverSecret = this.configService.get('DEPLOY_AGENT', {
