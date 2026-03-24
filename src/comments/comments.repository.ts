@@ -35,7 +35,7 @@ export class CommentsRepository {
 
     const filter: QueryFilter<Comment> = {
       organizationId,
-      project: new Types.ObjectId(projectId),
+      projectId: new Types.ObjectId(projectId),
       ...(query.search && {
         content: { $regex: escapeRegex(query.search), $options: 'i' },
       }),

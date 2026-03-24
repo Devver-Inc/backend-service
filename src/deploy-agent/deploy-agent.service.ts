@@ -51,6 +51,23 @@ export class DeployAgentService {
     await this.projectsService.assertProjectAccess(projectId, user);
   };
 
+  assertProjectAccess = (
+    projectId: string,
+    user: LogtoUserWithOrganizations,
+  ): Promise<void> => this.verifyProjectOwnership(projectId, user);
+
+  getArgoAppName = async (
+    projectId: string,
+    user: LogtoUserWithOrganizations,
+  ): Promise<string> => {
+    await this.verifyProjectOwnership(projectId, user);
+    const stored =
+      await this.deployAgentRepository.findArgoAppNameByProject(projectId);
+    if (stored) return stored;
+    const project = await this.projectsService.findProjectById(projectId);
+    return `${toSlug(user.currentOrganization.name)}-${toSlug(project.name)}`;
+  };
+
   listRepos = async (
     projectId: string,
     user: LogtoUserWithOrganizations,
@@ -198,6 +215,9 @@ export class DeployAgentService {
       ? this.encryptionService.encryptRecord(dto.env)
       : undefined;
 
+    const project = await this.projectsService.findProjectById(projectId);
+    const argoAppName = `${toSlug(user.currentOrganization.name)}-${toSlug(project.name)}`;
+
     await this.deployAgentRepository.upsertDeployment({
       projectId,
       organizationId: user.currentOrganization.id,
@@ -205,6 +225,7 @@ export class DeployAgentService {
       branch: dto.branch,
       deploymentId: result.deploymentId,
       commit: dto.commit,
+      argoAppName,
       service: dto.service,
       links: dto.links,
       env: encryptedEnv,
