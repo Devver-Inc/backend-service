@@ -74,6 +74,13 @@ export class DeployAgentRepository {
       .exec();
   };
 
+  findArgoAppNameByProject = (projectId: string): Promise<string | undefined> =>
+    this.deploymentModel
+      .findOne({ projectId, argoAppName: { $exists: true, $ne: null } })
+      .lean()
+      .exec()
+      .then((doc) => doc?.argoAppName ?? undefined);
+
   markDeploymentsByRepoRemoved = (
     projectId: string,
     repo: string,

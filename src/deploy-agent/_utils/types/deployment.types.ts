@@ -14,6 +14,7 @@ export interface CreateDeploymentData {
   branch: string;
   deploymentId: string;
   commit?: string;
+  argoAppName?: string;
   service: Services;
   links?: Record<string, Record<string, string>>;
   env?: Record<string, string>;

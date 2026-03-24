@@ -4,6 +4,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  IsUrl,
   ValidateNested,
   validateSync,
 } from 'class-validator';
@@ -91,6 +92,14 @@ export class DeployAgentConfig {
   K8S_BASE_DOMAIN: string;
 }
 
+export class ArgoCdConfig {
+  @IsUrl({ require_tld: false })
+  ARGOCD_BASE_URL: string;
+
+  @IsString()
+  ARGOCD_API_KEY: string;
+}
+
 export class EncryptionConfig {
   @IsString()
   ENCRYPTION_KEY: string;
@@ -128,6 +137,10 @@ export class EnvironmentVariables {
   @ValidateNested()
   @Type(() => EncryptionConfig)
   ENCRYPTION: EncryptionConfig;
+
+  @ValidateNested()
+  @Type(() => ArgoCdConfig)
+  ARGOCD: ArgoCdConfig;
 }
 
 export function validateEnv(config: Record<string, unknown>) {
@@ -173,6 +186,10 @@ export function validateEnv(config: Record<string, unknown>) {
     },
     ENCRYPTION: {
       ENCRYPTION_KEY: config.ENCRYPTION_KEY,
+    },
+    ARGOCD: {
+      ARGOCD_BASE_URL: config.ARGOCD_BASE_URL,
+      ARGOCD_API_KEY: config.ARGOCD_API_KEY,
     },
   };
 

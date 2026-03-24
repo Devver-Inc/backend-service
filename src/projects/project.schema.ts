@@ -91,3 +91,4 @@ export const ProjectSchema = SchemaFactory.createForClass(Project);
 ProjectSchema.index({ organizationId: 1 });
 ProjectSchema.index({ createdBy: 1 });
 ProjectSchema.index({ organizationId: 1, createdAt: -1 });
+ProjectSchema.index({ organizationId: 1, name: 1 }, { unique: true });

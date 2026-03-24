@@ -14,8 +14,8 @@ export class Comment {
   @Prop({ type: String, required: true, index: true })
   organizationId: string;
 
-  @Prop({ type: MongooseObjectId, ref: Project.name })
-  project: Types.ObjectId;
+  @Prop({ type: MongooseObjectId, ref: Project.name, required: true })
+  projectId: Types.ObjectId;
 
   @Prop({ type: String, required: true })
   content: string;
@@ -26,6 +26,6 @@ export class Comment {
 
 export const CommentSchema = SchemaFactory.createForClass(Comment);
 
-CommentSchema.index({ project: 1 });
+CommentSchema.index({ projectId: 1 });
 CommentSchema.index({ userId: 1 });
 CommentSchema.index({ organizationId: 1, project: 1 });

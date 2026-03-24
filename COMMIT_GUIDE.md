@@ -8,24 +8,24 @@ Use emojis at the beginning of your commit messages to categorize changes:
 
 ### Available Emojis
 
-| Emoji | Code | Usage |
-|-------|------|-------|
-| ✨ | `:sparkles:` | New feature |
-| 🐛 | `:bug:` | Bug fix |
-| 📝 | `:memo:` | Documentation |
-| 🎨 | `:art:` | Code improvement/structure |
-| ♻️ | `:recycle:` | Refactoring |
-| ⚡ | `:zap:` | Performance improvement |
-| 🔒 | `:lock:` | Security |
-| ✅ | `:white_check_mark:` | Tests |
-| 🔧 | `:wrench:` | Configuration |
-| 🚀 | `:rocket:` | Deploy/CI/CD |
-| 🔥 | `:fire:` | Remove code/files |
-| 💄 | `:lipstick:` | UI/styling |
-| 🏷️ | `:label:` | Types/interfaces |
-| 📦 | `:package:` | Dependencies |
-| 🚧 | `:construction:` | Work in progress |
-| 🧹 | `:broom:` | Lint/Format fixes |
+| Emoji | Code                 | Usage                      |
+| ----- | -------------------- | -------------------------- |
+| ✨    | `:sparkles:`         | New feature                |
+| 🐛    | `:bug:`              | Bug fix                    |
+| 📝    | `:memo:`             | Documentation              |
+| 🎨    | `:art:`              | Code improvement/structure |
+| ♻️    | `:recycle:`          | Refactoring                |
+| ⚡    | `:zap:`              | Performance improvement    |
+| 🔒    | `:lock:`             | Security                   |
+| ✅    | `:white_check_mark:` | Tests                      |
+| 🔧    | `:wrench:`           | Configuration              |
+| 🚀    | `:rocket:`           | Deploy/CI/CD               |
+| 🔥    | `:fire:`             | Remove code/files          |
+| 💄    | `:lipstick:`         | UI/styling                 |
+| 🏷️    | `:label:`            | Types/interfaces           |
+| 📦    | `:package:`          | Dependencies               |
+| 🚧    | `:construction:`     | Work in progress           |
+| 🧹    | `:broom:`            | Lint/Format fixes          |
 
 ## Examples
 
@@ -40,13 +40,17 @@ git commit -m "🧹 Run lint and format fixes"
 ## Git Hooks
 
 ### prepare-commit-msg
+
 When you run `git commit` without a message, a template will be shown with all available emojis and examples.
 
 ### commit-msg
+
 Validates that every commit message starts with an allowed emoji. If you try to commit without an emoji, the commit will be **blocked** and you'll see a list of available emojis.
 
 ### pre-push
+
 Before pushing to remote, the following checks will run automatically:
+
 1. **ESLint** - Lints and auto-fixes code issues
 2. **Prettier** - Formats code according to project standards
 
