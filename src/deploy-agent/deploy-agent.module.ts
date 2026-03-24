@@ -28,5 +28,6 @@ import { DeployAgentExceptions } from './_utils/errors/deploy-agent-exceptions';
     DeployAgentMapper,
     DeployAgentExceptions,
   ],
+  exports: [DeployAgentService],
 })
 export class DeployAgentModule {}

@@ -45,7 +45,7 @@ export class CommentDomain {
     return new CommentDomain({
       userId: doc.userId,
       organizationId: doc.organizationId,
-      projectId: doc.project.toString(),
+      projectId: doc.projectId.toString(),
       content: doc.content,
       position: doc.position,
     });

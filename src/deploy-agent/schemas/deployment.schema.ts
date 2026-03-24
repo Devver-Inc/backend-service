@@ -28,6 +28,9 @@ export class Deployment {
   @Prop()
   commit?: string;
 
+  @Prop()
+  argoAppName?: string;
+
   @Prop({ type: Object, required: true })
   service: Services;
 
