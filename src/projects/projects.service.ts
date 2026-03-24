@@ -135,6 +135,25 @@ export class ProjectsService {
   ): Promise<GetProjectDto> {
     const project = await this.getProjectWithAccessCheck(projectId, user);
     const updated = await this.updateAndSave(project, (d) => d.update(dto));
+
+    try {
+      const organizationName = user.currentOrganization.name;
+      const domain = ProjectDomain.fromDocument(updated);
+      const devverSecret = this.configService.get('DEPLOY_AGENT', {
+        infer: true,
+      }).DEPLOY_AGENT_SECRET;
+      await this.githubService.pushValuesYaml(
+        organizationName,
+        domain.name,
+        domain.toValuesYaml(organizationName, devverSecret),
+      );
+      this.logger.log(
+        `values.yaml updated for project ${domain.name} (org: ${organizationName})`,
+      );
+    } catch (error) {
+      this.logger.error('Failed to update values.yaml on GitHub:', error);
+    }
+
     return this.toFullProjectDto(updated);
   }
 
@@ -142,8 +161,19 @@ export class ProjectsService {
     projectId: string,
     user: LogtoUserWithOrganizations,
   ): Promise<void> {
-    await this.getProjectWithAccessCheck(projectId, user);
+    const project = await this.getProjectWithAccessCheck(projectId, user);
+    const organizationName = user.currentOrganization.name;
+
     await this.projectsRepository.deleteById(projectId);
+
+    try {
+      await this.githubService.deleteValuesYaml(organizationName, project.name);
+      this.logger.log(
+        `values.yaml deleted for project ${project.name} (org: ${organizationName})`,
+      );
+    } catch (error) {
+      this.logger.error('Failed to delete values.yaml from GitHub:', error);
+    }
   }
 
   async addTeamMembers(

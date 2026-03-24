@@ -155,6 +155,18 @@ export class GitHubService {
   }
 
   /**
+   * Delete values.yaml for an organization/project (also removes the folder)
+   */
+  async deleteValuesYaml(
+    organizationName: string,
+    projectName: string,
+  ): Promise<void> {
+    const path = `${toSlug(organizationName)}/${toSlug(projectName)}/values.yaml`;
+    const message = `Remove ${projectName} from ${organizationName}`;
+    await this.deleteFile(path, message);
+  }
+
+  /**
    * Check if a file exists in the repository
    */
   async fileExists(path: string): Promise<boolean> {

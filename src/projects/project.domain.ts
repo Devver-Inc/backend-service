@@ -181,9 +181,7 @@ export class ProjectDomain {
   update(dto: UpdateProjectDto): ProjectDomain {
     return new ProjectDomain({
       ...this,
-      name: dto.name ?? this.name,
       description: dto.description ?? this.description,
-      teamMemberIds: dto.teamMemberIds ?? this.teamMemberIds,
       machineConfiguration: dto.machineConfiguration
         ? { ...this.machineConfiguration, ...dto.machineConfiguration }
         : this.machineConfiguration,
