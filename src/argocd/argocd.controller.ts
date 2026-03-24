@@ -32,15 +32,6 @@ export class ArgocdController {
   @ApiOperation({
     summary: 'Get current ArgoCD deployment status for the project',
   })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description: 'Current ArgoCD deployment status',
-    schema: {
-      properties: {
-        status: { type: 'string' },
-      },
-    },
-  })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'UNAUTHORIZED' })
   @ApiResponse({
     status: HttpStatus.FORBIDDEN,
