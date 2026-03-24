@@ -1,5 +1,6 @@
 import {
   Controller,
+  Get,
   Header,
   HttpStatus,
   MessageEvent,
@@ -20,15 +21,38 @@ import { Protect } from 'src/_utils/decorators/protect.decorator';
 import { ConnectedUserWithOrgs } from 'src/logto/_utils/decorator/connected-user.decorator';
 import { LogtoUserWithOrganizations } from 'src/logto/_utils/types/user-with-organization.type';
 import { ArgoCdSseService } from './argocd-sse.service';
-import { DeployAgentService } from 'src/deploy-agent/deploy-agent.service';
 
 @ApiTags('ArgoCD')
 @Controller('projects/:projectId/argocd')
 export class ArgocdController {
-  constructor(
-    private readonly deployAgentService: DeployAgentService,
-    private readonly argoCdSseService: ArgoCdSseService,
-  ) {}
+  constructor(private readonly argoCdSseService: ArgoCdSseService) {}
+
+  @Protect()
+  @Get('status')
+  @ApiOperation({
+    summary: 'Get current ArgoCD deployment status for the project',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Current ArgoCD deployment status',
+    schema: {
+      properties: {
+        status: { type: 'string' },
+      },
+    },
+  })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'UNAUTHORIZED' })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'PROJECT_ACCESS_DENIED',
+  })
+  @ApiParam({ name: 'projectId', type: String })
+  async getArgoCdStatus(
+    @Param('projectId') projectId: string,
+    @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
+  ): Promise<ArgoDeploymentStatusEvent> {
+    return this.argoCdSseService.getStatusByProject(projectId, user);
+  }
 
   @Protect()
   @Sse('status/stream')
@@ -57,10 +81,6 @@ export class ArgocdController {
     @Param('projectId') projectId: string,
     @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
   ): Promise<Observable<MessageEvent>> {
-    const appName = await this.deployAgentService.getArgoAppName(
-      projectId,
-      user,
-    );
-    return this.argoCdSseService.watchStatus(appName);
+    return this.argoCdSseService.watchStatusByProject(projectId, user);
   }
 }
