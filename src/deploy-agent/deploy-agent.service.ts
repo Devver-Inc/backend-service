@@ -200,16 +200,6 @@ export class DeployAgentService {
       project.name,
     );
 
-    console.log('Deploying with the following parameters:', {
-      repo: dto.repo,
-      branch: dto.branch,
-      commit: dto.commit,
-      service: dto.service,
-      env: dto.env,
-      projectId,
-      overlayAccessControl: project.overlayAccessControl,
-    });
-
     const result = await this.deployAgentRequests.deploy(agentUrl, {
       repo: dto.repo,
       branch: dto.branch,
