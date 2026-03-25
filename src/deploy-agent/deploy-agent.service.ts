@@ -194,10 +194,21 @@ export class DeployAgentService {
     user: LogtoUserWithOrganizations,
   ): Promise<GetAgentDeploymentDto> => {
     await this.verifyProjectOwnership(projectId, user);
-    const agentUrl = await this.getAgentUrl(
-      projectId,
+    const project = await this.projectsService.findProjectById(projectId);
+    const agentUrl = this.buildAgentUrl(
       user.currentOrganization.name,
+      project.name,
     );
+
+    console.log('Deploying with the following parameters:', {
+      repo: dto.repo,
+      branch: dto.branch,
+      commit: dto.commit,
+      service: dto.service,
+      env: dto.env,
+      projectId,
+      overlayAccessControl: project.overlayAccessControl,
+    });
 
     const result = await this.deployAgentRequests.deploy(agentUrl, {
       repo: dto.repo,
@@ -205,6 +216,8 @@ export class DeployAgentService {
       commit: dto.commit,
       service: dto.service,
       env: dto.env,
+      projectId,
+      overlayAccessControl: project.overlayAccessControl,
     });
 
     if (!result.success) {
@@ -215,7 +228,6 @@ export class DeployAgentService {
       ? this.encryptionService.encryptRecord(dto.env)
       : undefined;
 
-    const project = await this.projectsService.findProjectById(projectId);
     const argoAppName = `${toSlug(user.currentOrganization.name)}-${toSlug(project.name)}`;
 
     await this.deployAgentRepository.upsertDeployment({
@@ -256,9 +268,10 @@ export class DeployAgentService {
     user: LogtoUserWithOrganizations,
   ): Promise<RestoreResultDto> => {
     await this.verifyProjectOwnership(projectId, user);
-    const agentUrl = await this.getAgentUrl(
-      projectId,
+    const project = await this.projectsService.findProjectById(projectId);
+    const agentUrl = this.buildAgentUrl(
       user.currentOrganization.name,
+      project.name,
     );
     let restoredRepos = 0;
     let restoredDeployments = 0;
@@ -294,6 +307,8 @@ export class DeployAgentService {
           commit: dep.commit,
           service: dep.service,
           env: plainEnv,
+          projectId,
+          overlayAccessControl: project.overlayAccessControl,
         })
         .then((result) => {
           if (result.success) restoredDeployments += 1;

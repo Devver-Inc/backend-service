@@ -39,6 +39,8 @@ export class CommentsRepository {
       ...(query.search && {
         content: { $regex: escapeRegex(query.search), $options: 'i' },
       }),
+      ...(query.repo && { repo: query.repo }),
+      ...(query.branch && { branch: query.branch }),
     };
 
     const [comments, totalCount] = await Promise.all([

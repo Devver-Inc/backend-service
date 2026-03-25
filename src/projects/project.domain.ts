@@ -4,11 +4,17 @@ import { CreateProjectDto } from './_utils/dto/requests/create-project.dto';
 import { UpdateProjectDto } from './_utils/dto/requests/update-project.dto';
 import {
   MachineConfiguration,
-  AccessControl,
+  OverlayAccessControl,
+  OverlayCommentPermission,
   DeploymentConfig,
   DeploymentStatus,
   ProjectDocument,
 } from './project.schema';
+
+interface CommentAuthorization {
+  allowed: boolean;
+  emailToPersist?: string;
+}
 
 interface ProjectDomainProps {
   name: string;
@@ -17,7 +23,7 @@ interface ProjectDomainProps {
   createdBy: string;
   machineConfiguration: MachineConfiguration;
   teamMemberIds: string[];
-  accessControl: AccessControl;
+  overlayAccessControl: OverlayAccessControl;
   deploymentConfig?: DeploymentConfig;
 }
 
@@ -28,7 +34,7 @@ export class ProjectDomain {
   readonly createdBy: string;
   readonly machineConfiguration: MachineConfiguration;
   readonly teamMemberIds: string[];
-  readonly accessControl: AccessControl;
+  readonly overlayAccessControl: OverlayAccessControl;
   readonly deploymentConfig?: DeploymentConfig;
 
   private constructor(props: ProjectDomainProps) {
@@ -38,7 +44,7 @@ export class ProjectDomain {
     this.createdBy = props.createdBy;
     this.machineConfiguration = props.machineConfiguration;
     this.teamMemberIds = props.teamMemberIds;
-    this.accessControl = props.accessControl;
+    this.overlayAccessControl = props.overlayAccessControl;
     this.deploymentConfig = props.deploymentConfig;
   }
 
@@ -66,12 +72,7 @@ export class ProjectDomain {
         storage: dto.machineConfiguration?.storage ?? 20,
       },
       teamMemberIds: dto.teamMemberIds ?? [],
-      accessControl: {
-        requireEmailAuth: dto.accessControl?.requireEmailAuth ?? true,
-        publicAccess: dto.accessControl?.publicAccess ?? false,
-        restrictToTeamMembers:
-          dto.accessControl?.restrictToTeamMembers ?? false,
-      },
+      overlayAccessControl: dto.overlayAccessControl,
       deploymentConfig,
     });
   }
@@ -84,7 +85,7 @@ export class ProjectDomain {
       createdBy: doc.createdBy,
       machineConfiguration: doc.machineConfiguration,
       teamMemberIds: doc.teamMemberIds,
-      accessControl: doc.accessControl,
+      overlayAccessControl: doc.overlayAccessControl,
       deploymentConfig: doc.deploymentConfig,
     });
   }
@@ -155,10 +156,39 @@ export class ProjectDomain {
     return this.teamMemberIds.includes(userId);
   }
 
-  canUserComment(userId: string, isAdmin: boolean): boolean {
-    if (!this.accessControl.restrictToTeamMembers) return true;
-    if (isAdmin) return true;
-    return this.isTeamMember(userId);
+  authorizeRead(userId: string | undefined, isAdmin: boolean): boolean {
+    const isTeamMember = userId !== undefined && this.isTeamMember(userId);
+
+    switch (this.overlayAccessControl.commentPermission) {
+      case OverlayCommentPermission.TEAM_ONLY:
+        return isAdmin || isTeamMember;
+      case OverlayCommentPermission.EMAIL_REQUIRED:
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  authorizeComment(
+    userId: string | undefined,
+    isAdmin: boolean,
+    providedEmail?: string,
+  ): CommentAuthorization {
+    const isTeamMember = userId !== undefined && this.isTeamMember(userId);
+
+    switch (this.overlayAccessControl.commentPermission) {
+      case OverlayCommentPermission.TEAM_ONLY:
+        if (isAdmin || isTeamMember) return { allowed: true };
+        return { allowed: false };
+
+      case OverlayCommentPermission.EMAIL_REQUIRED:
+        if (isAdmin || isTeamMember) return { allowed: true };
+        if (!providedEmail) return { allowed: false };
+        return { allowed: true, emailToPersist: providedEmail };
+
+      default:
+        return { allowed: false };
+    }
   }
 
   addTeamMembers(userIds: string[]): ProjectDomain {
@@ -185,9 +215,9 @@ export class ProjectDomain {
       machineConfiguration: dto.machineConfiguration
         ? { ...this.machineConfiguration, ...dto.machineConfiguration }
         : this.machineConfiguration,
-      accessControl: dto.accessControl
-        ? { ...this.accessControl, ...dto.accessControl }
-        : this.accessControl,
+      overlayAccessControl: dto.overlayAccessControl
+        ? { ...this.overlayAccessControl, ...dto.overlayAccessControl }
+        : this.overlayAccessControl,
     });
   }
 }
