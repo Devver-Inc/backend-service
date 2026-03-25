@@ -9,7 +9,20 @@ export class UsersMapper {
 
   toUserLightDto = (user: LogtoUser): GetUserLightDto => ({
     id: user.id,
-    name: user.name ?? user.username ?? null,
+    email: user.primaryEmail ?? null,
+    name:
+      user.name ??
+      user.username ??
+      this.buildNameFromProfile(user.profile) ??
+      null,
     avatarUrl: user.avatar ?? null,
   });
+
+  private buildNameFromProfile = (
+    profile?: LogtoUser['profile'],
+  ): string | null => {
+    if (!profile) return null;
+    const parts = [profile.givenName, profile.familyName].filter(Boolean);
+    return parts.length > 0 ? parts.join(' ') : null;
+  };
 }

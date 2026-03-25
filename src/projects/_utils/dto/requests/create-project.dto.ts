@@ -1,6 +1,7 @@
 import { Type } from 'class-transformer';
 import {
   IsArray,
+  IsEnum,
   IsNotEmpty,
   IsString,
   MaxLength,
@@ -8,8 +9,8 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Optional } from 'class-validator-extended';
-import { AccessControlDto } from './access-control.dto';
 import { MachineConfigurationDto } from './machine-configuration.dto';
+import { OverlayAccessControlDto } from './overlay-access-control.dto';
 
 export class CreateProjectDto {
   @IsString()
@@ -32,6 +33,6 @@ export class CreateProjectDto {
   teamMemberIds: string[];
 
   @ValidateNested()
-  @Type(() => AccessControlDto)
-  accessControl: AccessControlDto;
+  @Type(() => OverlayAccessControlDto)
+  overlayAccessControl: OverlayAccessControlDto;
 }

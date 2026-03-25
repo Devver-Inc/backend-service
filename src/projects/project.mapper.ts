@@ -5,6 +5,7 @@ import { UsersMapper } from 'src/users/user.mapper';
 import {
   GetProjectDto,
   GetProjectLightDto,
+  OverlayAccessControlResponseDto,
 } from './_utils/dto/responses/get-project.dto';
 import { Project, ProjectDocument } from './project.schema';
 
@@ -41,11 +42,8 @@ export class ProjectsMapper {
       storage: project.machineConfiguration.storage,
     },
     teamMembers: this.usersMapper.toUserLightDtoFromArray(teamMembers),
-    accessControl: {
-      requireEmailAuth: project.accessControl.requireEmailAuth,
-      publicAccess: project.accessControl.publicAccess,
-      restrictToTeamMembers: project.accessControl.restrictToTeamMembers,
-    },
+    overlayAccessControl:
+      project.overlayAccessControl as OverlayAccessControlResponseDto,
     createdAt: project.createdAt,
     updatedAt: project.updatedAt,
   });

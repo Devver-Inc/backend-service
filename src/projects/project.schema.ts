@@ -9,6 +9,11 @@ export enum DeploymentStatus {
   FAILED = 'failed',
 }
 
+export enum OverlayCommentPermission {
+  TEAM_ONLY = 'team_only',
+  EMAIL_REQUIRED = 'email_required',
+}
+
 @Schema({ _id: false })
 export class MachineConfiguration {
   @Prop({ required: true, min: 0.5, max: 2, default: 0.5 })
@@ -25,18 +30,17 @@ export const MachineConfigurationSchema =
   SchemaFactory.createForClass(MachineConfiguration);
 
 @Schema({ _id: false })
-export class AccessControl {
-  @Prop({ required: true, default: true })
-  requireEmailAuth: boolean;
-
-  @Prop({ required: true, default: false })
-  publicAccess: boolean;
-
-  @Prop({ required: true, default: false })
-  restrictToTeamMembers: boolean;
+export class OverlayAccessControl {
+  @Prop({
+    type: String,
+    enum: Object.values(OverlayCommentPermission),
+    required: true,
+  })
+  commentPermission: OverlayCommentPermission;
 }
 
-export const AccessControlSchema = SchemaFactory.createForClass(AccessControl);
+export const OverlayAccessControlSchema =
+  SchemaFactory.createForClass(OverlayAccessControl);
 
 // --- DeploymentConfig nested schemas ---
 
@@ -76,8 +80,8 @@ export class Project {
   @Prop({ type: [String], default: [] })
   teamMemberIds: string[];
 
-  @Prop({ type: AccessControlSchema, required: true })
-  accessControl: AccessControl;
+  @Prop({ type: OverlayAccessControlSchema, required: true })
+  overlayAccessControl: OverlayAccessControl;
 
   @Prop({ type: DeploymentConfigSchema, required: false })
   deploymentConfig?: DeploymentConfig;
