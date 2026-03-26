@@ -4,9 +4,15 @@ import {
   IsObject,
   IsOptional,
   IsString,
+  Matches,
   MinLength,
   ValidateNested,
 } from 'class-validator';
+import {
+  BRANCH_PATTERN,
+  COMMIT_PATTERN,
+  REPO_NAME_PATTERN,
+} from '../../constants/validation-patterns';
 import { ServiceConfig, Services } from '../../types/agent.types';
 import { AtLeastOneService } from '../../validators/at-least-one-service.validator';
 
@@ -53,17 +59,18 @@ export class ServicesDto implements Services {
 export class CreateAgentDeploymentDto {
   @ApiProperty({ example: 'my-repo' })
   @IsString()
-  @MinLength(1)
+  @Matches(REPO_NAME_PATTERN, { message: 'INVALID_REPO_NAME' })
   repo: string;
 
   @ApiProperty({ example: 'feature/new-feature' })
   @IsString()
-  @MinLength(1)
+  @Matches(BRANCH_PATTERN, { message: 'INVALID_BRANCH_NAME' })
   branch: string;
 
   @ApiPropertyOptional({ example: 'a1b2c3d' })
   @IsOptional()
   @IsString()
+  @Matches(COMMIT_PATTERN, { message: 'INVALID_COMMIT_HASH' })
   commit?: string;
 
   @ApiProperty({ type: () => ServicesDto })
