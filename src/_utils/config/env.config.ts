@@ -64,6 +64,9 @@ export class MinioConfig {
 
   @IsString()
   MINIO_BUCKET_NAME: string;
+
+  @Transform(({ value }) => value === 'true' || value === true)
+  MINIO_USE_SSL: boolean;
 }
 
 export class CorsConfig {
@@ -166,6 +169,7 @@ export function validateEnv(config: Record<string, unknown>) {
       MINIO_ACCESS_KEY: config.MINIO_ACCESS_KEY,
       MINIO_SECRET_KEY: config.MINIO_SECRET_KEY,
       MINIO_BUCKET_NAME: config.MINIO_BUCKET_NAME,
+      MINIO_USE_SSL: config.MINIO_USE_SSL,
     },
     CORS: {
       ALLOWED_ORIGINS: config.CORS_ALLOWED_ORIGINS
