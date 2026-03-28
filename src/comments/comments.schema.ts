@@ -39,4 +39,4 @@ export const CommentSchema = SchemaFactory.createForClass(Comment);
 
 CommentSchema.index({ projectId: 1 });
 CommentSchema.index({ userId: 1 });
-CommentSchema.index({ organizationId: 1, project: 1, repo: 1, branch: 1 });
+CommentSchema.index({ organizationId: 1, projectId: 1, repo: 1, branch: 1 });

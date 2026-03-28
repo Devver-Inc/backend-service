@@ -6,13 +6,13 @@ export class GetCommentDto {
   @ApiProperty({ example: '507f1f77bcf86cd799439011' })
   id: string;
 
-  @ApiProperty({ type: () => GetUserLightDto })
+  @ApiProperty({ type: () => GetUserLightDto, nullable: true })
   author: GetUserLightDto | null;
 
-  @ApiProperty({ example: 'my-repo' })
+  @ApiProperty({ example: 'my-repo', nullable: true })
   repo: string | null;
 
-  @ApiProperty({ example: 'main' })
+  @ApiProperty({ example: 'main', nullable: true })
   branch: string | null;
 
   @ApiProperty({ example: 'This looks great!' })

@@ -88,7 +88,7 @@ export class CommentsService {
     dto.guestEmail = authorization.emailToPersist;
 
     const organizationId =
-      user?.currentOrganization.id ?? project.organizationId;
+      user?.currentOrganization?.id ?? project.organizationId;
     const domain = CommentDomain.create(
       dto,
       organizationId,
