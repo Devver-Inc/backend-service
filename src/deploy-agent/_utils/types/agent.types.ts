@@ -71,6 +71,8 @@ export interface DeployRequest {
   commit?: string;
   service: Partial<Record<ServiceName, ServiceConfig>>;
   env?: Record<string, string>;
+  projectId?: string;
+  overlayAccessControl: { commentPermission: string };
 }
 
 export interface RepoResponse {

@@ -18,6 +18,16 @@ export class UsersService {
     private readonly minioService: MinioService,
   ) {}
 
+  async findManyByIds(ids: string[]): Promise<Map<string, LogtoUser>> {
+    const unique = [...new Set(ids)];
+    const users = await Promise.all(
+      unique.map((id) => this.logtoRequests.fetchUserSafe(id)),
+    );
+    return new Map(
+      unique.flatMap((id, i) => (users[i] ? [[id, users[i]]] : [])),
+    );
+  }
+
   createAccount = (user: LogtoUser) =>
     this.logtoService.manageUserWithoutOrganization(user);
 

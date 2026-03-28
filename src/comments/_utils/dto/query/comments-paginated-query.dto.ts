@@ -6,4 +6,12 @@ export class CommentsPaginatedQueryDto extends PaginatedQueryDto {
   @IsString()
   @Optional()
   search?: string;
+
+  @IsString()
+  @Optional()
+  repo?: string;
+
+  @IsString()
+  @Optional()
+  branch?: string;
 }
