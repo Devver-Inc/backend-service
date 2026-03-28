@@ -5,6 +5,7 @@ import { UsersMapper } from 'src/users/user.mapper';
 import {
   GetProjectDto,
   GetProjectLightDto,
+  OverlayAccessControlResponseDto,
 } from './_utils/dto/responses/get-project.dto';
 import { Project, ProjectDocument } from './project.schema';
 

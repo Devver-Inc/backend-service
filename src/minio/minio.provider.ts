@@ -25,7 +25,7 @@ export const minioProviders: Provider[] = [
         const minioClient = new Client({
           endPoint: endPoint,
           port: minioConfig.MINIO_PORT,
-          useSSL: !isLocal,
+          useSSL: minioConfig.MINIO_USE_SSL,
           accessKey: minioConfig.MINIO_ACCESS_KEY,
           secretKey: minioConfig.MINIO_SECRET_KEY,
         });
