@@ -1,6 +1,7 @@
 import { Logger } from '@nestjs/common';
 import { plainToInstance, Transform, Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsNumber,
   IsOptional,
   IsString,
@@ -9,6 +10,17 @@ import {
   validateSync,
 } from 'class-validator';
 import { exit } from 'node:process';
+
+/** Env booleans must be parsed before plainToInstance: implicitConversion treats any non-empty string as true. */
+function parseEnvBoolean(value: unknown): boolean {
+  if (value === true || value === 1) return true;
+  if (value === false || value === 0) return false;
+  if (typeof value === 'string') {
+    const s = value.trim().toLowerCase();
+    return s === 'true' || s === '1' || s === 'yes';
+  }
+  return false;
+}
 
 export class DatabaseConfig {
   @IsString()
@@ -65,7 +77,7 @@ export class MinioConfig {
   @IsString()
   MINIO_BUCKET_NAME: string;
 
-  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
   MINIO_USE_SSL: boolean;
 }
 
@@ -169,7 +181,7 @@ export function validateEnv(config: Record<string, unknown>) {
       MINIO_ACCESS_KEY: config.MINIO_ACCESS_KEY,
       MINIO_SECRET_KEY: config.MINIO_SECRET_KEY,
       MINIO_BUCKET_NAME: config.MINIO_BUCKET_NAME,
-      MINIO_USE_SSL: config.MINIO_USE_SSL,
+      MINIO_USE_SSL: parseEnvBoolean(config.MINIO_USE_SSL),
     },
     CORS: {
       ALLOWED_ORIGINS: config.CORS_ALLOWED_ORIGINS
