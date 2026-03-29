@@ -4,8 +4,10 @@ import { toPaginatedDto } from 'src/_utils/pagination/pagination.mapper';
 import { PaginationDto } from 'src/_utils/pagination/responses/pagination.dto';
 import { GitHubService } from 'src/_shared/github/github.service';
 import { EnvironmentVariables } from 'src/_utils/config/env.config';
+import { toSlug } from 'src/_utils/functions/to-slug.function';
 import { LogtoUserWithOrganizations } from 'src/logto/_utils/types/user-with-organization.type';
 import { LogtoRequests } from 'src/logto/logto.requests';
+import { ArgoCdRequests } from 'src/argocd/argocd.requests';
 import { ProjectsPaginatedQueryDto } from './_utils/dto/query/projects-paginated-query.dto';
 import { AddTeamMembersDto } from './_utils/dto/requests/add-team-members.dto';
 import { CreateProjectDto } from './_utils/dto/requests/create-project.dto';
@@ -31,6 +33,7 @@ export class ProjectsService {
     private readonly exceptions: ProjectsExceptions,
     private readonly githubService: GitHubService,
     private readonly configService: ConfigService<EnvironmentVariables, true>,
+    private readonly argoCdRequests: ArgoCdRequests,
   ) {}
 
   async createProject(
@@ -72,6 +75,13 @@ export class ProjectsService {
       this.logger.log(
         `values.yaml pushed for project ${dto.name} (org: ${organizationName})`,
       );
+
+      const appName = `${toSlug(organizationName)}-${toSlug(dto.name)}`;
+      this.argoCdRequests
+        .refreshApplication(appName)
+        .catch((err) =>
+          this.logger.error(`Failed to refresh ArgoCD app "${appName}":`, err),
+        );
     } catch (error) {
       this.logger.error('Failed to push values.yaml to GitHub:', error);
       await this.projectsRepository.updateDeploymentStatus(
@@ -150,6 +160,13 @@ export class ProjectsService {
       this.logger.log(
         `values.yaml updated for project ${domain.name} (org: ${organizationName})`,
       );
+
+      const appName = `${toSlug(organizationName)}-${toSlug(domain.name)}`;
+      this.argoCdRequests
+        .refreshApplication(appName)
+        .catch((err) =>
+          this.logger.error(`Failed to refresh ArgoCD app "${appName}":`, err),
+        );
     } catch (error) {
       this.logger.error('Failed to update values.yaml on GitHub:', error);
     }

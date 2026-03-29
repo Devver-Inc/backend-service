@@ -72,6 +72,7 @@ export interface DeployRequest {
   service: Partial<Record<ServiceName, ServiceConfig>>;
   env?: Record<string, string>;
   projectId?: string;
+  organizationId?: string;
   overlayAccessControl: { commentPermission: string };
 }
 

@@ -34,4 +34,14 @@ export class ArgoCdRequests {
     );
     return data;
   }
+
+  async refreshApplication(appName: string): Promise<void> {
+    await firstValueFrom(
+      this.httpService.post(
+        `${this.baseUrl}/api/v1/applications/${encodeURIComponent(appName)}/refresh`,
+        {},
+        { headers: this.headers },
+      ),
+    );
+  }
 }

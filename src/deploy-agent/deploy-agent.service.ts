@@ -207,6 +207,7 @@ export class DeployAgentService {
       service: dto.service,
       env: dto.env,
       projectId,
+      organizationId: user.currentOrganization.id,
       overlayAccessControl: project.overlayAccessControl,
     });
 
