@@ -72,7 +72,6 @@ export class ProjectsService {
       this.logger.log(
         `values.yaml pushed for project ${dto.name} (org: ${organizationName})`,
       );
-
     } catch (error) {
       this.logger.error('Failed to push values.yaml to GitHub:', error);
       await this.projectsRepository.updateDeploymentStatus(
@@ -151,7 +150,6 @@ export class ProjectsService {
       this.logger.log(
         `values.yaml updated for project ${domain.name} (org: ${organizationName})`,
       );
-
     } catch (error) {
       this.logger.error('Failed to update values.yaml on GitHub:', error);
     }
