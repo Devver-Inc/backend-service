@@ -10,6 +10,10 @@ import {
 } from 'rxjs/operators';
 import { ArgoCdRequests } from './argocd.requests';
 import { ArgoDeploymentStatusEvent } from './_utils/types/argocd.types';
+import {
+  ArgoHealthStatus,
+  ArgoSyncStatus,
+} from './_utils/constants/argocd.constants';
 import { DeployAgentService } from 'src/deploy-agent/deploy-agent.service';
 import { LogtoUserWithOrganizations } from 'src/logto/_utils/types/user-with-organization.type';
 
@@ -34,7 +38,8 @@ export class ArgoCdSseService {
       projectId,
       user,
     );
-    return this.getCurrentStatus(appName);
+    const probe = this.buildProbe(projectId, user);
+    return this.getCurrentStatus(appName, probe);
   }
 
   async watchStatusByProject(
@@ -45,29 +50,58 @@ export class ArgoCdSseService {
       projectId,
       user,
     );
-    return this.watchStatus(appName);
+    const probe = this.buildProbe(projectId, user);
+    return this.watchStatus(appName, probe);
+  }
+
+  private buildProbe(
+    projectId: string,
+    user: LogtoUserWithOrganizations,
+  ): () => Promise<boolean> {
+    return () =>
+      this.deployAgentService
+        .listDeployments(projectId, user)
+        .then(() => true)
+        .catch(() => false);
   }
 
   private getCurrentStatus = async (
     appName: string,
-  ): Promise<ArgoDeploymentStatusEvent> =>
-    this.argoCdRequests.getApplicationStatus(appName).then((app) => ({
+    probe?: () => Promise<boolean>,
+  ): Promise<ArgoDeploymentStatusEvent> => {
+    const app = await this.argoCdRequests.getApplicationStatus(appName);
+    const healthStatus = app.status.health.status;
+    const syncStatus = app.status.sync.status;
+
+    const podReady =
+      healthStatus === ArgoHealthStatus.Healthy &&
+      syncStatus === ArgoSyncStatus.Synced &&
+      probe
+        ? await probe()
+        : false;
+
+    return {
       appName,
-      healthStatus: app.status.health.status,
-      syncStatus: app.status.sync.status,
+      healthStatus,
+      syncStatus,
       operationPhase: app.status.operationState?.phase,
       operationMessage: app.status.operationState?.message,
       timestamp: new Date().toISOString(),
-    }));
+      podReady,
+    };
+  };
 
-  private watchStatus(appName: string): Observable<MessageEvent> {
+  private watchStatus(
+    appName: string,
+    probe?: () => Promise<boolean>,
+  ): Observable<MessageEvent> {
     const existing = this.streams.get(appName);
     if (existing) return existing;
 
     const status$ = interval(POLLING_INTERVAL_MS).pipe(
       startWith(0),
       switchMap(() =>
-        this.getCurrentStatus(appName).catch((err) => {
+        this.getCurrentStatus(appName, probe).catch((err) => {
           this.logger.warn(
             `Failed to fetch ArgoCD status for "${appName}": ${err instanceof Error ? err.message : String(err)}`,
           );
@@ -79,7 +113,8 @@ export class ArgoCdSseService {
         (prev, curr) =>
           prev?.healthStatus === curr?.healthStatus &&
           prev?.syncStatus === curr?.syncStatus &&
-          prev?.operationPhase === curr?.operationPhase,
+          prev?.operationPhase === curr?.operationPhase &&
+          prev?.podReady === curr?.podReady,
       ),
       filter((event): event is ArgoDeploymentStatusEvent => event !== null),
       map((event): MessageEvent => ({ data: event })),
