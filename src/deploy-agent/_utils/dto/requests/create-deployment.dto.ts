@@ -31,10 +31,11 @@ export class ServiceConfigDto implements ServiceConfig {
   @IsOptional()
   skipInstall?: boolean;
 
-  @ApiProperty({ example: 'npm run build' })
+  @ApiPropertyOptional({ example: 'npm run build' })
+  @IsOptional()
   @IsString()
   @MinLength(1)
-  build: string;
+  build?: string;
 
   @ApiProperty({ example: 'npm run start:prod' })
   @IsString()
