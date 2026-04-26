@@ -121,7 +121,7 @@ export class ProjectDomain {
       '  env:',
       `    DEVVER_SECRET: "${devverSecret}"`,
       '    NODE_ENV: "production"',
-      '    DEVVER_WIDGET_URL: "https://cdn.jsdelivr.net/gh/Devver-Inc/overlay@main/public/devver-overlay.iife.js"',
+      '    DEVVER_WIDGET_URL: "https://cdn.jsdelivr.net/gh/Devver-Inc/overlay@dev/public/devver-overlay.iife.js"', // TODO: change to main when ready
       'resources:',
       '  requests:',
       `    memory: "${memory}"`,
