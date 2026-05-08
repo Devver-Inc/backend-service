@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { MachineConfigurationResponseDto } from './machine-configuration-response.dto';
+import { MongoConfigurationResponseDto } from './mongo-configuration-response.dto';
 import { OverlayAccessControlResponseDto } from './overlay-access-control-response.dto';
-import { GetProjectLightDto } from './get-project-light.dto';
 import { GetUserLightDto } from 'src/users/_utils/dto/responses/get-user-light.dto';
 
 export class GetProjectDto {
@@ -32,13 +32,15 @@ export class GetProjectDto {
   @ApiProperty({ type: () => OverlayAccessControlResponseDto })
   overlayAccessControl: OverlayAccessControlResponseDto;
 
+  @ApiPropertyOptional({
+    type: () => MongoConfigurationResponseDto,
+    nullable: true,
+  })
+  mongoConfiguration?: MongoConfigurationResponseDto | null;
+
   @ApiProperty({ example: '2024-01-15T10:30:00.000Z' })
   createdAt: Date;
 
   @ApiProperty({ example: '2024-01-15T10:30:00.000Z' })
   updatedAt: Date;
 }
-
-export { GetProjectLightDto } from './get-project-light.dto';
-export { MachineConfigurationResponseDto } from './machine-configuration-response.dto';
-export { OverlayAccessControlResponseDto } from './overlay-access-control-response.dto';

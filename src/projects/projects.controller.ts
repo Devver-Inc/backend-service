@@ -20,10 +20,8 @@ import { AddTeamMembersDto } from './_utils/dto/requests/add-team-members.dto';
 import { CreateProjectDto } from './_utils/dto/requests/create-project.dto';
 import { UpdateProjectDto } from './_utils/dto/requests/update-project.dto';
 import { ProjectsPaginatedQueryDto } from './_utils/dto/query/projects-paginated-query.dto';
-import {
-  GetProjectDto,
-  GetProjectLightDto,
-} from './_utils/dto/responses/get-project.dto';
+import { GetProjectDto } from './_utils/dto/responses/get-project.dto';
+import { GetProjectLightDto } from './_utils/dto/responses/get-project-light.dto';
 import { ProjectsService } from './projects.service';
 import { UserRoleEnum } from 'src/logto/_utils/enums/permissions.enum';
 

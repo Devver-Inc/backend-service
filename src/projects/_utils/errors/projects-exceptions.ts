@@ -16,4 +16,10 @@ export class ProjectsExceptions {
     'SOME_MEMBERS_NOT_IN_ORGANIZATION',
   );
   USER_NOT_TEAM_MEMBER = new BadRequestException('USER_NOT_TEAM_MEMBER');
+  INVALID_MONGO_MEMORY_REQUEST = new BadRequestException(
+    'INVALID_MONGO_MEMORY_REQUEST',
+  );
+  INVALID_MONGO_CPU_REQUEST = new BadRequestException(
+    'INVALID_MONGO_CPU_REQUEST',
+  );
 }

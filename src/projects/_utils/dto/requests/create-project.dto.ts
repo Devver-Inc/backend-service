@@ -1,7 +1,6 @@
 import { Type } from 'class-transformer';
 import {
   IsArray,
-  IsEnum,
   IsNotEmpty,
   IsString,
   MaxLength,
@@ -10,6 +9,7 @@ import {
 } from 'class-validator';
 import { Optional } from 'class-validator-extended';
 import { MachineConfigurationDto } from './machine-configuration.dto';
+import { MongoConfigurationDto } from './mongo-configuration.dto';
 import { OverlayAccessControlDto } from './overlay-access-control.dto';
 
 export class CreateProjectDto {
@@ -35,4 +35,9 @@ export class CreateProjectDto {
   @ValidateNested()
   @Type(() => OverlayAccessControlDto)
   overlayAccessControl: OverlayAccessControlDto;
+
+  @Optional()
+  @ValidateNested()
+  @Type(() => MongoConfigurationDto)
+  mongoConfiguration?: MongoConfigurationDto;
 }

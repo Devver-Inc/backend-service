@@ -44,6 +44,14 @@ export class EncryptionService {
     );
   }
 
+  encryptString(plaintext: string): string {
+    return this.encrypt(plaintext);
+  }
+
+  decryptString(encoded: string): string {
+    return this.decrypt(encoded);
+  }
+
   encryptRecord(record: Record<string, string>): Record<string, string> {
     const result: Record<string, string> = {};
     for (const [key, value] of Object.entries(record)) {

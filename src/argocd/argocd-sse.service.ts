@@ -1,4 +1,5 @@
-import { Injectable, Logger, MessageEvent } from '@nestjs/common';
+import { HttpStatus, Injectable, Logger, MessageEvent } from '@nestjs/common';
+import { isAxiosError } from 'axios';
 import { interval, merge, Observable, share } from 'rxjs';
 import {
   distinctUntilChanged,
@@ -9,13 +10,19 @@ import {
   switchMap,
 } from 'rxjs/operators';
 import { ArgoCdRequests } from './argocd.requests';
-import { ArgoDeploymentStatusEvent } from './_utils/types/argocd.types';
+import {
+  ArgoApplicationDeploymentStatus,
+  ArgoDeploymentStatusEvent,
+} from './_utils/types/argocd.types';
 import {
   ArgoHealthStatus,
   ArgoSyncStatus,
 } from './_utils/constants/argocd.constants';
 import { DeployAgentService } from 'src/deploy-agent/deploy-agent.service';
 import { LogtoUserWithOrganizations } from 'src/logto/_utils/types/user-with-organization.type';
+import { ProjectsService } from 'src/projects/projects.service';
+import { toSlug } from 'src/_utils/functions/to-slug.function';
+import { ProjectDocument } from 'src/projects/project.schema';
 
 const POLLING_INTERVAL_MS = 5_000;
 const HEARTBEAT_INTERVAL_MS = 30_000;
@@ -28,6 +35,7 @@ export class ArgoCdSseService {
   constructor(
     private readonly argoCdRequests: ArgoCdRequests,
     private readonly deployAgentService: DeployAgentService,
+    private readonly projectsService: ProjectsService,
   ) {}
 
   async getStatusByProject(
@@ -39,7 +47,12 @@ export class ArgoCdSseService {
       user,
     );
     const probe = this.buildProbe(projectId, user);
-    return this.getCurrentStatus(appName, probe);
+    const project = await this.projectsService.findProjectById(projectId);
+    return this.getCurrentStatus(
+      appName,
+      probe,
+      this.getMongoAppName(project, user),
+    );
   }
 
   async watchStatusByProject(
@@ -51,7 +64,12 @@ export class ArgoCdSseService {
       user,
     );
     const probe = this.buildProbe(projectId, user);
-    return this.watchStatus(appName, probe);
+    const project = await this.projectsService.findProjectById(projectId);
+    return this.watchStatus(
+      appName,
+      probe,
+      this.getMongoAppName(project, user),
+    );
   }
 
   private buildProbe(
@@ -68,10 +86,24 @@ export class ArgoCdSseService {
   private getCurrentStatus = async (
     appName: string,
     probe?: () => Promise<boolean>,
+    mongoAppName?: string,
   ): Promise<ArgoDeploymentStatusEvent> => {
-    const app = await this.argoCdRequests.getApplicationStatus(appName);
-    const healthStatus = app.status.health.status;
-    const syncStatus = app.status.sync.status;
+    const application = this.toApplicationStatus(
+      await this.argoCdRequests.getApplicationStatus(appName),
+      'application',
+    );
+    const applications = [application];
+
+    if (mongoAppName) {
+      applications.push(await this.getOptionalApplicationStatus(mongoAppName));
+    }
+
+    const healthStatus = this.resolveHealthStatus(
+      applications.map((item) => item.healthStatus),
+    );
+    const syncStatus = this.resolveSyncStatus(
+      applications.map((item) => item.syncStatus),
+    );
 
     const podReady =
       healthStatus === ArgoHealthStatus.Healthy &&
@@ -84,24 +116,27 @@ export class ArgoCdSseService {
       appName,
       healthStatus,
       syncStatus,
-      operationPhase: app.status.operationState?.phase,
-      operationMessage: app.status.operationState?.message,
+      operationPhase: application.operationPhase,
+      operationMessage: application.operationMessage,
       timestamp: new Date().toISOString(),
       podReady,
+      applications,
     };
   };
 
   private watchStatus(
     appName: string,
     probe?: () => Promise<boolean>,
+    mongoAppName?: string,
   ): Observable<MessageEvent> {
-    const existing = this.streams.get(appName);
+    const streamKey = mongoAppName ? `${appName}:${mongoAppName}` : appName;
+    const existing = this.streams.get(streamKey);
     if (existing) return existing;
 
     const status$ = interval(POLLING_INTERVAL_MS).pipe(
       startWith(0),
       switchMap(() =>
-        this.getCurrentStatus(appName, probe).catch((err) => {
+        this.getCurrentStatus(appName, probe, mongoAppName).catch((err) => {
           this.logger.warn(
             `Failed to fetch ArgoCD status for "${appName}": ${err instanceof Error ? err.message : String(err)}`,
           );
@@ -114,7 +149,9 @@ export class ArgoCdSseService {
           prev?.healthStatus === curr?.healthStatus &&
           prev?.syncStatus === curr?.syncStatus &&
           prev?.operationPhase === curr?.operationPhase &&
-          prev?.podReady === curr?.podReady,
+          prev?.podReady === curr?.podReady &&
+          JSON.stringify(prev?.applications) ===
+            JSON.stringify(curr?.applications),
       ),
       filter((event): event is ArgoDeploymentStatusEvent => event !== null),
       map((event): MessageEvent => ({ data: event })),
@@ -125,12 +162,76 @@ export class ArgoCdSseService {
     );
 
     const stream$ = merge(status$, heartbeat$).pipe(
-      finalize(() => this.streams.delete(appName)),
+      finalize(() => this.streams.delete(streamKey)),
       share({ resetOnRefCountZero: true }),
     );
 
-    this.streams.set(appName, stream$);
+    this.streams.set(streamKey, stream$);
 
     return stream$;
+  }
+
+  private getMongoAppName(
+    project: ProjectDocument,
+    user: LogtoUserWithOrganizations,
+  ): string | undefined {
+    if (!project.mongoConfiguration?.enabled) {
+      return undefined;
+    }
+
+    return `${toSlug(user.currentOrganization.name)}-${toSlug(project.name)}-mongo`;
+  }
+
+  private toApplicationStatus(
+    app: Awaited<ReturnType<ArgoCdRequests['getApplicationStatus']>>,
+    type: string,
+  ): ArgoApplicationDeploymentStatus {
+    return {
+      appName: app.metadata.name,
+      type,
+      healthStatus: app.status.health.status,
+      syncStatus: app.status.sync.status,
+      operationPhase: app.status.operationState?.phase,
+      operationMessage: app.status.operationState?.message,
+    };
+  }
+
+  private async getOptionalApplicationStatus(
+    appName: string,
+  ): Promise<ArgoApplicationDeploymentStatus> {
+    try {
+      return this.toApplicationStatus(
+        await this.argoCdRequests.getApplicationStatus(appName),
+        'mongo',
+      );
+    } catch (err) {
+      if (!isAxiosError(err) || err.response?.status !== HttpStatus.NOT_FOUND) {
+        throw err;
+      }
+
+      return {
+        appName,
+        type: 'mongo',
+        healthStatus: 'Unknown',
+        syncStatus: 'Unknown',
+        operationPhase: undefined,
+        operationMessage:
+          err instanceof Error ? err.message : 'Failed to fetch application',
+      };
+    }
+  }
+
+  private resolveHealthStatus(statuses: string[]): string {
+    return (
+      statuses.find((status) => status !== ArgoHealthStatus.Healthy) ??
+      ArgoHealthStatus.Healthy
+    );
+  }
+
+  private resolveSyncStatus(statuses: string[]): string {
+    return (
+      statuses.find((status) => status !== ArgoSyncStatus.Synced) ??
+      ArgoSyncStatus.Synced
+    );
   }
 }

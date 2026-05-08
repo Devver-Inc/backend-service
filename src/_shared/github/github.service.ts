@@ -121,6 +121,17 @@ export class GitHubService {
     await this.createOrUpdateFile(path, yamlContent, message);
   }
 
+  async pushMongoValuesYaml(
+    organizationName: string,
+    projectName: string,
+    yamlContent: string,
+  ): Promise<void> {
+    const path = `${toSlug(organizationName)}/${toSlug(projectName)}/values-mongo.yaml`;
+    const message = `Deploy Mongo for ${projectName} for ${organizationName}`;
+
+    await this.createOrUpdateFile(path, yamlContent, message);
+  }
+
   /**
    * Delete a file from the repository
    */
@@ -150,7 +161,9 @@ export class GitHubService {
       this.logger.log(`Successfully deleted file: ${path}`);
     } catch (error) {
       this.logger.error(`Failed to delete file ${path}:`, error);
-      throw new Error(`GitHub deletion failed: ${error.message}`);
+      throw new Error(
+        `GitHub deletion failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
@@ -163,6 +176,15 @@ export class GitHubService {
   ): Promise<void> {
     const path = `${toSlug(organizationName)}/${toSlug(projectName)}/values.yaml`;
     const message = `Remove ${projectName} from ${organizationName}`;
+    await this.deleteFile(path, message);
+  }
+
+  async deleteMongoValuesYaml(
+    organizationName: string,
+    projectName: string,
+  ): Promise<void> {
+    const path = `${toSlug(organizationName)}/${toSlug(projectName)}/values-mongo.yaml`;
+    const message = `Remove Mongo for ${projectName} from ${organizationName}`;
     await this.deleteFile(path, message);
   }
 

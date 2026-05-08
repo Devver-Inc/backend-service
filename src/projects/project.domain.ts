@@ -4,10 +4,11 @@ import { CreateProjectDto } from './_utils/dto/requests/create-project.dto';
 import { UpdateProjectDto } from './_utils/dto/requests/update-project.dto';
 import {
   MachineConfiguration,
+  MongoDeploymentConfig,
   OverlayAccessControl,
   OverlayCommentPermission,
   DeploymentConfig,
-  DeploymentStatus,
+  ManifestStatus,
   ProjectDocument,
 } from './project.schema';
 
@@ -25,6 +26,7 @@ interface ProjectDomainProps {
   teamMemberIds: string[];
   overlayAccessControl: OverlayAccessControl;
   deploymentConfig?: DeploymentConfig;
+  mongoConfiguration?: MongoDeploymentConfig;
 }
 
 export class ProjectDomain {
@@ -36,6 +38,7 @@ export class ProjectDomain {
   readonly teamMemberIds: string[];
   readonly overlayAccessControl: OverlayAccessControl;
   readonly deploymentConfig?: DeploymentConfig;
+  readonly mongoConfiguration?: MongoDeploymentConfig;
 
   private constructor(props: ProjectDomainProps) {
     this.name = props.name;
@@ -46,6 +49,7 @@ export class ProjectDomain {
     this.teamMemberIds = props.teamMemberIds;
     this.overlayAccessControl = props.overlayAccessControl;
     this.deploymentConfig = props.deploymentConfig;
+    this.mongoConfiguration = props.mongoConfiguration;
   }
 
   static create(
@@ -53,13 +57,29 @@ export class ProjectDomain {
     organizationId: string,
     userId: string,
     organizationName: string,
+    encryptedMongoRootPassword?: string,
   ): ProjectDomain {
     const githubPath = `${toSlug(organizationName)}/${toSlug(dto.name)}/values.yaml`;
 
     const deploymentConfig: DeploymentConfig = {
       githubPath,
-      status: DeploymentStatus.PENDING,
+      manifestStatus: ManifestStatus.PENDING,
     };
+
+    const mongoConfiguration = dto.mongoConfiguration
+      ? {
+          enabled: true,
+          githubPath: `${toSlug(organizationName)}/${toSlug(dto.name)}/values-mongo.yaml`,
+          manifestStatus: ManifestStatus.PENDING,
+          rootUsername: dto.mongoConfiguration.rootUsername,
+          rootPasswordEncrypted:
+            encryptedMongoRootPassword ?? dto.mongoConfiguration.rootPassword,
+          replicaCount: dto.mongoConfiguration.replicaCount,
+          ram: dto.mongoConfiguration.ram,
+          cpuCores: dto.mongoConfiguration.cpuCores,
+          storage: dto.mongoConfiguration.storage,
+        }
+      : undefined;
 
     return new ProjectDomain({
       name: dto.name,
@@ -69,11 +89,11 @@ export class ProjectDomain {
       machineConfiguration: {
         cpuCores: dto.machineConfiguration?.cpuCores ?? 0.5,
         ram: dto.machineConfiguration?.ram ?? 0.5,
-        storage: dto.machineConfiguration?.storage ?? 20,
       },
       teamMemberIds: dto.teamMemberIds ?? [],
       overlayAccessControl: dto.overlayAccessControl,
       deploymentConfig,
+      mongoConfiguration,
     });
   }
 
@@ -87,11 +107,16 @@ export class ProjectDomain {
       teamMemberIds: doc.teamMemberIds,
       overlayAccessControl: doc.overlayAccessControl,
       deploymentConfig: doc.deploymentConfig,
+      mongoConfiguration: doc.mongoConfiguration,
     });
   }
 
   setDeploymentConfig(config: DeploymentConfig): ProjectDomain {
     return new ProjectDomain({ ...this, deploymentConfig: config });
+  }
+
+  setMongoConfig(config: MongoDeploymentConfig): ProjectDomain {
+    return new ProjectDomain({ ...this, mongoConfiguration: config });
   }
 
   toValuesYaml(organizationName: string, devverSecret: string): string {
@@ -132,7 +157,7 @@ export class ProjectDomain {
       'persistence:',
       '  enabled: true',
       '  app:',
-      '    size: "10Gi"',
+      '    size: "5Gi"',
       '    mountPath: "/app"',
       '    storageClass: longhorn',
       '  root:',
@@ -145,6 +170,42 @@ export class ProjectDomain {
       '  https: 443',
       'labels: {}',
       'annotations: {}',
+    ].join('\n');
+  }
+
+  toMongoValuesYaml(organizationName: string, rootPassword: string): string {
+    if (!this.mongoConfiguration) {
+      throw new Error('Project has no Mongo deployment configuration');
+    }
+
+    const orgName = toSlug(organizationName);
+    const projectName = toSlug(this.name);
+    const memory = `${Math.round(this.mongoConfiguration.ram * 1024)}Mi`;
+    const cpu = `${Math.round(this.mongoConfiguration.cpuCores * 1000)}m`;
+    const storage = `${this.mongoConfiguration.storage}Gi`;
+
+    return [
+      'namespace:',
+      '  create: false',
+      'organization:',
+      `  name: "${orgName}"`,
+      '  domain: "devver.app"',
+      'project:',
+      `  name: "${projectName}"`,
+      'auth:',
+      `  rootUsername: "${this.mongoConfiguration.rootUsername}"`,
+      `  rootPassword: "${rootPassword}"`,
+      `replicaCount: ${this.mongoConfiguration.replicaCount}`,
+      'persistence:',
+      `  size: "${storage}"`,
+      '  storageClass: "longhorn"',
+      'resources:',
+      '  requests:',
+      `    memory: "${memory}"`,
+      `    cpu: "${cpu}"`,
+      '  limits:',
+      '    memory: "1Gi"',
+      '    cpu: "500m"',
     ].join('\n');
   }
 

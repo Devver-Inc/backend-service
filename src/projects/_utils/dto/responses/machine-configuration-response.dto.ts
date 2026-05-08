@@ -6,7 +6,4 @@ export class MachineConfigurationResponseDto {
 
   @ApiProperty({ example: 8 })
   ram: number;
-
-  @ApiProperty({ example: 100 })
-  storage: number;
 }

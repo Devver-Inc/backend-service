@@ -2,11 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { DocOrLean } from 'src/_utils/types';
 import { LogtoUser } from 'src/logto/_utils/types/responses/responses.type';
 import { UsersMapper } from 'src/users/user.mapper';
-import {
-  GetProjectDto,
-  GetProjectLightDto,
-  OverlayAccessControlResponseDto,
-} from './_utils/dto/responses/get-project.dto';
+import { GetProjectDto } from './_utils/dto/responses/get-project.dto';
+import { GetProjectLightDto } from './_utils/dto/responses/get-project-light.dto';
 import { Project, ProjectDocument } from './project.schema';
 
 @Injectable()
@@ -39,12 +36,24 @@ export class ProjectsMapper {
     machineConfiguration: {
       cpuCores: project.machineConfiguration.cpuCores,
       ram: project.machineConfiguration.ram,
-      storage: project.machineConfiguration.storage,
     },
     teamMembers: this.usersMapper.toUserLightDtoFromArray(teamMembers),
     overlayAccessControl: {
       commentPermission: project.overlayAccessControl?.commentPermission,
     },
+    mongoConfiguration: project.mongoConfiguration
+      ? {
+          enabled: project.mongoConfiguration.enabled,
+          rootUsername: project.mongoConfiguration.rootUsername,
+          hasRootPassword: Boolean(
+            project.mongoConfiguration.rootPasswordEncrypted,
+          ),
+          replicaCount: project.mongoConfiguration.replicaCount,
+          ram: project.mongoConfiguration.ram,
+          cpuCores: project.mongoConfiguration.cpuCores,
+          storage: project.mongoConfiguration.storage,
+        }
+      : null,
     createdAt: project.createdAt,
     updatedAt: project.updatedAt,
   });

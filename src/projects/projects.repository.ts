@@ -8,7 +8,7 @@ import { Model, QueryFilter } from 'mongoose';
 import { escapeRegex } from 'src/_utils/functions/escape-regex.function';
 import { ProjectsPaginatedQueryDto } from './_utils/dto/query/projects-paginated-query.dto';
 import { ProjectDomain } from './project.domain';
-import { DeploymentStatus, Project, ProjectDocument } from './project.schema';
+import { ManifestStatus, Project, ProjectDocument } from './project.schema';
 import { LeanWithMongoId } from 'src/_utils/types';
 
 export type ProjectLean = LeanWithMongoId<Project>;
@@ -117,14 +117,27 @@ export class ProjectsRepository {
       .exec();
   };
 
-  updateDeploymentStatus = (
+  updateDeploymentManifestStatus = (
     projectId: string,
-    status: DeploymentStatus,
+    status: ManifestStatus,
   ): Promise<ProjectDocument> =>
     this.projectModel
       .findByIdAndUpdate(
         projectId,
-        { $set: { 'deploymentConfig.status': status } },
+        { $set: { 'deploymentConfig.manifestStatus': status } },
+        { new: true },
+      )
+      .orFail(new NotFoundException(this.NOT_FOUND_ERROR))
+      .exec();
+
+  updateMongoManifestStatus = (
+    projectId: string,
+    status: ManifestStatus,
+  ): Promise<ProjectDocument> =>
+    this.projectModel
+      .findByIdAndUpdate(
+        projectId,
+        { $set: { 'mongoConfiguration.manifestStatus': status } },
         { new: true },
       )
       .orFail(new NotFoundException(this.NOT_FOUND_ERROR))
