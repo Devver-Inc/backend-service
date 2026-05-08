@@ -1,4 +1,5 @@
 // project.domain.ts
+import { dump } from 'js-yaml';
 import { toSlug } from 'src/_utils/functions/to-slug.function';
 import { CreateProjectDto } from './_utils/dto/requests/create-project.dto';
 import { UpdateProjectDto } from './_utils/dto/requests/update-project.dto';
@@ -66,14 +67,19 @@ export class ProjectDomain {
       manifestStatus: ManifestStatus.PENDING,
     };
 
+    if (dto.mongoConfiguration && !encryptedMongoRootPassword) {
+      throw new Error(
+        'encryptedMongoRootPassword is required when mongoConfiguration is provided',
+      );
+    }
+
     const mongoConfiguration = dto.mongoConfiguration
       ? {
           enabled: true,
           githubPath: `${toSlug(organizationName)}/${toSlug(dto.name)}/values-mongo.yaml`,
           manifestStatus: ManifestStatus.PENDING,
           rootUsername: dto.mongoConfiguration.rootUsername,
-          rootPasswordEncrypted:
-            encryptedMongoRootPassword ?? dto.mongoConfiguration.rootPassword,
+          rootPasswordEncrypted: encryptedMongoRootPassword as string,
           replicaCount: dto.mongoConfiguration.replicaCount,
           ram: dto.mongoConfiguration.ram,
           cpuCores: dto.mongoConfiguration.cpuCores,
@@ -119,6 +125,8 @@ export class ProjectDomain {
     return new ProjectDomain({ ...this, mongoConfiguration: config });
   }
 
+  // TODO: migrate devverSecret injection to Vault (external secret reference) instead of inlining
+  // plaintext in the values YAML pushed to GitHub.
   toValuesYaml(organizationName: string, devverSecret: string): string {
     if (!this.deploymentConfig) {
       throw new Error('Project has no deployment configuration');
@@ -129,50 +137,41 @@ export class ProjectDomain {
     const memory = `${Math.round(this.machineConfiguration.ram * 1024)}Mi`;
     const cpu = `${Math.round(this.machineConfiguration.cpuCores * 1000)}m`;
 
-    return [
-      'organization:',
-      `  name: "${orgName}"`,
-      '  domain: "devver.app"',
-      'project:',
-      `  name: "${projectName}"`,
-      'imagePullSecrets:',
-      '  - name: "ghcr-secret"',
-      'container:',
-      '  image: "ghcr.io/devver-inc/deploy-agent:latest"',
-      '  port: 80',
-      '  type: "app"',
-      '  command: []',
-      '  args: []',
-      '  env:',
-      `    DEVVER_SECRET: "${devverSecret}"`,
-      '    NODE_ENV: "production"',
-      '    DEVVER_WIDGET_URL: "https://cdn.jsdelivr.net/gh/Devver-Inc/overlay@dev/public/devver-overlay.iife.js"', // TODO: change to main when ready
-      'resources:',
-      '  requests:',
-      `    memory: "${memory}"`,
-      `    cpu: "${cpu}"`,
-      '  limits:',
-      '    memory: "2Gi"',
-      '    cpu: "2000m"',
-      'persistence:',
-      '  enabled: true',
-      '  app:',
-      '    size: "5Gi"',
-      '    mountPath: "/app"',
-      '    storageClass: longhorn',
-      '  root:',
-      '    size: "5Gi"',
-      '    mountPath: "/root"',
-      '    storageClass: longhorn',
-      'replicaCount: 1',
-      'ports:',
-      '  http: 80',
-      '  https: 443',
-      'labels: {}',
-      'annotations: {}',
-    ].join('\n');
+    return dump({
+      organization: { name: orgName, domain: 'devver.app' },
+      project: { name: projectName },
+      imagePullSecrets: [{ name: 'ghcr-secret' }],
+      container: {
+        image: 'ghcr.io/devver-inc/deploy-agent:latest',
+        port: 80,
+        type: 'app',
+        command: [],
+        args: [],
+        env: {
+          DEVVER_SECRET: devverSecret, // TODO: replace with Vault reference
+          NODE_ENV: 'production',
+          DEVVER_WIDGET_URL:
+            'https://cdn.jsdelivr.net/gh/Devver-Inc/overlay@dev/public/devver-overlay.iife.js', // TODO: change to main when ready
+        },
+      },
+      resources: {
+        requests: { memory, cpu },
+        limits: { memory: '2Gi', cpu: '2000m' },
+      },
+      persistence: {
+        enabled: true,
+        app: { size: '5Gi', mountPath: '/app', storageClass: 'longhorn' },
+        root: { size: '5Gi', mountPath: '/root', storageClass: 'longhorn' },
+      },
+      replicaCount: 1,
+      ports: { http: 80, https: 443 },
+      labels: {},
+      annotations: {},
+    });
   }
 
+  // TODO: migrate rootPassword injection to Vault (external secret reference) instead of inlining
+  // plaintext in the values YAML pushed to GitHub.
   toMongoValuesYaml(organizationName: string, rootPassword: string): string {
     if (!this.mongoConfiguration) {
       throw new Error('Project has no Mongo deployment configuration');
@@ -184,29 +183,21 @@ export class ProjectDomain {
     const cpu = `${Math.round(this.mongoConfiguration.cpuCores * 1000)}m`;
     const storage = `${this.mongoConfiguration.storage}Gi`;
 
-    return [
-      'namespace:',
-      '  create: false',
-      'organization:',
-      `  name: "${orgName}"`,
-      '  domain: "devver.app"',
-      'project:',
-      `  name: "${projectName}"`,
-      'auth:',
-      `  rootUsername: "${this.mongoConfiguration.rootUsername}"`,
-      `  rootPassword: "${rootPassword}"`,
-      `replicaCount: ${this.mongoConfiguration.replicaCount}`,
-      'persistence:',
-      `  size: "${storage}"`,
-      '  storageClass: "longhorn"',
-      'resources:',
-      '  requests:',
-      `    memory: "${memory}"`,
-      `    cpu: "${cpu}"`,
-      '  limits:',
-      '    memory: "1Gi"',
-      '    cpu: "500m"',
-    ].join('\n');
+    return dump({
+      namespace: { create: false },
+      organization: { name: orgName, domain: 'devver.app' },
+      project: { name: projectName },
+      auth: {
+        rootUsername: this.mongoConfiguration.rootUsername,
+        rootPassword: rootPassword, // TODO: replace with Vault reference
+      },
+      replicaCount: this.mongoConfiguration.replicaCount,
+      persistence: { size: storage, storageClass: 'longhorn' },
+      resources: {
+        requests: { memory, cpu },
+        limits: { memory: '1Gi', cpu: '500m' },
+      },
+    });
   }
 
   belongsToOrganization(organizationId: string): boolean {

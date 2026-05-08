@@ -67,7 +67,7 @@ export class ProjectsRepository {
     const [projects, totalCount] = await Promise.all([
       this.projectModel
         .find(filter)
-        .sort({ [query.sortBy || 'createdAt']: sortDirection })
+        .sort({ [query.sortBy]: sortDirection })
         .skip(query.skip)
         .limit(query.limit || 10)
         .lean()
@@ -97,7 +97,7 @@ export class ProjectsRepository {
     const [projects, totalCount] = await Promise.all([
       this.projectModel
         .find(filter)
-        .sort({ [query.sortBy || 'createdAt']: sortDirection })
+        .sort({ [query.sortBy]: sortDirection })
         .skip(query.skip)
         .limit(query.limit || 10)
         .lean()

@@ -206,25 +206,20 @@ export class ProjectsService {
     const project = await this.getProjectWithAccessCheck(projectId, user);
     const organizationName = user.currentOrganization.name;
 
-    await this.projectsRepository.deleteById(projectId);
-
-    try {
-      await this.githubService.deleteValuesYaml(organizationName, project.name);
-      if (project.mongoConfiguration?.enabled) {
-        await this.githubService.deleteMongoValuesYaml(
-          organizationName,
-          project.name,
-        );
-      }
-      this.logger.log(
-        `Deployment manifests deleted for project ${project.name} (org: ${organizationName})`,
-      );
-    } catch (error) {
-      this.logger.error(
-        'Failed to delete deployment manifests from GitHub:',
-        error,
+    // Delete GitHub manifests first so a failure here aborts the operation
+    // before the DB record is removed, keeping the two stores consistent.
+    await this.githubService.deleteValuesYaml(organizationName, project.name);
+    if (project.mongoConfiguration?.enabled) {
+      await this.githubService.deleteMongoValuesYaml(
+        organizationName,
+        project.name,
       );
     }
+    this.logger.log(
+      `Deployment manifests deleted for project ${project.name} (org: ${organizationName})`,
+    );
+
+    await this.projectsRepository.deleteById(projectId);
   }
 
   async addTeamMembers(
@@ -273,12 +268,12 @@ export class ProjectsService {
     user: LogtoUserWithOrganizations,
   ): Promise<ProjectDocument> {
     const organizationId = user.currentOrganization.id;
-    const project = await this.projectsRepository.findById(projectId);
+    const project =
+      await this.projectsRepository.findByProjectAndOrganizationId(
+        projectId,
+        organizationId,
+      );
     const domain = ProjectDomain.fromDocument(project);
-
-    if (!domain.belongsToOrganization(organizationId)) {
-      throw this.exceptions.PROJECT_ACCESS_DENIED;
-    }
 
     if (!user.isAdmin && !domain.isTeamMember(user.id)) {
       throw this.exceptions.PROJECT_ACCESS_DENIED;
