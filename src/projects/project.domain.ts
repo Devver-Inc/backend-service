@@ -127,7 +127,11 @@ export class ProjectDomain {
 
   // TODO: migrate devverSecret injection to Vault (external secret reference) instead of inlining
   // plaintext in the values YAML pushed to GitHub.
-  toValuesYaml(organizationName: string, devverSecret: string): string {
+  toValuesYaml(
+    organizationName: string,
+    devverSecret: string,
+    mongoConnectionString?: string,
+  ): string {
     if (!this.deploymentConfig) {
       throw new Error('Project has no deployment configuration');
     }
@@ -152,6 +156,11 @@ export class ProjectDomain {
           NODE_ENV: 'production',
           DEVVER_WIDGET_URL:
             'https://cdn.jsdelivr.net/gh/Devver-Inc/overlay@dev/public/devver-overlay.iife.js', // TODO: change to main when ready
+          ...(mongoConnectionString
+            ? {
+                DEVVER_MONGO_CONNECTION_STRING: mongoConnectionString,
+              }
+            : {}),
         },
       },
       resources: {
@@ -198,6 +207,23 @@ export class ProjectDomain {
         limits: { memory: '1Gi', cpu: '500m' },
       },
     });
+  }
+
+  buildMongoConnectionString(
+    organizationName: string,
+    rootPassword: string,
+  ): string {
+    if (!this.mongoConfiguration) {
+      throw new Error('Project has no Mongo deployment configuration');
+    }
+
+    const orgName = toSlug(organizationName);
+    const projectName = toSlug(this.name);
+    const username = encodeURIComponent(this.mongoConfiguration.rootUsername);
+    const password = encodeURIComponent(rootPassword);
+    const host = `${orgName}-${projectName}-mongo`;
+
+    return `mongodb://${username}:${password}@${host}:27017/admin?authSource=admin&tls=true&tlsAllowInvalidCertificates=true`;
   }
 
   belongsToOrganization(organizationId: string): boolean {

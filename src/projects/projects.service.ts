@@ -65,7 +65,17 @@ export class ProjectsService {
       const devverSecret = this.configService.get('DEPLOY_AGENT', {
         infer: true,
       }).DEPLOY_AGENT_SECRET;
-      const yamlContent = domain.toValuesYaml(organizationName, devverSecret);
+      const mongoConnectionString = dto.mongoConfiguration
+        ? domain.buildMongoConnectionString(
+            organizationName,
+            dto.mongoConfiguration.rootPassword,
+          )
+        : undefined;
+      const yamlContent = domain.toValuesYaml(
+        organizationName,
+        devverSecret,
+        mongoConnectionString,
+      );
       await this.githubService.pushValuesYaml(
         organizationName,
         dto.name,
@@ -184,10 +194,22 @@ export class ProjectsService {
       const devverSecret = this.configService.get('DEPLOY_AGENT', {
         infer: true,
       }).DEPLOY_AGENT_SECRET;
+      const mongoConnectionString = updated.mongoConfiguration
+        ? domain.buildMongoConnectionString(
+            organizationName,
+            this.encryptionService.decryptString(
+              updated.mongoConfiguration.rootPasswordEncrypted,
+            ),
+          )
+        : undefined;
       await this.githubService.pushValuesYaml(
         organizationName,
         domain.name,
-        domain.toValuesYaml(organizationName, devverSecret),
+        domain.toValuesYaml(
+          organizationName,
+          devverSecret,
+          mongoConnectionString,
+        ),
       );
       this.logger.log(
         `values.yaml updated for project ${domain.name} (org: ${organizationName})`,
