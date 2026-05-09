@@ -125,20 +125,20 @@ export class ProjectsRepository {
       .findByIdAndUpdate(
         projectId,
         { $set: { 'deploymentConfig.manifestStatus': status } },
-        { new: true },
+        { returnDocument: 'after' },
       )
       .orFail(new NotFoundException(this.NOT_FOUND_ERROR))
       .exec();
 
-  updateMongoManifestStatus = (
+  updateDatabaseManifestStatus = (
     projectId: string,
     status: ManifestStatus,
   ): Promise<ProjectDocument> =>
     this.projectModel
       .findByIdAndUpdate(
         projectId,
-        { $set: { 'mongoConfiguration.manifestStatus': status } },
-        { new: true },
+        { $set: { 'databaseConfiguration.manifestStatus': status } },
+        { returnDocument: 'after' },
       )
       .orFail(new NotFoundException(this.NOT_FOUND_ERROR))
       .exec();

@@ -175,7 +175,7 @@ export class ArgoCdSseService {
     project: ProjectDocument,
     user: LogtoUserWithOrganizations,
   ): string | undefined {
-    if (!project.mongoConfiguration?.enabled) {
+    if (!project.databaseConfiguration?.enabled) {
       return undefined;
     }
 

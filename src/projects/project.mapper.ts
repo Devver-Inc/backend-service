@@ -41,17 +41,18 @@ export class ProjectsMapper {
     overlayAccessControl: {
       commentPermission: project.overlayAccessControl?.commentPermission,
     },
-    mongoConfiguration: project.mongoConfiguration
+    databaseConfiguration: project.databaseConfiguration
       ? {
-          enabled: project.mongoConfiguration.enabled,
-          rootUsername: project.mongoConfiguration.rootUsername,
+          type: project.databaseConfiguration.type,
+          enabled: project.databaseConfiguration.enabled,
+          rootUsername: project.databaseConfiguration.rootUsername,
           hasRootPassword: Boolean(
-            project.mongoConfiguration.rootPasswordEncrypted,
+            project.databaseConfiguration.rootPasswordEncrypted,
           ),
-          replicaCount: project.mongoConfiguration.replicaCount,
-          ram: project.mongoConfiguration.ram,
-          cpuCores: project.mongoConfiguration.cpuCores,
-          storage: project.mongoConfiguration.storage,
+          replicaCount: project.databaseConfiguration.replicaCount,
+          ram: project.databaseConfiguration.ram,
+          cpuCores: project.databaseConfiguration.cpuCores,
+          storage: project.databaseConfiguration.storage,
         }
       : null,
     createdAt: project.createdAt,

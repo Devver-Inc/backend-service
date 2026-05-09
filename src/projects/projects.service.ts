@@ -45,11 +45,11 @@ export class ProjectsService {
       dto.teamMemberIds,
     );
 
-    this.assertMongoRequestsAreValid(dto);
+    this.assertDatabaseRequestsAreValid(dto);
 
-    const encryptedMongoRootPassword = dto.mongoConfiguration
+    const encryptedMongoRootPassword = dto.databaseConfiguration
       ? this.encryptionService.encryptString(
-          dto.mongoConfiguration.rootPassword,
+          dto.databaseConfiguration.rootPassword,
         )
       : undefined;
     const domain = ProjectDomain.create(
@@ -65,10 +65,10 @@ export class ProjectsService {
       const devverSecret = this.configService.get('DEPLOY_AGENT', {
         infer: true,
       }).DEPLOY_AGENT_SECRET;
-      const mongoConnectionString = dto.mongoConfiguration
+      const mongoConnectionString = dto.databaseConfiguration
         ? domain.buildMongoConnectionString(
             organizationName,
-            dto.mongoConfiguration.rootPassword,
+            dto.databaseConfiguration.rootPassword,
           )
         : undefined;
       const yamlContent = domain.toValuesYaml(
@@ -96,8 +96,8 @@ export class ProjectsService {
         project._id.toString(),
         ManifestStatus.FAILED,
       );
-      if (dto.mongoConfiguration) {
-        await this.projectsRepository.updateMongoManifestStatus(
+      if (dto.databaseConfiguration) {
+        await this.projectsRepository.updateDatabaseManifestStatus(
           project._id.toString(),
           ManifestStatus.FAILED,
         );
@@ -105,27 +105,27 @@ export class ProjectsService {
       return this.projectsMapper.toProjectLightDto(project);
     }
 
-    if (dto.mongoConfiguration) {
+    if (dto.databaseConfiguration) {
       try {
         const mongoYamlContent = domain.toMongoValuesYaml(
           organizationName,
-          dto.mongoConfiguration.rootPassword,
+          dto.databaseConfiguration.rootPassword,
         );
         await this.githubService.pushMongoValuesYaml(
           organizationName,
           dto.name,
           mongoYamlContent,
         );
-        await this.projectsRepository.updateMongoManifestStatus(
+        await this.projectsRepository.updateDatabaseManifestStatus(
           project._id.toString(),
           ManifestStatus.PUSHED,
         );
         this.logger.log(
-          `values-mongo.yaml pushed for project ${dto.name} (org: ${organizationName})`,
+          `values-db.yaml pushed for project ${dto.name} (org: ${organizationName})`,
         );
       } catch (error) {
-        this.logger.error('Failed to push values-mongo.yaml to GitHub:', error);
-        await this.projectsRepository.updateMongoManifestStatus(
+        this.logger.error('Failed to push values-db.yaml to GitHub:', error);
+        await this.projectsRepository.updateDatabaseManifestStatus(
           project._id.toString(),
           ManifestStatus.FAILED,
         );
@@ -194,11 +194,11 @@ export class ProjectsService {
       const devverSecret = this.configService.get('DEPLOY_AGENT', {
         infer: true,
       }).DEPLOY_AGENT_SECRET;
-      const mongoConnectionString = updated.mongoConfiguration
+      const mongoConnectionString = updated.databaseConfiguration
         ? domain.buildMongoConnectionString(
             organizationName,
             this.encryptionService.decryptString(
-              updated.mongoConfiguration.rootPasswordEncrypted,
+              updated.databaseConfiguration.rootPasswordEncrypted,
             ),
           )
         : undefined;
@@ -231,7 +231,7 @@ export class ProjectsService {
     // Delete GitHub manifests first so a failure here aborts the operation
     // before the DB record is removed, keeping the two stores consistent.
     await this.githubService.deleteValuesYaml(organizationName, project.name);
-    if (project.mongoConfiguration?.enabled) {
+    if (project.databaseConfiguration?.enabled) {
       await this.githubService.deleteMongoValuesYaml(
         organizationName,
         project.name,
@@ -354,17 +354,17 @@ export class ProjectsService {
     return this.projectsMapper.toProjectDto(project, createdBy, teamMembers);
   }
 
-  private assertMongoRequestsAreValid(dto: CreateProjectDto): void {
-    if (!dto.mongoConfiguration) {
+  private assertDatabaseRequestsAreValid(dto: CreateProjectDto): void {
+    if (!dto.databaseConfiguration) {
       return;
     }
 
-    if (dto.mongoConfiguration.ram < 0.5) {
-      throw this.exceptions.INVALID_MONGO_MEMORY_REQUEST;
+    if (dto.databaseConfiguration.ram < 0.5) {
+      throw this.exceptions.INVALID_DATABASE_MEMORY_REQUEST;
     }
 
-    if (dto.mongoConfiguration.cpuCores < 0.1) {
-      throw this.exceptions.INVALID_MONGO_CPU_REQUEST;
+    if (dto.databaseConfiguration.cpuCores < 0.1) {
+      throw this.exceptions.INVALID_DATABASE_CPU_REQUEST;
     }
   }
 }

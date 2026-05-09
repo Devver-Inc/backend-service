@@ -100,7 +100,7 @@ export class DeployAgentService {
     await this.verifyProjectOwnership(projectId, user);
     const project = await this.projectsService.findProjectById(projectId);
 
-    if (!project.mongoConfiguration?.enabled) {
+    if (!project.databaseConfiguration?.enabled) {
       throw new BadRequestException('PROJECT_MONGO_NOT_ENABLED');
     }
 

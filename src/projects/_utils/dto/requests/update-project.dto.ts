@@ -5,6 +5,6 @@ export class UpdateProjectDto extends PartialType(
   OmitType(CreateProjectDto, [
     'name',
     'teamMemberIds',
-    'mongoConfiguration',
+    'databaseConfiguration',
   ] as const),
 ) {}

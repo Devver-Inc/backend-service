@@ -8,8 +8,8 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Optional } from 'class-validator-extended';
+import { DatabaseConfigurationDto } from './database-configuration.dto';
 import { MachineConfigurationDto } from './machine-configuration.dto';
-import { MongoConfigurationDto } from './mongo-configuration.dto';
 import { OverlayAccessControlDto } from './overlay-access-control.dto';
 
 export class CreateProjectDto {
@@ -38,6 +38,6 @@ export class CreateProjectDto {
 
   @Optional()
   @ValidateNested()
-  @Type(() => MongoConfigurationDto)
-  mongoConfiguration?: MongoConfigurationDto;
+  @Type(() => DatabaseConfigurationDto)
+  databaseConfiguration?: DatabaseConfigurationDto;
 }

@@ -9,6 +9,10 @@ export enum ManifestStatus {
   FAILED = 'failed',
 }
 
+export enum DatabaseType {
+  MONGO = 'mongo',
+}
+
 export enum OverlayCommentPermission {
   TEAM_ONLY = 'team_only',
   EMAIL_REQUIRED = 'email_required',
@@ -58,7 +62,14 @@ export const DeploymentConfigSchema =
   SchemaFactory.createForClass(DeploymentConfig);
 
 @Schema({ _id: false })
-export class MongoDeploymentConfig {
+export class DatabaseDeploymentConfig {
+  @Prop({
+    type: String,
+    enum: Object.values(DatabaseType),
+    required: true,
+  })
+  type: DatabaseType;
+
   @Prop({ type: Boolean, required: true, default: false })
   enabled: boolean;
 
@@ -91,8 +102,8 @@ export class MongoDeploymentConfig {
   storage: number;
 }
 
-export const MongoDeploymentConfigSchema = SchemaFactory.createForClass(
-  MongoDeploymentConfig,
+export const DatabaseDeploymentConfigSchema = SchemaFactory.createForClass(
+  DatabaseDeploymentConfig,
 );
 
 @Schema({ timestamps: true })
@@ -121,8 +132,8 @@ export class Project {
   @Prop({ type: DeploymentConfigSchema, required: false })
   deploymentConfig?: DeploymentConfig;
 
-  @Prop({ type: MongoDeploymentConfigSchema, required: false })
-  mongoConfiguration?: MongoDeploymentConfig;
+  @Prop({ type: DatabaseDeploymentConfigSchema, required: false })
+  databaseConfiguration?: DatabaseDeploymentConfig;
 
   createdAt: Date;
   updatedAt: Date;

@@ -1,4 +1,5 @@
 import {
+  IsEnum,
   IsInt,
   IsNotEmpty,
   IsNumber,
@@ -6,8 +7,12 @@ import {
   Max,
   Min,
 } from 'class-validator';
+import { DatabaseType } from 'src/projects/project.schema';
 
-export class MongoConfigurationDto {
+export class DatabaseConfigurationDto {
+  @IsEnum(DatabaseType)
+  type: DatabaseType;
+
   @IsString()
   @IsNotEmpty()
   rootUsername: string;

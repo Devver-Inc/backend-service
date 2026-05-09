@@ -5,11 +5,12 @@ import { CreateProjectDto } from './_utils/dto/requests/create-project.dto';
 import { UpdateProjectDto } from './_utils/dto/requests/update-project.dto';
 import {
   MachineConfiguration,
-  MongoDeploymentConfig,
+  DatabaseDeploymentConfig,
   OverlayAccessControl,
   OverlayCommentPermission,
   DeploymentConfig,
   ManifestStatus,
+  DatabaseType,
   ProjectDocument,
 } from './project.schema';
 
@@ -27,7 +28,7 @@ interface ProjectDomainProps {
   teamMemberIds: string[];
   overlayAccessControl: OverlayAccessControl;
   deploymentConfig?: DeploymentConfig;
-  mongoConfiguration?: MongoDeploymentConfig;
+  databaseConfiguration?: DatabaseDeploymentConfig;
 }
 
 export class ProjectDomain {
@@ -39,7 +40,7 @@ export class ProjectDomain {
   readonly teamMemberIds: string[];
   readonly overlayAccessControl: OverlayAccessControl;
   readonly deploymentConfig?: DeploymentConfig;
-  readonly mongoConfiguration?: MongoDeploymentConfig;
+  readonly databaseConfiguration?: DatabaseDeploymentConfig;
 
   private constructor(props: ProjectDomainProps) {
     this.name = props.name;
@@ -50,7 +51,7 @@ export class ProjectDomain {
     this.teamMemberIds = props.teamMemberIds;
     this.overlayAccessControl = props.overlayAccessControl;
     this.deploymentConfig = props.deploymentConfig;
-    this.mongoConfiguration = props.mongoConfiguration;
+    this.databaseConfiguration = props.databaseConfiguration;
   }
 
   static create(
@@ -67,23 +68,24 @@ export class ProjectDomain {
       manifestStatus: ManifestStatus.PENDING,
     };
 
-    if (dto.mongoConfiguration && !encryptedMongoRootPassword) {
+    if (dto.databaseConfiguration && !encryptedMongoRootPassword) {
       throw new Error(
-        'encryptedMongoRootPassword is required when mongoConfiguration is provided',
+        'encryptedMongoRootPassword is required when databaseConfiguration is provided',
       );
     }
 
-    const mongoConfiguration = dto.mongoConfiguration
+    const databaseConfiguration = dto.databaseConfiguration
       ? {
+          type: dto.databaseConfiguration.type,
           enabled: true,
-          githubPath: `${toSlug(organizationName)}/${toSlug(dto.name)}/values-mongo.yaml`,
+          githubPath: `${toSlug(organizationName)}/${toSlug(dto.name)}/values-db.yaml`,
           manifestStatus: ManifestStatus.PENDING,
-          rootUsername: dto.mongoConfiguration.rootUsername,
+          rootUsername: dto.databaseConfiguration.rootUsername,
           rootPasswordEncrypted: encryptedMongoRootPassword as string,
-          replicaCount: dto.mongoConfiguration.replicaCount,
-          ram: dto.mongoConfiguration.ram,
-          cpuCores: dto.mongoConfiguration.cpuCores,
-          storage: dto.mongoConfiguration.storage,
+          replicaCount: dto.databaseConfiguration.replicaCount,
+          ram: dto.databaseConfiguration.ram,
+          cpuCores: dto.databaseConfiguration.cpuCores,
+          storage: dto.databaseConfiguration.storage,
         }
       : undefined;
 
@@ -99,7 +101,7 @@ export class ProjectDomain {
       teamMemberIds: dto.teamMemberIds ?? [],
       overlayAccessControl: dto.overlayAccessControl,
       deploymentConfig,
-      mongoConfiguration,
+      databaseConfiguration,
     });
   }
 
@@ -113,7 +115,7 @@ export class ProjectDomain {
       teamMemberIds: doc.teamMemberIds,
       overlayAccessControl: doc.overlayAccessControl,
       deploymentConfig: doc.deploymentConfig,
-      mongoConfiguration: doc.mongoConfiguration,
+      databaseConfiguration: doc.databaseConfiguration,
     });
   }
 
@@ -121,8 +123,8 @@ export class ProjectDomain {
     return new ProjectDomain({ ...this, deploymentConfig: config });
   }
 
-  setMongoConfig(config: MongoDeploymentConfig): ProjectDomain {
-    return new ProjectDomain({ ...this, mongoConfiguration: config });
+  setDatabaseConfig(config: DatabaseDeploymentConfig): ProjectDomain {
+    return new ProjectDomain({ ...this, databaseConfiguration: config });
   }
 
   // TODO: migrate devverSecret injection to Vault (external secret reference) instead of inlining
@@ -182,25 +184,25 @@ export class ProjectDomain {
   // TODO: migrate rootPassword injection to Vault (external secret reference) instead of inlining
   // plaintext in the values YAML pushed to GitHub.
   toMongoValuesYaml(organizationName: string, rootPassword: string): string {
-    if (!this.mongoConfiguration) {
-      throw new Error('Project has no Mongo deployment configuration');
+    if (!this.databaseConfiguration) {
+      throw new Error('Project has no database deployment configuration');
     }
 
     const orgName = toSlug(organizationName);
     const projectName = toSlug(this.name);
-    const memory = `${Math.round(this.mongoConfiguration.ram * 1024)}Mi`;
-    const cpu = `${Math.round(this.mongoConfiguration.cpuCores * 1000)}m`;
-    const storage = `${this.mongoConfiguration.storage}Gi`;
+    const memory = `${Math.round(this.databaseConfiguration.ram * 1024)}Mi`;
+    const cpu = `${Math.round(this.databaseConfiguration.cpuCores * 1000)}m`;
+    const storage = `${this.databaseConfiguration.storage}Gi`;
 
     return dump({
       namespace: { create: false },
       organization: { name: orgName, domain: 'devver.app' },
       project: { name: projectName },
       auth: {
-        rootUsername: this.mongoConfiguration.rootUsername,
+        rootUsername: this.databaseConfiguration.rootUsername,
         rootPassword: rootPassword, // TODO: replace with Vault reference
       },
-      replicaCount: this.mongoConfiguration.replicaCount,
+      replicaCount: this.databaseConfiguration.replicaCount,
       persistence: { size: storage, storageClass: 'longhorn' },
       resources: {
         requests: { memory, cpu },
@@ -213,13 +215,15 @@ export class ProjectDomain {
     organizationName: string,
     rootPassword: string,
   ): string {
-    if (!this.mongoConfiguration) {
-      throw new Error('Project has no Mongo deployment configuration');
+    if (!this.databaseConfiguration) {
+      throw new Error('Project has no database deployment configuration');
     }
 
     const orgName = toSlug(organizationName);
     const projectName = toSlug(this.name);
-    const username = encodeURIComponent(this.mongoConfiguration.rootUsername);
+    const username = encodeURIComponent(
+      this.databaseConfiguration.rootUsername,
+    );
     const password = encodeURIComponent(rootPassword);
     const host = `${orgName}-${projectName}-mongo`;
 
