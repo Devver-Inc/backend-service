@@ -139,7 +139,7 @@ export class DeployAgentController {
   })
   @ApiResponse({
     status: HttpStatus.BAD_REQUEST,
-    description: 'PROJECT_MONGO_NOT_ENABLED',
+    description: 'DATABASE_NOT_ENABLED',
   })
   @ApiResponse({
     status: HttpStatus.SERVICE_UNAVAILABLE,

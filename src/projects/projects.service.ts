@@ -65,8 +65,8 @@ export class ProjectsService {
       const devverSecret = this.configService.get('DEPLOY_AGENT', {
         infer: true,
       }).DEPLOY_AGENT_SECRET;
-      const mongoConnectionString = dto.databaseConfiguration
-        ? domain.buildMongoConnectionString(
+      const databaseConnectionString = dto.databaseConfiguration
+        ? domain.buildDatabaseConnectionString(
             organizationName,
             dto.databaseConfiguration.rootPassword,
           )
@@ -74,7 +74,7 @@ export class ProjectsService {
       const yamlContent = domain.toValuesYaml(
         organizationName,
         devverSecret,
-        mongoConnectionString,
+        databaseConnectionString,
       );
       await this.githubService.pushValuesYaml(
         organizationName,
@@ -194,8 +194,8 @@ export class ProjectsService {
       const devverSecret = this.configService.get('DEPLOY_AGENT', {
         infer: true,
       }).DEPLOY_AGENT_SECRET;
-      const mongoConnectionString = updated.databaseConfiguration
-        ? domain.buildMongoConnectionString(
+      const databaseConnectionString = updated.databaseConfiguration
+        ? domain.buildDatabaseConnectionString(
             organizationName,
             this.encryptionService.decryptString(
               updated.databaseConfiguration.rootPasswordEncrypted,
@@ -208,7 +208,7 @@ export class ProjectsService {
         domain.toValuesYaml(
           organizationName,
           devverSecret,
-          mongoConnectionString,
+          databaseConnectionString,
         ),
       );
       this.logger.log(

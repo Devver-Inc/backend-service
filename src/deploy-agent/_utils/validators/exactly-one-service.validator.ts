@@ -5,23 +5,28 @@ import {
   ValidatorConstraintInterface,
 } from 'class-validator';
 
-@ValidatorConstraint({ name: 'atLeastOneService', async: false })
-export class AtLeastOneServiceConstraint implements ValidatorConstraintInterface {
+@ValidatorConstraint({ name: 'exactlyOneService', async: false })
+export class ExactlyOneServiceConstraint implements ValidatorConstraintInterface {
   validate(service: unknown): boolean {
     if (!service || typeof service !== 'object') return false;
-    return Object.values(service).some((v) => v != null);
+
+    const definedServices = Object.values(service).filter(
+      (value) => value != null,
+    );
+    return definedServices.length === 1;
   }
+
   defaultMessage(_args: ValidationArguments): string {
-    return 'At least one service (web or api) must be defined';
+    return 'Exactly one service (web or api) must be defined';
   }
 }
 
-export function AtLeastOneService() {
+export function ExactlyOneService() {
   return function (object: object, propertyName: string) {
     registerDecorator({
       target: object.constructor,
       propertyName,
-      validator: AtLeastOneServiceConstraint,
+      validator: ExactlyOneServiceConstraint,
     });
   };
 }

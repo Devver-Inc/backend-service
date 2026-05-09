@@ -132,7 +132,7 @@ export class ProjectDomain {
   toValuesYaml(
     organizationName: string,
     devverSecret: string,
-    mongoConnectionString?: string,
+    databaseConnectionString?: string,
   ): string {
     if (!this.deploymentConfig) {
       throw new Error('Project has no deployment configuration');
@@ -158,9 +158,9 @@ export class ProjectDomain {
           NODE_ENV: 'production',
           DEVVER_WIDGET_URL:
             'https://cdn.jsdelivr.net/gh/Devver-Inc/overlay@dev/public/devver-overlay.iife.js', // TODO: change to main when ready
-          ...(mongoConnectionString
+          ...(databaseConnectionString
             ? {
-                DEVVER_MONGO_CONNECTION_STRING: mongoConnectionString,
+                DEVVER_MONGO_CONNECTION_STRING: databaseConnectionString,
               }
             : {}),
         },
@@ -211,9 +211,10 @@ export class ProjectDomain {
     });
   }
 
-  buildMongoConnectionString(
+  buildDatabaseConnectionString(
     organizationName: string,
     rootPassword: string,
+    targetDatabase = 'admin',
   ): string {
     if (!this.databaseConfiguration) {
       throw new Error('Project has no database deployment configuration');
@@ -226,8 +227,9 @@ export class ProjectDomain {
     );
     const password = encodeURIComponent(rootPassword);
     const host = `${orgName}-${projectName}-mongo`;
+    const database = encodeURIComponent(targetDatabase);
 
-    return `mongodb://${username}:${password}@${host}:27017/admin?authSource=admin&tls=true&tlsAllowInvalidCertificates=true`;
+    return `mongodb://${username}:${password}@${host}:27017/${database}?authSource=admin&tls=true&tlsAllowInvalidCertificates=true`;
   }
 
   belongsToOrganization(organizationId: string): boolean {

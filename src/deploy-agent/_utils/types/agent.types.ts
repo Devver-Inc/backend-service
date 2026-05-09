@@ -53,6 +53,7 @@ export interface ServiceConfig {
   install?: string;
   skipInstall?: boolean;
   build?: string;
+  outputDir?: string;
   start: string;
 }
 

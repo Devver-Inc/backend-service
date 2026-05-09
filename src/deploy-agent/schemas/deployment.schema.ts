@@ -38,6 +38,9 @@ export class Deployment {
   links?: Record<string, Record<string, string>>;
 
   @Prop({ type: Object })
+  dbLinks?: Record<string, string>;
+
+  @Prop({ type: Object })
   env?: Record<string, string>;
 
   @Prop({
