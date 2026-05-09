@@ -210,9 +210,7 @@ export class DeployAgentRequests {
     }
   }
 
-  async listMongoDatabases(
-    agentUrl: string,
-  ): Promise<MongoDatabaseResponse[]> {
+  async listMongoDatabases(agentUrl: string): Promise<MongoDatabaseResponse[]> {
     try {
       const { data } = await firstValueFrom(
         this.httpService.get<MongoDatabaseResponse[]>(
