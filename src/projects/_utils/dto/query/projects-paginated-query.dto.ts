@@ -1,3 +1,4 @@
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsIn, IsString } from 'class-validator';
 import { Optional } from 'class-validator-extended';
 import { PaginatedQueryDto } from 'src/_utils/pagination/requests/paginated-query.dto';
@@ -9,6 +10,7 @@ export class ProjectsPaginatedQueryDto extends PaginatedQueryDto {
   @Optional()
   search?: string;
 
+  @ApiPropertyOptional({ example: '_id', enum: ALLOWED_SORT_FIELDS })
   @IsIn(ALLOWED_SORT_FIELDS)
   @Optional()
   declare sortBy: (typeof ALLOWED_SORT_FIELDS)[number];
