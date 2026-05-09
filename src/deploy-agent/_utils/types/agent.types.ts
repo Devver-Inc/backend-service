@@ -37,6 +37,7 @@ export enum BackendErrorCode {
   REPO_CREATE_FAILED = 'REPO_CREATE_FAILED',
   REPO_DELETE_FAILED = 'REPO_DELETE_FAILED',
   DEPLOYMENT_DELETE_FAILED = 'DEPLOYMENT_DELETE_FAILED',
+  MONGO_DATABASES_FETCH_FAILED = 'MONGO_DATABASES_FETCH_FAILED',
   LOGS_FETCH_FAILED = 'LOGS_FETCH_FAILED',
   PM2_START_FAILED = 'PM2_START_FAILED',
   PM2_STOP_FAILED = 'PM2_STOP_FAILED',
@@ -140,6 +141,12 @@ export interface LogEntry {
 
 export interface LogsResponse {
   logs: LogEntry[];
+}
+
+export interface MongoDatabaseResponse {
+  name: string;
+  sizeOnDisk: number;
+  empty: boolean;
 }
 
 export enum PM2Action {

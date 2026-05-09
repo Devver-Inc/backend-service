@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EncryptionService } from 'src/_utils/encryption/encryption.service';
 import { EnvironmentVariables } from 'src/_utils/config/env.config';
@@ -14,6 +18,7 @@ import {
   GetLogsDto,
   RestoreResultDto,
 } from './_utils/dto/responses/get-deployment.dto';
+import { GetMongoDatabaseDto } from './_utils/dto/responses/get-mongo-database.dto';
 import { GetRepoDto } from './_utils/dto/responses/get-repo.dto';
 import { AgentDeploymentStatus } from './_utils/types/deployment.types';
 import { DeployAgentMapper } from './deploy-agent.mapper';
@@ -90,6 +95,25 @@ export class DeployAgentService {
     return this.deployAgentRequests
       .listDeployments(agentUrl)
       .then((items) => items.map(this.deployAgentMapper.toAgentDeploymentDto));
+  };
+
+  listMongoDatabases = async (
+    projectId: string,
+    user: LogtoUserWithOrganizations,
+  ): Promise<GetMongoDatabaseDto[]> => {
+    await this.verifyProjectOwnership(projectId, user);
+    const project = await this.projectsService.findProjectById(projectId);
+
+    if (!project.mongoConfiguration?.enabled) {
+      throw new BadRequestException('PROJECT_MONGO_NOT_ENABLED');
+    }
+
+    const agentUrl = this.buildAgentUrl(
+      user.currentOrganization.name,
+      project.name,
+    );
+
+    return this.deployAgentRequests.listMongoDatabases(agentUrl);
   };
 
   getLogs = async (
