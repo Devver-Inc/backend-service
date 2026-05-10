@@ -28,7 +28,7 @@ export class CommentsService {
     projectId: string,
     user: LogtoUserWithOrganizations | null,
   ) =>
-    user
+    user?.currentOrganization?.id
       ? this.projectsService.findByProjectAndOrganizationId(
           projectId,
           user.currentOrganization.id,
@@ -49,7 +49,7 @@ export class CommentsService {
     }
 
     const organizationId =
-      user?.currentOrganization.id ?? project.organizationId;
+      user?.currentOrganization?.id ?? project.organizationId;
     const { comments, totalCount } =
       await this.commentsRepository.findByOrganizationId(
         organizationId,

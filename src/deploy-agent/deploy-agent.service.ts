@@ -299,6 +299,7 @@ export class DeployAgentService {
           service: dep.service,
           env: plainEnv,
           projectId,
+          organizationId: user.currentOrganization.id,
           overlayAccessControl: project.overlayAccessControl,
         })
         .then((result) => {
