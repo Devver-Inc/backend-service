@@ -17,6 +17,7 @@ export interface CreateDeploymentData {
   argoAppName?: string;
   service: Services;
   links?: Record<string, Record<string, string>>;
+  dbLinks?: Record<string, string>;
   env?: Record<string, string>;
 }
 

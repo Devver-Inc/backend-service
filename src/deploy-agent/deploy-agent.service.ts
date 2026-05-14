@@ -4,6 +4,7 @@ import { EncryptionService } from 'src/_utils/encryption/encryption.service';
 import { EnvironmentVariables } from 'src/_utils/config/env.config';
 import { toSlug } from 'src/_utils/functions/to-slug.function';
 import { LogtoUserWithOrganizations } from 'src/logto/_utils/types/user-with-organization.type';
+import { ProjectDomain } from 'src/projects/project.domain';
 import { ProjectsService } from 'src/projects/projects.service';
 import { ControlPm2ProcessDto } from './_utils/dto/requests/control-pm2-process.dto';
 import { CreateAgentDeploymentDto } from './_utils/dto/requests/create-deployment.dto';
@@ -14,7 +15,9 @@ import {
   GetLogsDto,
   RestoreResultDto,
 } from './_utils/dto/responses/get-deployment.dto';
+import { GetMongoDatabaseDto } from './_utils/dto/responses/get-mongo-database.dto';
 import { GetRepoDto } from './_utils/dto/responses/get-repo.dto';
+import { DeployAgentExceptions } from './_utils/errors/deploy-agent-exceptions';
 import { AgentDeploymentStatus } from './_utils/types/deployment.types';
 import { DeployAgentMapper } from './deploy-agent.mapper';
 import { DeployAgentRepository } from './deploy-agent.repository';
@@ -31,6 +34,7 @@ export class DeployAgentService {
     private readonly deployAgentMapper: DeployAgentMapper,
     private readonly projectsService: ProjectsService,
     private readonly encryptionService: EncryptionService,
+    private readonly exceptions: DeployAgentExceptions,
     configService: ConfigService<EnvironmentVariables, true>,
   ) {
     this.baseDomain = configService.get('DEPLOY_AGENT').K8S_BASE_DOMAIN;
@@ -38,6 +42,37 @@ export class DeployAgentService {
 
   private buildAgentUrl = (orgName: string, projectName: string): string =>
     `https://${toSlug(orgName)}.${toSlug(projectName)}.${this.baseDomain}`;
+
+  private resolveDatabaseLinks = async (
+    projectId: string,
+    dto: CreateAgentDeploymentDto,
+    user: LogtoUserWithOrganizations,
+  ): Promise<Record<string, string>> => {
+    if (!dto.dbLinks || Object.keys(dto.dbLinks).length === 0) {
+      return {};
+    }
+
+    const project = await this.projectsService.findProjectById(projectId);
+    if (!project.databaseConfiguration?.enabled) {
+      throw this.exceptions.DATABASE_NOT_ENABLED;
+    }
+
+    const rootPassword = this.encryptionService.decryptString(
+      project.databaseConfiguration.rootPasswordEncrypted,
+    );
+
+    const projectDomain = ProjectDomain.fromDocument(project);
+    const envLinks: Record<string, string> = {};
+    for (const [envKey, databaseName] of Object.entries(dto.dbLinks)) {
+      envLinks[envKey] = projectDomain.buildDatabaseConnectionString(
+        user.currentOrganization.name,
+        rootPassword,
+        databaseName,
+      );
+    }
+
+    return envLinks;
+  };
 
   private getAgentUrl = (projectId: string, orgName: string): Promise<string> =>
     this.projectsService
@@ -90,6 +125,25 @@ export class DeployAgentService {
     return this.deployAgentRequests
       .listDeployments(agentUrl)
       .then((items) => items.map(this.deployAgentMapper.toAgentDeploymentDto));
+  };
+
+  listMongoDatabases = async (
+    projectId: string,
+    user: LogtoUserWithOrganizations,
+  ): Promise<GetMongoDatabaseDto[]> => {
+    await this.verifyProjectOwnership(projectId, user);
+    const project = await this.projectsService.findProjectById(projectId);
+
+    if (!project.databaseConfiguration?.enabled) {
+      throw this.exceptions.DATABASE_NOT_ENABLED;
+    }
+
+    const agentUrl = this.buildAgentUrl(
+      user.currentOrganization.name,
+      project.name,
+    );
+
+    return this.deployAgentRequests.listMongoDatabases(agentUrl);
   };
 
   getLogs = async (
@@ -199,24 +253,34 @@ export class DeployAgentService {
       user.currentOrganization.name,
       project.name,
     );
+    const databaseEnv = await this.resolveDatabaseLinks(projectId, dto, user);
+    const mergedEnv =
+      dto.env || Object.keys(databaseEnv).length > 0
+        ? { ...dto.env, ...databaseEnv }
+        : undefined;
 
-    const result = await this.deployAgentRequests.deploy(agentUrl, {
+    const deployAgentBody = {
       repo: dto.repo,
       branch: dto.branch,
       commit: dto.commit,
       service: dto.service,
-      env: dto.env,
+      env: mergedEnv,
       projectId,
       organizationId: user.currentOrganization.id,
       overlayAccessControl: project.overlayAccessControl,
-    });
+    };
+
+    const result = await this.deployAgentRequests.deploy(
+      agentUrl,
+      deployAgentBody,
+    );
 
     if (!result.success) {
       throw new BadRequestException(result);
     }
 
-    const encryptedEnv = dto.env
-      ? this.encryptionService.encryptRecord(dto.env)
+    const encryptedEnv = mergedEnv
+      ? this.encryptionService.encryptRecord(mergedEnv)
       : undefined;
 
     const argoAppName = `${toSlug(user.currentOrganization.name)}-${toSlug(project.name)}`;
@@ -231,6 +295,7 @@ export class DeployAgentService {
       argoAppName,
       service: dto.service,
       links: dto.links,
+      dbLinks: dto.dbLinks,
       env: encryptedEnv,
       status: AgentDeploymentStatus.DEPLOYED,
     });

@@ -121,36 +121,70 @@ export class GitHubService {
     await this.createOrUpdateFile(path, yamlContent, message);
   }
 
+  async pushMongoValuesYaml(
+    organizationName: string,
+    projectName: string,
+    yamlContent: string,
+  ): Promise<void> {
+    const path = `${toSlug(organizationName)}/${toSlug(projectName)}/values-mongo.yaml`;
+    const message = `Deploy Mongo for ${projectName} for ${organizationName}`;
+
+    await this.createOrUpdateFile(path, yamlContent, message);
+  }
+
   /**
    * Delete a file from the repository
    */
   async deleteFile(path: string, message: string): Promise<void> {
     try {
       // Get the file to retrieve its SHA
-      const { data } = await this.octokit.repos.getContent({
-        owner: this.owner,
-        repo: this.repo,
-        path,
-        ref: this.branch,
-      });
+      let data: Awaited<
+        ReturnType<typeof this.octokit.repos.getContent>
+      >['data'];
+
+      try {
+        const response = await this.octokit.repos.getContent({
+          owner: this.owner,
+          repo: this.repo,
+          path,
+          ref: this.branch,
+        });
+        data = response.data;
+      } catch (error) {
+        if (this.isNotFoundError(error)) {
+          this.logger.warn(`File already absent, skipping deletion: ${path}`);
+          return;
+        }
+        throw error;
+      }
 
       if (!('sha' in data)) {
         throw new Error('File not found or is a directory');
       }
 
-      await this.octokit.repos.deleteFile({
-        owner: this.owner,
-        repo: this.repo,
-        path,
-        message,
-        sha: data.sha,
-        branch: this.branch,
-      });
+      try {
+        await this.octokit.repos.deleteFile({
+          owner: this.owner,
+          repo: this.repo,
+          path,
+          message,
+          sha: data.sha,
+          branch: this.branch,
+        });
+      } catch (error) {
+        if (this.isNotFoundError(error)) {
+          this.logger.warn(`File already absent, skipping deletion: ${path}`);
+          return;
+        }
+        throw error;
+      }
 
       this.logger.log(`Successfully deleted file: ${path}`);
     } catch (error) {
       this.logger.error(`Failed to delete file ${path}:`, error);
-      throw new Error(`GitHub deletion failed: ${error.message}`);
+      throw new Error(
+        `GitHub deletion failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
@@ -163,6 +197,15 @@ export class GitHubService {
   ): Promise<void> {
     const path = `${toSlug(organizationName)}/${toSlug(projectName)}/values.yaml`;
     const message = `Remove ${projectName} from ${organizationName}`;
+    await this.deleteFile(path, message);
+  }
+
+  async deleteMongoValuesYaml(
+    organizationName: string,
+    projectName: string,
+  ): Promise<void> {
+    const path = `${toSlug(organizationName)}/${toSlug(projectName)}/values-mongo.yaml`;
+    const message = `Remove Mongo for ${projectName} from ${organizationName}`;
     await this.deleteFile(path, message);
   }
 
@@ -188,5 +231,13 @@ export class GitHubService {
       }
       throw error;
     }
+  }
+
+  private isNotFoundError(error: unknown): boolean {
+    return (
+      error instanceof Error &&
+      'status' in error &&
+      (error as Error & { status: number }).status === 404
+    );
   }
 }

@@ -1,9 +1,17 @@
-import { IsString } from 'class-validator';
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { IsIn, IsString } from 'class-validator';
 import { Optional } from 'class-validator-extended';
 import { PaginatedQueryDto } from 'src/_utils/pagination/requests/paginated-query.dto';
+
+const ALLOWED_SORT_FIELDS = ['_id', 'name', 'createdAt', 'updatedAt'] as const;
 
 export class ProjectsPaginatedQueryDto extends PaginatedQueryDto {
   @IsString()
   @Optional()
   search?: string;
+
+  @ApiPropertyOptional({ example: '_id', enum: ALLOWED_SORT_FIELDS })
+  @IsIn(ALLOWED_SORT_FIELDS)
+  @Optional()
+  declare sortBy: (typeof ALLOWED_SORT_FIELDS)[number];
 }

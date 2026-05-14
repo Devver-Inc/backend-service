@@ -24,6 +24,7 @@ import {
   ErrorCode,
   ErrorResponse,
   LogsResponse,
+  MongoDatabaseResponse,
   PM2ActionResponse,
   RepoResponse,
 } from './_utils/types/agent.types';
@@ -206,6 +207,23 @@ export class DeployAgentRequests {
       return data;
     } catch (err) {
       throw this.handleError(err, AgentErrorCode.DEPLOY_ERROR);
+    }
+  }
+
+  async listMongoDatabases(agentUrl: string): Promise<MongoDatabaseResponse[]> {
+    try {
+      const { data } = await firstValueFrom(
+        this.httpService.get<MongoDatabaseResponse[]>(
+          `${agentUrl}/mongo/databases`,
+          { headers: this.headers },
+        ),
+      );
+      return data;
+    } catch (err) {
+      throw this.handleError(
+        err,
+        BackendErrorCode.MONGO_DATABASES_FETCH_FAILED,
+      );
     }
   }
 

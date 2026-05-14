@@ -8,7 +8,7 @@ import { Model, QueryFilter } from 'mongoose';
 import { escapeRegex } from 'src/_utils/functions/escape-regex.function';
 import { ProjectsPaginatedQueryDto } from './_utils/dto/query/projects-paginated-query.dto';
 import { ProjectDomain } from './project.domain';
-import { DeploymentStatus, Project, ProjectDocument } from './project.schema';
+import { ManifestStatus, Project, ProjectDocument } from './project.schema';
 import { LeanWithMongoId } from 'src/_utils/types';
 
 export type ProjectLean = LeanWithMongoId<Project>;
@@ -67,7 +67,7 @@ export class ProjectsRepository {
     const [projects, totalCount] = await Promise.all([
       this.projectModel
         .find(filter)
-        .sort({ [query.sortBy || 'createdAt']: sortDirection })
+        .sort({ [query.sortBy]: sortDirection })
         .skip(query.skip)
         .limit(query.limit || 10)
         .lean()
@@ -97,7 +97,7 @@ export class ProjectsRepository {
     const [projects, totalCount] = await Promise.all([
       this.projectModel
         .find(filter)
-        .sort({ [query.sortBy || 'createdAt']: sortDirection })
+        .sort({ [query.sortBy]: sortDirection })
         .skip(query.skip)
         .limit(query.limit || 10)
         .lean()
@@ -117,15 +117,28 @@ export class ProjectsRepository {
       .exec();
   };
 
-  updateDeploymentStatus = (
+  updateDeploymentManifestStatus = (
     projectId: string,
-    status: DeploymentStatus,
+    status: ManifestStatus,
   ): Promise<ProjectDocument> =>
     this.projectModel
       .findByIdAndUpdate(
         projectId,
-        { $set: { 'deploymentConfig.status': status } },
-        { new: true },
+        { $set: { 'deploymentConfig.manifestStatus': status } },
+        { returnDocument: 'after' },
+      )
+      .orFail(new NotFoundException(this.NOT_FOUND_ERROR))
+      .exec();
+
+  updateDatabaseManifestStatus = (
+    projectId: string,
+    status: ManifestStatus,
+  ): Promise<ProjectDocument> =>
+    this.projectModel
+      .findByIdAndUpdate(
+        projectId,
+        { $set: { 'databaseConfiguration.manifestStatus': status } },
+        { returnDocument: 'after' },
       )
       .orFail(new NotFoundException(this.NOT_FOUND_ERROR))
       .exec();

@@ -49,7 +49,7 @@ export class DeployAgentRepository {
       .findOneAndUpdate(
         { projectId: data.projectId, repo: data.repo, branch: data.branch },
         { $set: { ...data } },
-        { upsert: true, new: true },
+        { upsert: true, returnDocument: 'after' },
       )
       .exec();
 

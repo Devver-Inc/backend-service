@@ -1,7 +1,6 @@
 import { Type } from 'class-transformer';
 import {
   IsArray,
-  IsEnum,
   IsNotEmpty,
   IsString,
   MaxLength,
@@ -9,6 +8,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Optional } from 'class-validator-extended';
+import { DatabaseConfigurationDto } from './database-configuration.dto';
 import { MachineConfigurationDto } from './machine-configuration.dto';
 import { OverlayAccessControlDto } from './overlay-access-control.dto';
 
@@ -35,4 +35,9 @@ export class CreateProjectDto {
   @ValidateNested()
   @Type(() => OverlayAccessControlDto)
   overlayAccessControl: OverlayAccessControlDto;
+
+  @Optional()
+  @ValidateNested()
+  @Type(() => DatabaseConfigurationDto)
+  databaseConfiguration?: DatabaseConfigurationDto;
 }

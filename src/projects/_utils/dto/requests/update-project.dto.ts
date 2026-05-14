@@ -2,5 +2,9 @@ import { OmitType, PartialType } from '@nestjs/swagger';
 import { CreateProjectDto } from './create-project.dto';
 
 export class UpdateProjectDto extends PartialType(
-  OmitType(CreateProjectDto, ['name', 'teamMemberIds'] as const),
+  OmitType(CreateProjectDto, [
+    'name',
+    'teamMemberIds',
+    'databaseConfiguration',
+  ] as const),
 ) {}

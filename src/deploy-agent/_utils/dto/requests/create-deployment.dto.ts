@@ -14,7 +14,7 @@ import {
   REPO_NAME_PATTERN,
 } from '../../constants/validation-patterns';
 import { ServiceConfig, Services } from '../../types/agent.types';
-import { AtLeastOneService } from '../../validators/at-least-one-service.validator';
+import { ExactlyOneService } from '../../validators/exactly-one-service.validator';
 
 export class ServiceConfigDto implements ServiceConfig {
   @ApiPropertyOptional({ example: './apps/api' })
@@ -75,7 +75,7 @@ export class CreateAgentDeploymentDto {
   commit?: string;
 
   @ApiProperty({ type: () => ServicesDto })
-  @AtLeastOneService()
+  @ExactlyOneService()
   @ValidateNested()
   @Type(() => ServicesDto)
   service: ServicesDto;
@@ -93,6 +93,15 @@ export class CreateAgentDeploymentDto {
   @IsOptional()
   @IsObject()
   links?: Record<string, Record<string, string>>;
+
+  @ApiPropertyOptional({
+    type: 'object',
+    additionalProperties: { type: 'string' },
+    example: { DATABASE_URL: 'myapp_prod' },
+  })
+  @IsOptional()
+  @IsObject()
+  dbLinks?: Record<string, string>;
 
   @ApiPropertyOptional({
     type: 'object',

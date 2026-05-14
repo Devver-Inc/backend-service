@@ -19,7 +19,7 @@ export class PaginatedQueryDto {
 
   @IsString()
   @Optional()
-  sortBy?: string;
+  sortBy: string = '_id';
 
   @IsEnum(SortDirection)
   sortDirection: SortDirection = SortDirection.DESC;

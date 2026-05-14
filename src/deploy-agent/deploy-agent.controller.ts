@@ -22,6 +22,7 @@ import {
   GetLogsDto,
   RestoreResultDto,
 } from './_utils/dto/responses/get-deployment.dto';
+import { GetMongoDatabaseDto } from './_utils/dto/responses/get-mongo-database.dto';
 import { GetRepoDto } from './_utils/dto/responses/get-repo.dto';
 import { DeployAgentService } from './deploy-agent.service';
 
@@ -126,6 +127,30 @@ export class DeployAgentController {
     @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
   ): Promise<GetAgentDeploymentDto[]> {
     return this.deployAgentService.listDeployments(projectId, user);
+  }
+
+  @Protect()
+  @Get('mongo/databases')
+  @ApiOperation({ summary: 'List Mongo databases created for a project' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'UNAUTHORIZED' })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'PROJECT_ACCESS_DENIED',
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'DATABASE_NOT_ENABLED',
+  })
+  @ApiResponse({
+    status: HttpStatus.SERVICE_UNAVAILABLE,
+    description: 'MONGO_INSTANCE_UNREACHABLE | MONGO_DATABASES_FETCH_FAILED',
+  })
+  @ApiParam({ name: 'projectId', type: String })
+  async listMongoDatabases(
+    @Param('projectId') projectId: string,
+    @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
+  ): Promise<GetMongoDatabaseDto[]> {
+    return this.deployAgentService.listMongoDatabases(projectId, user);
   }
 
   @Protect({ roles: [UserRoleEnum.ADMIN, UserRoleEnum.DEVELOPER] })

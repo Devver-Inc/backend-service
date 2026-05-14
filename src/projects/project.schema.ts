@@ -3,10 +3,14 @@ import { HydratedDocument } from 'mongoose';
 
 export type ProjectDocument = HydratedDocument<Project>;
 
-export enum DeploymentStatus {
+export enum ManifestStatus {
   PENDING = 'pending',
-  DEPLOYED = 'deployed',
+  PUSHED = 'pushed',
   FAILED = 'failed',
+}
+
+export enum DatabaseType {
+  MONGO = 'mongo',
 }
 
 export enum OverlayCommentPermission {
@@ -21,9 +25,6 @@ export class MachineConfiguration {
 
   @Prop({ required: true, min: 0.5, max: 2, default: 0.5 })
   ram: number;
-
-  @Prop({ required: true, min: 10, max: 500, default: 20 })
-  storage: number;
 }
 
 export const MachineConfigurationSchema =
@@ -51,14 +52,59 @@ export class DeploymentConfig {
 
   @Prop({
     type: String,
-    enum: Object.values(DeploymentStatus),
-    default: DeploymentStatus.PENDING,
+    enum: Object.values(ManifestStatus),
+    default: ManifestStatus.PENDING,
   })
-  status: DeploymentStatus;
+  manifestStatus: ManifestStatus;
 }
 
 export const DeploymentConfigSchema =
   SchemaFactory.createForClass(DeploymentConfig);
+
+@Schema({ _id: false })
+export class DatabaseDeploymentConfig {
+  @Prop({
+    type: String,
+    enum: Object.values(DatabaseType),
+    required: true,
+  })
+  type: DatabaseType;
+
+  @Prop({ type: Boolean, required: true, default: false })
+  enabled: boolean;
+
+  @Prop({ type: String, required: true })
+  githubPath: string;
+
+  @Prop({
+    type: String,
+    enum: Object.values(ManifestStatus),
+    default: ManifestStatus.PENDING,
+  })
+  manifestStatus: ManifestStatus;
+
+  @Prop({ required: true })
+  rootUsername: string;
+
+  @Prop({ required: true })
+  rootPasswordEncrypted: string;
+
+  @Prop({ required: true, min: 1, max: 3 })
+  replicaCount: number;
+
+  @Prop({ required: true, min: 0.5 })
+  ram: number;
+
+  @Prop({ required: true, min: 0.1 })
+  cpuCores: number;
+
+  @Prop({ required: true, min: 5, max: 500 })
+  storage: number;
+}
+
+export const DatabaseDeploymentConfigSchema = SchemaFactory.createForClass(
+  DatabaseDeploymentConfig,
+);
 
 @Schema({ timestamps: true })
 export class Project {
@@ -85,6 +131,9 @@ export class Project {
 
   @Prop({ type: DeploymentConfigSchema, required: false })
   deploymentConfig?: DeploymentConfig;
+
+  @Prop({ type: DatabaseDeploymentConfigSchema, required: false })
+  databaseConfiguration?: DatabaseDeploymentConfig;
 
   createdAt: Date;
   updatedAt: Date;

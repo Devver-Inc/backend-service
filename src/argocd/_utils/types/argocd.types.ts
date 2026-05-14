@@ -12,6 +12,29 @@ export interface ArgoCdApplicationStatus {
   };
 }
 
+export class ArgoApplicationDeploymentStatus {
+  @ApiProperty({ example: 'lc8q7su06yeg-s-organization-svelte-2' })
+  appName: string;
+
+  @ApiProperty({ example: 'application' })
+  type: string;
+
+  @ApiProperty({ example: 'Healthy', description: 'ArgoCD health status' })
+  healthStatus: string;
+
+  @ApiProperty({ example: 'Synced', description: 'ArgoCD sync status' })
+  syncStatus: string;
+
+  @ApiPropertyOptional({
+    example: 'Succeeded',
+    description: 'Last operation phase',
+  })
+  operationPhase?: string;
+
+  @ApiPropertyOptional({ example: 'successfully synced (all tasks run)' })
+  operationMessage?: string;
+}
+
 export class ArgoDeploymentStatusEvent {
   @ApiProperty({ example: 'lc8q7su06yeg-s-organization-svelte-2' })
   appName: string;
@@ -40,4 +63,12 @@ export class ArgoDeploymentStatusEvent {
       'Whether the pod is reachable and serving requests (verified via deploy-agent)',
   })
   podReady: boolean;
+
+  @ApiProperty({
+    type: () => ArgoApplicationDeploymentStatus,
+    isArray: true,
+    description:
+      'ArgoCD applications that compose the project deployment, including MongoDB when enabled.',
+  })
+  applications: ArgoApplicationDeploymentStatus[];
 }
