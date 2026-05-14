@@ -1,9 +1,10 @@
-import { DECORATORS } from '@nestjs/swagger/dist/constants';
 import type { ProtectOptions } from './protect.decorator';
 import {
   UserRoleEnum,
   UserPermissionsEnum,
 } from 'src/logto/_utils/enums/permissions.enum';
+
+const API_OPERATION_METADATA = 'swagger/apiOperation';
 
 interface ApiOperationMetadata {
   summary?: string;
@@ -23,7 +24,7 @@ export function ProtectedAutoRolesDecorator(
     }
 
     const existingMetadata = Reflect.getMetadata(
-      DECORATORS.API_OPERATION,
+      API_OPERATION_METADATA,
       descriptor.value,
     ) as ApiOperationMetadata | undefined;
 
@@ -41,6 +42,6 @@ export function ProtectedAutoRolesDecorator(
 
     current.summary += ` (${combinedLabels.join(', ') || 'all'})`;
 
-    Reflect.defineMetadata(DECORATORS.API_OPERATION, current, descriptor.value);
+    Reflect.defineMetadata(API_OPERATION_METADATA, current, descriptor.value);
   };
 }
