@@ -138,25 +138,46 @@ export class GitHubService {
   async deleteFile(path: string, message: string): Promise<void> {
     try {
       // Get the file to retrieve its SHA
-      const { data } = await this.octokit.repos.getContent({
-        owner: this.owner,
-        repo: this.repo,
-        path,
-        ref: this.branch,
-      });
+      let data: Awaited<
+        ReturnType<typeof this.octokit.repos.getContent>
+      >['data'];
+
+      try {
+        const response = await this.octokit.repos.getContent({
+          owner: this.owner,
+          repo: this.repo,
+          path,
+          ref: this.branch,
+        });
+        data = response.data;
+      } catch (error) {
+        if (this.isNotFoundError(error)) {
+          this.logger.warn(`File already absent, skipping deletion: ${path}`);
+          return;
+        }
+        throw error;
+      }
 
       if (!('sha' in data)) {
         throw new Error('File not found or is a directory');
       }
 
-      await this.octokit.repos.deleteFile({
-        owner: this.owner,
-        repo: this.repo,
-        path,
-        message,
-        sha: data.sha,
-        branch: this.branch,
-      });
+      try {
+        await this.octokit.repos.deleteFile({
+          owner: this.owner,
+          repo: this.repo,
+          path,
+          message,
+          sha: data.sha,
+          branch: this.branch,
+        });
+      } catch (error) {
+        if (this.isNotFoundError(error)) {
+          this.logger.warn(`File already absent, skipping deletion: ${path}`);
+          return;
+        }
+        throw error;
+      }
 
       this.logger.log(`Successfully deleted file: ${path}`);
     } catch (error) {
@@ -210,5 +231,13 @@ export class GitHubService {
       }
       throw error;
     }
+  }
+
+  private isNotFoundError(error: unknown): boolean {
+    return (
+      error instanceof Error &&
+      'status' in error &&
+      (error as Error & { status: number }).status === 404
+    );
   }
 }

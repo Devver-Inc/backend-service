@@ -23,6 +23,6 @@ export class DatabaseConfigurationResponseDto {
   @ApiPropertyOptional({ example: 0.1 })
   cpuCores?: number;
 
-  @ApiPropertyOptional({ example: 10 })
+  @ApiPropertyOptional({ example: 5 })
   storage?: number;
 }

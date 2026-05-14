@@ -259,7 +259,7 @@ export class DeployAgentService {
         ? { ...dto.env, ...databaseEnv }
         : undefined;
 
-    const result = await this.deployAgentRequests.deploy(agentUrl, {
+    const deployAgentBody = {
       repo: dto.repo,
       branch: dto.branch,
       commit: dto.commit,
@@ -268,7 +268,12 @@ export class DeployAgentService {
       projectId,
       organizationId: user.currentOrganization.id,
       overlayAccessControl: project.overlayAccessControl,
-    });
+    };
+
+    const result = await this.deployAgentRequests.deploy(
+      agentUrl,
+      deployAgentBody,
+    );
 
     if (!result.success) {
       throw new BadRequestException(result);

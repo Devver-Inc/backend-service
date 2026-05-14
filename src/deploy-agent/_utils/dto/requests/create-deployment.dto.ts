@@ -37,12 +37,6 @@ export class ServiceConfigDto implements ServiceConfig {
   @MinLength(1)
   build?: string;
 
-  @ApiPropertyOptional({ example: 'dist' })
-  @IsOptional()
-  @IsString()
-  @MinLength(1)
-  outputDir?: string;
-
   @ApiProperty({ example: 'npm run start:prod' })
   @IsString()
   @MinLength(1)

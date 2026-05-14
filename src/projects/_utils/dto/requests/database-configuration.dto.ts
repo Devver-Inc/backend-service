@@ -35,7 +35,7 @@ export class DatabaseConfigurationDto {
   cpuCores: number;
 
   @IsInt()
-  @Min(10)
+  @Min(5)
   @Max(500)
   storage: number;
 }
