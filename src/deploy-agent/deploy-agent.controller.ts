@@ -7,8 +7,10 @@ import {
   HttpStatus,
   Param,
   Post,
+  Res,
 } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Response } from 'express';
 import { Protect } from 'src/_utils/decorators/protect.decorator';
 import { ConnectedUserWithOrgs } from 'src/logto/_utils/decorator/connected-user.decorator';
 import { UserRoleEnum } from 'src/logto/_utils/enums/permissions.enum';
@@ -111,6 +113,37 @@ export class DeployAgentController {
     @Body() dto: CreateAgentDeploymentDto,
   ): Promise<GetAgentDeploymentDto> {
     return this.deployAgentService.deploy(projectId, dto, user);
+  }
+
+  @Protect({ roles: [UserRoleEnum.ADMIN, UserRoleEnum.DEVELOPER] })
+  @Post('deployments/stream')
+  @ApiOperation({ summary: 'Deploy a branch and stream agent phases over SSE' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'SSE stream with phase, complete, and error events',
+    content: {
+      'text/event-stream': {
+        schema: {
+          type: 'string',
+          example:
+            'event: phase\ndata: {"phase":"install","durationMs":18500}\n\n',
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'UNAUTHORIZED' })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'PROJECT_ACCESS_DENIED',
+  })
+  @ApiParam({ name: 'projectId', type: String })
+  async deployStream(
+    @Param('projectId') projectId: string,
+    @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
+    @Body() dto: CreateAgentDeploymentDto,
+    @Res() response: Response,
+  ): Promise<void> {
+    return this.deployAgentService.deployStream(projectId, dto, user, response);
   }
 
   @Protect()

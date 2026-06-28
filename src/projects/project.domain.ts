@@ -31,6 +31,8 @@ interface ProjectDomainProps {
   databaseConfiguration?: DatabaseDeploymentConfig;
 }
 
+const DEFAULT_STORAGE_CLASS = 'nfs-devver-prod';
+
 export class ProjectDomain {
   readonly name: string;
   readonly description?: string;
@@ -171,8 +173,16 @@ export class ProjectDomain {
       },
       persistence: {
         enabled: true,
-        app: { size: '5Gi', mountPath: '/app', storageClass: 'longhorn' },
-        root: { size: '5Gi', mountPath: '/root', storageClass: 'longhorn' },
+        app: {
+          size: '5Gi',
+          mountPath: '/app',
+          storageClass: DEFAULT_STORAGE_CLASS,
+        },
+        root: {
+          size: '5Gi',
+          mountPath: '/root',
+          storageClass: DEFAULT_STORAGE_CLASS,
+        },
       },
       replicaCount: 1,
       ports: { http: 80, https: 443 },
@@ -203,7 +213,7 @@ export class ProjectDomain {
         rootPassword: rootPassword, // TODO: replace with Vault reference
       },
       replicaCount: this.databaseConfiguration.replicaCount,
-      persistence: { size: storage, storageClass: 'longhorn' },
+      persistence: { size: storage, storageClass: DEFAULT_STORAGE_CLASS },
       resources: {
         requests: { memory, cpu },
         limits: { memory: '1Gi', cpu: '500m' },

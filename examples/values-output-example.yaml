@@ -25,7 +25,7 @@ resources:
 persistence:
   enabled: true
   size: '10Gi'
-  mountPath: '/data' # Choix du répertoire à persister
+  storageClass: 'nfs-devver-prod' # Classe de stockage pour la persistance
 
 # Configuration du nombre de replicas
 replicaCount: 1

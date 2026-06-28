@@ -11,6 +11,7 @@ export enum LogEntryLevel {
 
 export enum DeployStage {
   VALIDATION = 'validation',
+  SNAPSHOT = 'snapshot',
   WORKTREE = 'worktree',
   INSTALL = 'install',
   BUILD = 'build',
@@ -110,6 +111,17 @@ export type AgentDeploymentListItem = DeploymentResponse;
 export interface DeployResponse extends DeploymentResponse {
   success: true;
   duration: number;
+}
+
+export interface DeployPhaseEvent {
+  phase: DeployStage;
+  durationMs: number;
+}
+
+export interface DeployStreamCallbacks {
+  onPhase?: (event: DeployPhaseEvent) => void | Promise<void>;
+  onComplete?: (event: DeployResponse) => void | Promise<void>;
+  onError?: (event: ErrorResponse) => void | Promise<void>;
 }
 
 export interface RollbackStatus {

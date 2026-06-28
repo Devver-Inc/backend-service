@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Response } from 'express';
 import { EncryptionService } from 'src/_utils/encryption/encryption.service';
 import { EnvironmentVariables } from 'src/_utils/config/env.config';
 import { toSlug } from 'src/_utils/functions/to-slug.function';
@@ -18,10 +19,23 @@ import {
 import { GetMongoDatabaseDto } from './_utils/dto/responses/get-mongo-database.dto';
 import { GetRepoDto } from './_utils/dto/responses/get-repo.dto';
 import { DeployAgentExceptions } from './_utils/errors/deploy-agent-exceptions';
+import {
+  AgentErrorCode,
+  DeployRequest,
+  DeployResponse,
+  ErrorResponse,
+} from './_utils/types/agent.types';
 import { AgentDeploymentStatus } from './_utils/types/deployment.types';
 import { DeployAgentMapper } from './deploy-agent.mapper';
 import { DeployAgentRepository } from './deploy-agent.repository';
 import { DeployAgentRequests } from './deploy-agent.requests';
+
+interface PreparedDeployment {
+  agentUrl: string;
+  argoAppName: string;
+  deployAgentBody: DeployRequest;
+  mergedEnv?: Record<string, string>;
+}
 
 @Injectable()
 export class DeployAgentService {
@@ -90,6 +104,103 @@ export class DeployAgentService {
     projectId: string,
     user: LogtoUserWithOrganizations,
   ): Promise<void> => this.verifyProjectOwnership(projectId, user);
+
+  private prepareDeployment = async (
+    projectId: string,
+    dto: CreateAgentDeploymentDto,
+    user: LogtoUserWithOrganizations,
+  ): Promise<PreparedDeployment> => {
+    await this.verifyProjectOwnership(projectId, user);
+    const project = await this.projectsService.findProjectById(projectId);
+    const agentUrl = this.buildAgentUrl(
+      user.currentOrganization.name,
+      project.name,
+    );
+    const databaseEnv = await this.resolveDatabaseLinks(projectId, dto, user);
+    const mergedEnv =
+      dto.env || Object.keys(databaseEnv).length > 0
+        ? { ...dto.env, ...databaseEnv }
+        : undefined;
+
+    return {
+      agentUrl,
+      argoAppName: `${toSlug(user.currentOrganization.name)}-${toSlug(project.name)}`,
+      deployAgentBody: {
+        repo: dto.repo,
+        branch: dto.branch,
+        commit: dto.commit,
+        service: dto.service,
+        env: mergedEnv,
+        projectId,
+        organizationId: user.currentOrganization.id,
+        overlayAccessControl: project.overlayAccessControl,
+      },
+      mergedEnv,
+    };
+  };
+
+  private persistSuccessfulDeployment = async (
+    projectId: string,
+    dto: CreateAgentDeploymentDto,
+    user: LogtoUserWithOrganizations,
+    prepared: PreparedDeployment,
+    result: DeployResponse,
+  ): Promise<void> => {
+    const encryptedEnv = prepared.mergedEnv
+      ? this.encryptionService.encryptRecord(prepared.mergedEnv)
+      : undefined;
+
+    await this.deployAgentRepository.upsertDeployment({
+      projectId,
+      organizationId: user.currentOrganization.id,
+      repo: dto.repo,
+      branch: dto.branch,
+      deploymentId: result.deploymentId,
+      commit: dto.commit,
+      argoAppName: prepared.argoAppName,
+      service: dto.service,
+      links: dto.links,
+      dbLinks: dto.dbLinks,
+      env: encryptedEnv,
+      status: AgentDeploymentStatus.DEPLOYED,
+    });
+  };
+
+  private writeSseEvent(
+    response: Response,
+    event: 'phase' | 'complete' | 'error',
+    data: unknown,
+  ): void {
+    if (response.destroyed || response.writableEnded) return;
+    response.write(`event: ${event}\n`);
+    response.write(`data: ${JSON.stringify(data)}\n\n`);
+  }
+
+  private toDeployStreamError(err: unknown): ErrorResponse {
+    const response =
+      err && typeof err === 'object' && 'getResponse' in err
+        ? (err as { getResponse: () => unknown }).getResponse()
+        : undefined;
+
+    if (
+      response &&
+      typeof response === 'object' &&
+      'success' in response &&
+      (response as { success?: unknown }).success === false
+    ) {
+      return response as ErrorResponse;
+    }
+
+    return {
+      success: false,
+      error: {
+        code: AgentErrorCode.DEPLOY_ERROR,
+        message:
+          err instanceof Error ? err.message : 'Failed to stream deployment',
+      },
+      duration: 0,
+    };
+  }
 
   getArgoAppName = async (
     projectId: string,
@@ -247,60 +358,76 @@ export class DeployAgentService {
     dto: CreateAgentDeploymentDto,
     user: LogtoUserWithOrganizations,
   ): Promise<GetAgentDeploymentDto> => {
-    await this.verifyProjectOwnership(projectId, user);
-    const project = await this.projectsService.findProjectById(projectId);
-    const agentUrl = this.buildAgentUrl(
-      user.currentOrganization.name,
-      project.name,
-    );
-    const databaseEnv = await this.resolveDatabaseLinks(projectId, dto, user);
-    const mergedEnv =
-      dto.env || Object.keys(databaseEnv).length > 0
-        ? { ...dto.env, ...databaseEnv }
-        : undefined;
-
-    const deployAgentBody = {
-      repo: dto.repo,
-      branch: dto.branch,
-      commit: dto.commit,
-      service: dto.service,
-      env: mergedEnv,
-      projectId,
-      organizationId: user.currentOrganization.id,
-      overlayAccessControl: project.overlayAccessControl,
-    };
-
+    const prepared = await this.prepareDeployment(projectId, dto, user);
     const result = await this.deployAgentRequests.deploy(
-      agentUrl,
-      deployAgentBody,
+      prepared.agentUrl,
+      prepared.deployAgentBody,
     );
 
     if (!result.success) {
       throw new BadRequestException(result);
     }
 
-    const encryptedEnv = mergedEnv
-      ? this.encryptionService.encryptRecord(mergedEnv)
-      : undefined;
-
-    const argoAppName = `${toSlug(user.currentOrganization.name)}-${toSlug(project.name)}`;
-
-    await this.deployAgentRepository.upsertDeployment({
+    await this.persistSuccessfulDeployment(
       projectId,
-      organizationId: user.currentOrganization.id,
-      repo: dto.repo,
-      branch: dto.branch,
-      deploymentId: result.deploymentId,
-      commit: dto.commit,
-      argoAppName,
-      service: dto.service,
-      links: dto.links,
-      dbLinks: dto.dbLinks,
-      env: encryptedEnv,
-      status: AgentDeploymentStatus.DEPLOYED,
-    });
+      dto,
+      user,
+      prepared,
+      result,
+    );
 
     return this.deployAgentMapper.toAgentDeploymentDto(result);
+  };
+
+  deployStream = async (
+    projectId: string,
+    dto: CreateAgentDeploymentDto,
+    user: LogtoUserWithOrganizations,
+    response: Response,
+  ): Promise<void> => {
+    const prepared = await this.prepareDeployment(projectId, dto, user);
+    const abortController = new AbortController();
+
+    response.on('close', () => {
+      abortController.abort();
+    });
+
+    response.status(200);
+    response.setHeader('Content-Type', 'text/event-stream');
+    response.setHeader('Cache-Control', 'no-cache, no-transform');
+    response.setHeader('Connection', 'keep-alive');
+    response.setHeader('X-Accel-Buffering', 'no');
+    response.flushHeaders();
+
+    try {
+      await this.deployAgentRequests.deployStream(
+        prepared.agentUrl,
+        prepared.deployAgentBody,
+        {
+          onPhase: (event) => this.writeSseEvent(response, 'phase', event),
+          onComplete: async (event) => {
+            await this.persistSuccessfulDeployment(
+              projectId,
+              dto,
+              user,
+              prepared,
+              event,
+            );
+            this.writeSseEvent(response, 'complete', event);
+          },
+          onError: (event) => this.writeSseEvent(response, 'error', event),
+        },
+        abortController.signal,
+      );
+    } catch (err) {
+      if (!response.destroyed && !response.writableEnded) {
+        this.writeSseEvent(response, 'error', this.toDeployStreamError(err));
+      }
+    } finally {
+      if (!response.destroyed && !response.writableEnded) {
+        response.end();
+      }
+    }
   };
 
   removeDeployment = async (
