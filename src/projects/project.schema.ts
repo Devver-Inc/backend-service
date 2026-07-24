@@ -98,7 +98,7 @@ export class DatabaseDeploymentConfig {
   @Prop({ required: true, min: 0.1 })
   cpuCores: number;
 
-  @Prop({ required: true, min: 5, max: 500 })
+  @Prop({ required: true, min: 1, max: 5 })
   storage: number;
 }
 
