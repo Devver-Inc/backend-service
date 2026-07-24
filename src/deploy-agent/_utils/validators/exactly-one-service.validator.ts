@@ -1,6 +1,5 @@
 import {
   registerDecorator,
-  ValidationArguments,
   ValidatorConstraint,
   ValidatorConstraintInterface,
 } from 'class-validator';
@@ -16,7 +15,7 @@ export class ExactlyOneServiceConstraint implements ValidatorConstraintInterface
     return definedServices.length === 1;
   }
 
-  defaultMessage(_args: ValidationArguments): string {
+  defaultMessage(): string {
     return 'Exactly one service (web or api) must be defined';
   }
 }

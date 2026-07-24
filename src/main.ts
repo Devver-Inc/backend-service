@@ -5,11 +5,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
-import {
-  CorsConfig,
-  EnvironmentVariables,
-  ServerConfig,
-} from './_utils/config/env.config';
+import { EnvironmentVariables, ServerConfig } from './_utils/config/env.config';
 import SwaggerCustomOptionsConfig from './_utils/config/swagger-custom-options.config';
 import ValidationPipeOptionsConfig from './_utils/config/validation-pipe-options.config';
 import { MongoExceptionFilter } from './_utils/exceptions/mongo-error.exception';
@@ -21,8 +17,6 @@ async function bootstrap() {
   useContainer(app.select(AppModule), { fallbackOnErrors: true });
 
   const configService = app.get(ConfigService<EnvironmentVariables, true>);
-  const corsConfig = configService.get<CorsConfig>('CORS');
-
   app.use(helmet());
 
   app

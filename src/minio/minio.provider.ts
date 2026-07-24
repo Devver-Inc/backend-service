@@ -12,8 +12,6 @@ export const minioProviders: Provider[] = [
     ): Promise<Client> => {
       const logger = new Logger(MINIO_CLIENT_TOKEN);
       const minioConfig = configService.get('MINIO');
-      const serverConfig = configService.get('SERVER');
-      const isLocal = serverConfig.NODE_ENV === 'local';
 
       try {
         let endPoint = minioConfig.MINIO_ENDPOINT;

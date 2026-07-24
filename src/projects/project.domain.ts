@@ -10,7 +10,6 @@ import {
   OverlayCommentPermission,
   DeploymentConfig,
   ManifestStatus,
-  DatabaseType,
   ProjectDocument,
 } from './project.schema';
 
