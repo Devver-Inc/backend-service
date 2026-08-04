@@ -16,8 +16,11 @@ import { GetProjectLightDto } from './_utils/dto/responses/get-project-light.dto
 import { ProjectsExceptions } from './_utils/errors/projects-exceptions';
 import { ProjectDomain } from './project.domain';
 import { ProjectsMapper } from './project.mapper';
-import { ManifestStatus, ProjectDocument } from './project.schema';
+import { ProjectDocument } from './project.schema';
+import { ManifestStatus } from './project.types';
 import { ProjectsRepository } from './projects.repository';
+import { ProjectValuesYamlGenerator } from './infrastructure/project-values-yaml.generator';
+import { MongoDbProvider } from './infrastructure/database-provider/mongo.provider';
 
 @Injectable()
 export class ProjectsService {
@@ -31,6 +34,8 @@ export class ProjectsService {
     private readonly githubService: GitHubService,
     private readonly configService: ConfigService<EnvironmentVariables, true>,
     private readonly encryptionService: EncryptionService,
+    private readonly yamlGenerator: ProjectValuesYamlGenerator,
+    private readonly mongoProvider: MongoDbProvider,
   ) {}
 
   async createProject(
@@ -61,41 +66,7 @@ export class ProjectsService {
     );
     const project = await this.projectsRepository.create(domain);
 
-    try {
-      const devverSecret = this.configService.get('DEPLOY_AGENT', {
-        infer: true,
-      }).DEPLOY_AGENT_SECRET;
-      const databaseConnectionString = dto.databaseConfiguration
-        ? domain.buildDatabaseConnectionString(
-            organizationName,
-            dto.databaseConfiguration.rootPassword,
-          )
-        : undefined;
-      const yamlContent = domain.toValuesYaml(
-        organizationName,
-        devverSecret,
-        databaseConnectionString,
-      );
-      await this.githubService.pushValuesYaml(
-        organizationName,
-        dto.name,
-        yamlContent,
-      );
-
-      await this.projectsRepository.updateDeploymentManifestStatus(
-        project._id.toString(),
-        ManifestStatus.PUSHED,
-      );
-
-      this.logger.log(
-        `values.yaml pushed for project ${dto.name} (org: ${organizationName})`,
-      );
-    } catch (error) {
-      this.logger.error('Failed to push values.yaml to GitHub:', error);
-      await this.projectsRepository.updateDeploymentManifestStatus(
-        project._id.toString(),
-        ManifestStatus.FAILED,
-      );
+    if (!(await this.publishProjectManifest(project, organizationName))) {
       if (dto.databaseConfiguration) {
         await this.projectsRepository.updateDatabaseManifestStatus(
           project._id.toString(),
@@ -107,9 +78,13 @@ export class ProjectsService {
 
     if (dto.databaseConfiguration) {
       try {
-        const mongoYamlContent = domain.toMongoValuesYaml(
+        const mongoYamlContent = this.mongoProvider.generateValuesYaml(
           organizationName,
-          dto.databaseConfiguration.rootPassword,
+          dto.name,
+          {
+            ...domain.databaseConfiguration!,
+            rootPassword: dto.databaseConfiguration.rootPassword,
+          },
         );
         await this.githubService.pushMongoValuesYaml(
           organizationName,
@@ -137,6 +112,32 @@ export class ProjectsService {
 
   findProjectById = (projectId: string): Promise<ProjectDocument> =>
     this.projectsRepository.findById(projectId);
+
+  async resolveDatabaseLinks(
+    projectId: string,
+    organizationName: string,
+    databaseLinks: Record<string, string>,
+  ): Promise<Record<string, string> | undefined> {
+    const project = await this.projectsRepository.findById(projectId);
+    const databaseConfig = project.databaseConfiguration;
+    if (!databaseConfig?.enabled) return undefined;
+
+    const rootPassword = this.encryptionService.decryptString(
+      databaseConfig.rootPasswordEncrypted,
+    );
+    return Object.fromEntries(
+      Object.entries(databaseLinks).map(([envKey, databaseName]) => [
+        envKey,
+        this.mongoProvider.buildConnectionString(
+          organizationName,
+          project.name,
+          databaseConfig.rootUsername,
+          rootPassword,
+          databaseName,
+        ),
+      ]),
+    );
+  }
 
   findByProjectAndOrganizationId = (
     projectId: string,
@@ -188,35 +189,7 @@ export class ProjectsService {
     const project = await this.getProjectWithAccessCheck(projectId, user);
     const updated = await this.updateAndSave(project, (d) => d.update(dto));
 
-    try {
-      const organizationName = user.currentOrganization.name;
-      const domain = ProjectDomain.fromDocument(updated);
-      const devverSecret = this.configService.get('DEPLOY_AGENT', {
-        infer: true,
-      }).DEPLOY_AGENT_SECRET;
-      const databaseConnectionString = updated.databaseConfiguration
-        ? domain.buildDatabaseConnectionString(
-            organizationName,
-            this.encryptionService.decryptString(
-              updated.databaseConfiguration.rootPasswordEncrypted,
-            ),
-          )
-        : undefined;
-      await this.githubService.pushValuesYaml(
-        organizationName,
-        domain.name,
-        domain.toValuesYaml(
-          organizationName,
-          devverSecret,
-          databaseConnectionString,
-        ),
-      );
-      this.logger.log(
-        `values.yaml updated for project ${domain.name} (org: ${organizationName})`,
-      );
-    } catch (error) {
-      this.logger.error('Failed to update values.yaml on GitHub:', error);
-    }
+    await this.publishProjectManifest(updated, user.currentOrganization.name);
 
     return this.toFullProjectDto(updated);
   }
@@ -266,7 +239,7 @@ export class ProjectsService {
     user: LogtoUserWithOrganizations,
   ): Promise<GetProjectDto> {
     const project = await this.getProjectWithAccessCheck(projectId, user);
-    const domain = ProjectDomain.fromDocument(project);
+    const domain = ProjectDomain.from(project);
 
     if (!domain.isTeamMember(userId)) {
       throw this.exceptions.USER_NOT_TEAM_MEMBER;
@@ -295,7 +268,7 @@ export class ProjectsService {
         projectId,
         organizationId,
       );
-    const domain = ProjectDomain.fromDocument(project);
+    const domain = ProjectDomain.from(project);
 
     if (!user.isAdmin && !domain.isTeamMember(user.id)) {
       throw this.exceptions.PROJECT_ACCESS_DENIED;
@@ -325,11 +298,61 @@ export class ProjectsService {
     }
   }
 
+  private async publishProjectManifest(
+    project: ProjectDocument,
+    organizationName: string,
+  ): Promise<boolean> {
+    const projectId = project._id.toString();
+    try {
+      const deployAgentConfig = this.configService.get('DEPLOY_AGENT', {
+        infer: true,
+      });
+      const databaseConnectionString = project.databaseConfiguration
+        ? this.mongoProvider.buildConnectionString(
+            organizationName,
+            project.name,
+            project.databaseConfiguration.rootUsername,
+            this.encryptionService.decryptString(
+              project.databaseConfiguration.rootPasswordEncrypted,
+            ),
+          )
+        : undefined;
+      await this.githubService.pushValuesYaml(
+        organizationName,
+        project.name,
+        this.yamlGenerator.generateAppValues(
+          organizationName,
+          project.name,
+          project.machineConfiguration,
+          deployAgentConfig.DEPLOY_AGENT_SECRET,
+          projectId,
+          deployAgentConfig.GIT_AUTH_URL,
+          databaseConnectionString,
+        ),
+      );
+      await this.projectsRepository.updateDeploymentManifestStatus(
+        projectId,
+        ManifestStatus.PUSHED,
+      );
+      this.logger.log(
+        `values.yaml pushed for project ${project.name} (org: ${organizationName})`,
+      );
+      return true;
+    } catch (error) {
+      this.logger.error('Failed to push values.yaml to GitHub:', error);
+      await this.projectsRepository.updateDeploymentManifestStatus(
+        projectId,
+        ManifestStatus.FAILED,
+      );
+      return false;
+    }
+  }
+
   private async updateAndSave(
     project: ProjectDocument,
     updater: (domain: ProjectDomain) => ProjectDomain,
   ): Promise<ProjectDocument> {
-    const domain = ProjectDomain.fromDocument(project);
+    const domain = ProjectDomain.from(project);
     const updated = updater(domain);
     Object.assign(project, updated);
     return this.projectsRepository.save(project);

@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { DatabaseType } from 'src/projects/project.schema';
+import { DatabaseType } from 'src/projects/project.types';
 
 export class DatabaseConfigurationResponseDto {
   @ApiProperty({ enum: DatabaseType, example: DatabaseType.MONGO })

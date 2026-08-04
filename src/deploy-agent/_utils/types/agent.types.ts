@@ -144,6 +144,32 @@ export interface ErrorResponse {
   duration: number;
 }
 
+export interface AgentErrorPayload {
+  type?: string;
+  on?: string;
+  error?:
+    | string
+    | {
+        code?: string;
+        message?: string;
+        logs?: string;
+        step?: number;
+        stage?: string;
+        service?: string;
+        rollback?: {
+          attempted?: boolean;
+          success?: boolean;
+          message?: string;
+        };
+      };
+  message?: string;
+}
+
+export type DeploySseEvent =
+  | { event: 'phase'; data: DeployPhaseEvent }
+  | { event: 'complete'; data: DeployResponse }
+  | { event: 'error'; data: ErrorResponse };
+
 export interface LogEntry {
   service: string;
   level: LogEntryLevel;

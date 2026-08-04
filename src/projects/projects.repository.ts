@@ -8,7 +8,8 @@ import { Model, QueryFilter } from 'mongoose';
 import { escapeRegex } from 'src/_utils/functions/escape-regex.function';
 import { ProjectsPaginatedQueryDto } from './_utils/dto/query/projects-paginated-query.dto';
 import { ProjectDomain } from './project.domain';
-import { ManifestStatus, Project, ProjectDocument } from './project.schema';
+import { Project, ProjectDocument } from './project.schema';
+import { ManifestStatus } from './project.types';
 import { LeanWithMongoId } from 'src/_utils/types';
 
 export type ProjectLean = LeanWithMongoId<Project>;

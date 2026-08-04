@@ -1,4 +1,11 @@
-import { Services } from './agent.types';
+import { DeployRequest, Services } from './agent.types';
+
+export interface PreparedDeployment {
+  agentUrl: string;
+  argoAppName: string;
+  deployAgentBody: DeployRequest;
+  mergedEnv?: Record<string, string>;
+}
 
 export interface CreateRepoData {
   projectId: string;

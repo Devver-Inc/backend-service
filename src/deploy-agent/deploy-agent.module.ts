@@ -10,6 +10,8 @@ import { DeployAgentService } from './deploy-agent.service';
 import { Deployment, DeploymentSchema } from './schemas/deployment.schema';
 import { DeployRepo, DeployRepoSchema } from './schemas/repo.schema';
 import { DeployAgentExceptions } from './_utils/errors/deploy-agent-exceptions';
+import { GitTokenService } from './infrastructure/git-token.service';
+import { GitAuthorizationService } from './git-authorization.service';
 
 @Module({
   imports: [
@@ -27,6 +29,8 @@ import { DeployAgentExceptions } from './_utils/errors/deploy-agent-exceptions';
     DeployAgentRequests,
     DeployAgentMapper,
     DeployAgentExceptions,
+    GitTokenService,
+    GitAuthorizationService,
   ],
   exports: [DeployAgentService],
 })

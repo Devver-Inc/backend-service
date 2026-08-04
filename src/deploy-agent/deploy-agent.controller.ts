@@ -3,11 +3,14 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   HttpCode,
   HttpStatus,
   Param,
   Post,
   Res,
+  ForbiddenException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Response } from 'express';
@@ -18,6 +21,7 @@ import { LogtoUserWithOrganizations } from 'src/logto/_utils/types/user-with-org
 import { ControlPm2ProcessDto } from './_utils/dto/requests/control-pm2-process.dto';
 import { CreateAgentDeploymentDto } from './_utils/dto/requests/create-deployment.dto';
 import { CreateRepoDto } from './_utils/dto/requests/create-repo.dto';
+import { GenerateGitTokenDto } from './_utils/dto/requests/generate-git-token.dto';
 import {
   ControlPm2ProcessResultDto,
   GetAgentDeploymentDto,
@@ -26,12 +30,18 @@ import {
 } from './_utils/dto/responses/get-deployment.dto';
 import { GetMongoDatabaseDto } from './_utils/dto/responses/get-mongo-database.dto';
 import { GetRepoDto } from './_utils/dto/responses/get-repo.dto';
+import { GenerateGitTokenResult } from './_utils/types/git-authorization.types';
 import { DeployAgentService } from './deploy-agent.service';
+import { GitAuthorizationService } from './git-authorization.service';
+import { parseGitAuthorizationRequest } from './_utils/functions/parse-git-authorization-request.function';
 
 @ApiTags('Deploy Agent')
 @Controller('projects/:projectId')
 export class DeployAgentController {
-  constructor(private readonly deployAgentService: DeployAgentService) {}
+  constructor(
+    private readonly deployAgentService: DeployAgentService,
+    private readonly gitAuthorizationService: GitAuthorizationService,
+  ) {}
 
   @Protect()
   @Get('repos')
@@ -292,6 +302,54 @@ export class DeployAgentController {
     @Body() dto: ControlPm2ProcessDto,
   ): Promise<ControlPm2ProcessResultDto> {
     return this.deployAgentService.restartProcess(projectId, dto, user);
+  }
+
+  @Protect({ roles: [UserRoleEnum.ADMIN, UserRoleEnum.DEVELOPER] })
+  @Post('git-tokens')
+  @ApiOperation({
+    summary: 'Generate a short-lived Git push token scoped to this project',
+  })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'UNAUTHORIZED' })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'PROJECT_ACCESS_DENIED',
+  })
+  @ApiParam({ name: 'projectId', type: String })
+  async generateGitToken(
+    @Param('projectId') projectId: string,
+    @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
+    @Body() dto: GenerateGitTokenDto,
+  ): Promise<GenerateGitTokenResult> {
+    return this.gitAuthorizationService.generateToken(
+      projectId,
+      dto.repo,
+      user,
+    );
+  }
+
+  @Post('git-authorize')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Authorize a Git HTTP request' })
+  async authorizeGitRequest(
+    @Param('projectId') projectId: string,
+    @Headers('authorization') authorization?: string,
+    @Headers('x-git-token') token?: string,
+    @Headers('x-original-uri') originalUri?: string,
+  ): Promise<void> {
+    const parsed = parseGitAuthorizationRequest(
+      authorization,
+      token,
+      originalUri,
+    );
+    if (!parsed.token) throw new UnauthorizedException('Git token required');
+    if (!parsed.repo) {
+      throw new ForbiddenException('Invalid Git repository path');
+    }
+    await this.gitAuthorizationService.authorize(
+      projectId,
+      parsed.repo,
+      parsed.token,
+    );
   }
 
   @Protect({ roles: [UserRoleEnum.ADMIN] })

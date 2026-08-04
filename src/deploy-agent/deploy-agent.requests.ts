@@ -11,17 +11,19 @@ import {
 } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
-import { AxiosError, isAxiosError } from 'axios';
+import { AxiosError, isAxiosError, Method } from 'axios';
 import { firstValueFrom } from 'rxjs';
 import { EnvironmentVariables } from 'src/_utils/config/env.config';
 import {
   AgentDeploymentListItem,
+  AgentErrorPayload,
   AgentErrorCode,
   BackendErrorCode,
   CreateRepoRequest,
   DeployPhaseEvent,
   DeployRequest,
   DeployResponse,
+  DeploySseEvent,
   DeployStage,
   DeployStreamCallbacks,
   ErrorCode,
@@ -47,303 +49,110 @@ export class DeployAgentRequests {
     return { 'x-devver-secret': this.secret };
   }
 
-  private getStatusCode(error: AxiosError): number {
-    return error.response?.status ?? HttpStatus.INTERNAL_SERVER_ERROR;
-  }
-
-  private getErrorResponseStatus(error: HttpException): number {
-    return error.getStatus();
-  }
-
-  private parseErrorPayload(data: unknown): Partial<ErrorResponse['error']> {
-    if (!data || typeof data !== 'object') return {};
-
-    const payload = data as {
-      type?: string;
-      on?: string;
-      found?: unknown;
-      error?:
-        | string
-        | {
-            code?: string;
-            message?: string;
-            details?: string;
-            logs?: string;
-            step?: number;
-            stage?: string;
-            service?: string;
-            rollback?: {
-              attempted?: boolean;
-              success?: boolean;
-              message?: string;
-            };
-          };
-      message?: string;
-    };
-
-    if (payload.type === 'validation') {
-      return {
-        message: `Validation failed on ${payload.on}`,
-      };
-    }
-
-    if (typeof payload.error === 'string') {
-      return { message: payload.error };
-    }
-
-    if (payload.error && typeof payload.error === 'object') {
-      return {
-        code: payload.error.code as AgentErrorCode,
-        message: payload.error.message,
-        logs: payload.error.logs,
-        step: payload.error.step,
-        stage: payload.error.stage as DeployStage | undefined,
-        service: payload.error.service,
-        rollback:
-          payload.error.rollback?.attempted !== undefined &&
-          payload.error.rollback?.success !== undefined
-            ? {
-                attempted: payload.error.rollback.attempted,
-                success: payload.error.rollback.success,
-                message: payload.error.rollback.message,
-              }
-            : undefined,
-      };
-    }
-
-    if (payload.message) {
-      return { message: payload.message };
-    }
-
-    return {};
-  }
-
-  private buildStructuredErrorFromPayload(
-    statusCode: number,
-    payload: unknown,
+  private async request<T>(
+    method: Method,
+    url: string,
     fallbackCode: ErrorCode,
-    fallbackMessage: string,
-  ): ErrorResponse {
-    const parsed = this.parseErrorPayload(payload);
-    const message = parsed.message ?? fallbackMessage;
-
-    return {
-      success: false,
-      error: {
-        code:
-          statusCode === HttpStatus.UNAUTHORIZED
-            ? BackendErrorCode.UNAUTHORIZED
-            : (parsed.code ?? fallbackCode),
-        message,
-        logs: parsed.logs,
-        step: parsed.step,
-        stage: parsed.stage,
-        service: parsed.service,
-        rollback: parsed.rollback,
-      },
-      duration: 0,
-    };
+    body?: unknown,
+  ): Promise<T> {
+    try {
+      const { data } = await firstValueFrom(
+        this.httpService.request<T>({
+          method,
+          url,
+          data: body,
+          headers: this.headers,
+        }),
+      );
+      return data;
+    } catch (err) {
+      throw this.handleError(err, fallbackCode);
+    }
   }
 
-  private buildStructuredError(
-    err: AxiosError,
-    fallbackCode: ErrorCode,
-  ): ErrorResponse {
-    const statusCode = this.getStatusCode(err);
-    return this.buildStructuredErrorFromPayload(
-      statusCode,
-      err.response?.data,
-      fallbackCode,
-      err.message ?? 'Deploy agent request failed',
+  createRepo(agentUrl: string, body: CreateRepoRequest): Promise<RepoResponse> {
+    return this.request(
+      'post',
+      `${agentUrl}/repos`,
+      BackendErrorCode.REPO_CREATE_FAILED,
+      body,
     );
   }
 
-  private throwStructuredError(
-    statusCode: number,
-    structuredError: ErrorResponse,
-  ): never {
-    switch (statusCode) {
-      case HttpStatus.UNAUTHORIZED:
-        throw new UnauthorizedException(structuredError);
-      case HttpStatus.NOT_FOUND:
-        throw new NotFoundException(structuredError);
-      case HttpStatus.BAD_REQUEST:
-        throw new BadRequestException(structuredError);
-      case HttpStatus.UNPROCESSABLE_ENTITY:
-        throw new UnprocessableEntityException(structuredError);
-      case HttpStatus.INTERNAL_SERVER_ERROR:
-        throw new InternalServerErrorException(structuredError);
-      default:
-        throw new ServiceUnavailableException(structuredError);
-    }
+  deleteRepo(agentUrl: string, name: string): Promise<void> {
+    return this.request(
+      'delete',
+      `${agentUrl}/repos/${encodeURIComponent(name)}`,
+      BackendErrorCode.REPO_DELETE_FAILED,
+    );
   }
 
-  private handleError(err: unknown, fallbackCode: ErrorCode): never {
-    if (isAxiosError(err) && err.response) {
-      const structuredError = this.buildStructuredError(err, fallbackCode);
-      this.throwStructuredError(err.response.status, structuredError);
-    }
-
-    if (err instanceof HttpException) {
-      this.throwStructuredError(this.getErrorResponseStatus(err), {
-        success: false,
-        error: {
-          code: fallbackCode,
-          message: err.message,
-        },
-        duration: 0,
-      });
-    }
-
-    throw new ServiceUnavailableException({
-      success: false,
-      error: {
-        code: fallbackCode,
-        message: 'Deploy agent unreachable',
-      },
-      duration: 0,
-    });
+  listDeployments(agentUrl: string): Promise<AgentDeploymentListItem[]> {
+    return this.request(
+      'get',
+      `${agentUrl}/deployments`,
+      AgentErrorCode.DEPLOY_ERROR,
+    );
   }
 
-  private async parseFetchErrorPayload(response: Response): Promise<unknown> {
-    const text = await response.text();
-    if (!text) return {};
-
-    try {
-      return JSON.parse(text) as unknown;
-    } catch {
-      return { message: text };
-    }
+  deploy(agentUrl: string, body: DeployRequest): Promise<DeployResponse> {
+    return this.request(
+      'post',
+      `${agentUrl}/deploy`,
+      AgentErrorCode.DEPLOY_ERROR,
+      body,
+    );
   }
 
-  private parseSseBlock(
-    block: string,
-  ):
-    | { event: 'phase'; data: DeployPhaseEvent }
-    | { event: 'complete'; data: DeployResponse }
-    | { event: 'error'; data: ErrorResponse }
-    | undefined {
-    const dataLines: string[] = [];
-    let eventName: string | undefined;
-
-    for (const line of block.split(/\r?\n/)) {
-      if (line.startsWith('event:')) {
-        eventName = line.slice('event:'.length).trim();
-      } else if (line.startsWith('data:')) {
-        dataLines.push(line.slice('data:'.length).trimStart());
-      }
-    }
-
-    if (!eventName || dataLines.length === 0) {
-      return undefined;
-    }
-
-    const data = JSON.parse(dataLines.join('\n')) as unknown;
-
-    if (eventName === 'phase') {
-      return { event: eventName, data: data as DeployPhaseEvent };
-    }
-    if (eventName === 'complete') {
-      return { event: eventName, data: data as DeployResponse };
-    }
-    if (eventName === 'error') {
-      return { event: eventName, data: data as ErrorResponse };
-    }
-
-    return undefined;
+  removeDeployment(agentUrl: string, deploymentId: string): Promise<void> {
+    return this.request(
+      'delete',
+      `${agentUrl}/deployments/${encodeURIComponent(deploymentId)}`,
+      BackendErrorCode.DEPLOYMENT_DELETE_FAILED,
+    );
   }
 
-  private async handleDeployStreamBlock(
-    block: string,
-    callbacks: DeployStreamCallbacks,
-  ): Promise<DeployResponse | ErrorResponse | undefined> {
-    const parsed = this.parseSseBlock(block);
-    if (!parsed) return undefined;
-
-    switch (parsed.event) {
-      case 'phase':
-        await callbacks.onPhase?.(parsed.data);
-        return undefined;
-      case 'complete':
-        await callbacks.onComplete?.(parsed.data);
-        return parsed.data;
-      case 'error':
-        await callbacks.onError?.(parsed.data);
-        return parsed.data;
-    }
+  getLogs(agentUrl: string, deploymentId: string): Promise<LogsResponse> {
+    return this.request(
+      'get',
+      `${agentUrl}/logs/${encodeURIComponent(deploymentId)}`,
+      BackendErrorCode.LOGS_FETCH_FAILED,
+    );
   }
 
-  async createRepo(
-    agentUrl: string,
-    body: CreateRepoRequest,
-  ): Promise<RepoResponse> {
-    try {
-      const { data } = await firstValueFrom(
-        this.httpService.post<RepoResponse>(`${agentUrl}/repos`, body, {
-          headers: this.headers,
-        }),
-      );
-      return data;
-    } catch (err) {
-      throw this.handleError(err, BackendErrorCode.REPO_CREATE_FAILED);
-    }
+  listMongoDatabases(agentUrl: string): Promise<MongoDatabaseResponse[]> {
+    return this.request(
+      'get',
+      `${agentUrl}/mongo/databases`,
+      BackendErrorCode.MONGO_DATABASES_FETCH_FAILED,
+    );
   }
 
-  async deleteRepo(agentUrl: string, name: string): Promise<void> {
-    try {
-      await firstValueFrom(
-        this.httpService.delete(
-          `${agentUrl}/repos/${encodeURIComponent(name)}`,
-          { headers: this.headers },
-        ),
-      );
-    } catch (err) {
-      throw this.handleError(err, BackendErrorCode.REPO_DELETE_FAILED);
-    }
+  startProcess(agentUrl: string, name: string): Promise<PM2ActionResponse> {
+    return this.request(
+      'post',
+      `${agentUrl}/pm2/start`,
+      BackendErrorCode.PM2_START_FAILED,
+      { name },
+    );
   }
 
-  async listDeployments(agentUrl: string): Promise<AgentDeploymentListItem[]> {
-    try {
-      const { data } = await firstValueFrom(
-        this.httpService.get<AgentDeploymentListItem[]>(
-          `${agentUrl}/deployments`,
-          { headers: this.headers },
-        ),
-      );
-      return data;
-    } catch (err) {
-      throw this.handleError(err, AgentErrorCode.DEPLOY_ERROR);
-    }
+  stopProcess(agentUrl: string, name: string): Promise<PM2ActionResponse> {
+    return this.request(
+      'post',
+      `${agentUrl}/pm2/stop`,
+      BackendErrorCode.PM2_STOP_FAILED,
+      { name },
+    );
   }
 
-  async listMongoDatabases(agentUrl: string): Promise<MongoDatabaseResponse[]> {
-    try {
-      const { data } = await firstValueFrom(
-        this.httpService.get<MongoDatabaseResponse[]>(
-          `${agentUrl}/mongo/databases`,
-          { headers: this.headers },
-        ),
-      );
-      return data;
-    } catch (err) {
-      throw this.handleError(
-        err,
-        BackendErrorCode.MONGO_DATABASES_FETCH_FAILED,
-      );
-    }
-  }
-
-  async deploy(agentUrl: string, body: DeployRequest): Promise<DeployResponse> {
-    try {
-      const { data } = await firstValueFrom(
-        this.httpService.post<DeployResponse>(`${agentUrl}/deploy`, body, {
-          headers: this.headers,
-        }),
-      );
-      return data;
-    } catch (err) {
-      throw this.handleError(err, AgentErrorCode.DEPLOY_ERROR);
-    }
+  restartProcess(agentUrl: string, name: string): Promise<PM2ActionResponse> {
+    return this.request(
+      'post',
+      `${agentUrl}/pm2/restart`,
+      BackendErrorCode.PM2_RESTART_FAILED,
+      { name },
+    );
   }
 
   async deployStream(
@@ -356,10 +165,7 @@ export class DeployAgentRequests {
     try {
       response = await fetch(`${agentUrl}/deploy/stream`, {
         method: 'POST',
-        headers: {
-          ...this.headers,
-          'Content-Type': 'application/json',
-        },
+        headers: { ...this.headers, 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
         signal,
       });
@@ -405,10 +211,7 @@ export class DeployAgentRequests {
         buffer = blocks.pop() ?? '';
 
         for (const block of blocks) {
-          const terminalEvent = await this.handleDeployStreamBlock(
-            block,
-            callbacks,
-          );
+          const terminalEvent = await this.handleSseBlock(block, callbacks);
           if (terminalEvent) {
             await reader.cancel();
             return terminalEvent;
@@ -418,17 +221,11 @@ export class DeployAgentRequests {
 
       buffer += decoder.decode();
       if (buffer.trim()) {
-        const terminalEvent = await this.handleDeployStreamBlock(
-          buffer,
-          callbacks,
-        );
+        const terminalEvent = await this.handleSseBlock(buffer, callbacks);
         if (terminalEvent) return terminalEvent;
       }
     } catch (err) {
-      if (signal?.aborted) {
-        throw err;
-      }
-
+      if (signal?.aborted) throw err;
       throw new ServiceUnavailableException({
         success: false,
         error: {
@@ -454,87 +251,171 @@ export class DeployAgentRequests {
     });
   }
 
-  async removeDeployment(
-    agentUrl: string,
-    deploymentId: string,
-  ): Promise<void> {
-    try {
-      await firstValueFrom(
-        this.httpService.delete(
-          `${agentUrl}/deployments/${encodeURIComponent(deploymentId)}`,
-          { headers: this.headers },
-        ),
-      );
-    } catch (err) {
-      throw this.handleError(err, BackendErrorCode.DEPLOYMENT_DELETE_FAILED);
+  private parseSseBlock(block: string): DeploySseEvent | undefined {
+    const dataLines: string[] = [];
+    let eventName: string | undefined;
+
+    for (const line of block.split(/\r?\n/)) {
+      if (line.startsWith('event:')) {
+        eventName = line.slice('event:'.length).trim();
+      } else if (line.startsWith('data:')) {
+        dataLines.push(line.slice('data:'.length).trimStart());
+      }
+    }
+
+    if (!eventName || dataLines.length === 0) return undefined;
+
+    const data = JSON.parse(dataLines.join('\n')) as unknown;
+
+    if (eventName === 'phase')
+      return { event: eventName, data: data as DeployPhaseEvent };
+    if (eventName === 'complete')
+      return { event: eventName, data: data as DeployResponse };
+    if (eventName === 'error')
+      return { event: eventName, data: data as ErrorResponse };
+    return undefined;
+  }
+
+  private async handleSseBlock(
+    block: string,
+    callbacks: DeployStreamCallbacks,
+  ): Promise<DeployResponse | ErrorResponse | undefined> {
+    const parsed = this.parseSseBlock(block);
+    if (!parsed) return undefined;
+
+    switch (parsed.event) {
+      case 'phase':
+        await callbacks.onPhase?.(parsed.data);
+        return undefined;
+      case 'complete':
+        await callbacks.onComplete?.(parsed.data);
+        return parsed.data;
+      case 'error':
+        await callbacks.onError?.(parsed.data);
+        return parsed.data;
     }
   }
 
-  async getLogs(agentUrl: string, deploymentId: string): Promise<LogsResponse> {
-    try {
-      const { data } = await firstValueFrom(
-        this.httpService.get<LogsResponse>(
-          `${agentUrl}/logs/${encodeURIComponent(deploymentId)}`,
-          { headers: this.headers },
-        ),
-      );
-      return data;
-    } catch (err) {
-      throw this.handleError(err, BackendErrorCode.LOGS_FETCH_FAILED);
+  private getStatusCode(error: AxiosError): number {
+    return error.response?.status ?? HttpStatus.INTERNAL_SERVER_ERROR;
+  }
+
+  private parseErrorPayload(data: unknown): Partial<ErrorResponse['error']> {
+    if (!data || typeof data !== 'object') return {};
+
+    const payload = data as AgentErrorPayload;
+
+    if (payload.type === 'validation')
+      return { message: `Validation failed on ${payload.on}` };
+    if (typeof payload.error === 'string') return { message: payload.error };
+    if (payload.error && typeof payload.error === 'object') {
+      return {
+        code: payload.error.code as AgentErrorCode,
+        message: payload.error.message,
+        logs: payload.error.logs,
+        step: payload.error.step,
+        stage: payload.error.stage as DeployStage | undefined,
+        service: payload.error.service,
+        rollback:
+          payload.error.rollback?.attempted !== undefined &&
+          payload.error.rollback?.success !== undefined
+            ? {
+                attempted: payload.error.rollback.attempted,
+                success: payload.error.rollback.success,
+                message: payload.error.rollback.message,
+              }
+            : undefined,
+      };
+    }
+    if (payload.message) return { message: payload.message };
+    return {};
+  }
+
+  private buildStructuredErrorFromPayload(
+    statusCode: number,
+    payload: unknown,
+    fallbackCode: ErrorCode,
+    fallbackMessage: string,
+  ): ErrorResponse {
+    const parsed = this.parseErrorPayload(payload);
+    return {
+      success: false,
+      error: {
+        code:
+          statusCode === HttpStatus.UNAUTHORIZED
+            ? BackendErrorCode.UNAUTHORIZED
+            : (parsed.code ?? fallbackCode),
+        message: parsed.message ?? fallbackMessage,
+        logs: parsed.logs,
+        step: parsed.step,
+        stage: parsed.stage,
+        service: parsed.service,
+        rollback: parsed.rollback,
+      },
+      duration: 0,
+    };
+  }
+
+  private buildStructuredError(
+    err: AxiosError,
+    fallbackCode: ErrorCode,
+  ): ErrorResponse {
+    return this.buildStructuredErrorFromPayload(
+      this.getStatusCode(err),
+      err.response?.data,
+      fallbackCode,
+      err.message ?? 'Deploy agent request failed',
+    );
+  }
+
+  private throwStructuredError(
+    statusCode: number,
+    structuredError: ErrorResponse,
+  ): never {
+    switch (statusCode) {
+      case HttpStatus.UNAUTHORIZED:
+        throw new UnauthorizedException(structuredError);
+      case HttpStatus.NOT_FOUND:
+        throw new NotFoundException(structuredError);
+      case HttpStatus.BAD_REQUEST:
+        throw new BadRequestException(structuredError);
+      case HttpStatus.UNPROCESSABLE_ENTITY:
+        throw new UnprocessableEntityException(structuredError);
+      case HttpStatus.INTERNAL_SERVER_ERROR:
+        throw new InternalServerErrorException(structuredError);
+      default:
+        throw new ServiceUnavailableException(structuredError);
     }
   }
 
-  async startProcess(
-    agentUrl: string,
-    name: string,
-  ): Promise<PM2ActionResponse> {
-    try {
-      const { data } = await firstValueFrom(
-        this.httpService.post<PM2ActionResponse>(
-          `${agentUrl}/pm2/start`,
-          { name },
-          { headers: this.headers },
-        ),
+  private handleError(err: unknown, fallbackCode: ErrorCode): never {
+    if (isAxiosError(err) && err.response) {
+      this.throwStructuredError(
+        err.response.status,
+        this.buildStructuredError(err, fallbackCode),
       );
-      return data;
-    } catch (err) {
-      throw this.handleError(err, BackendErrorCode.PM2_START_FAILED);
     }
+    if (err instanceof HttpException) {
+      this.throwStructuredError(err.getStatus(), {
+        success: false,
+        error: { code: fallbackCode, message: err.message },
+        duration: 0,
+      });
+    }
+    throw new ServiceUnavailableException({
+      success: false,
+      error: { code: fallbackCode, message: 'Deploy agent unreachable' },
+      duration: 0,
+    });
   }
 
-  async stopProcess(
-    agentUrl: string,
-    name: string,
-  ): Promise<PM2ActionResponse> {
+  private async parseFetchErrorPayload(response: Response): Promise<unknown> {
+    const text = await response.text();
+    if (!text) return {};
     try {
-      const { data } = await firstValueFrom(
-        this.httpService.post<PM2ActionResponse>(
-          `${agentUrl}/pm2/stop`,
-          { name },
-          { headers: this.headers },
-        ),
-      );
-      return data;
-    } catch (err) {
-      throw this.handleError(err, BackendErrorCode.PM2_STOP_FAILED);
-    }
-  }
-
-  async restartProcess(
-    agentUrl: string,
-    name: string,
-  ): Promise<PM2ActionResponse> {
-    try {
-      const { data } = await firstValueFrom(
-        this.httpService.post<PM2ActionResponse>(
-          `${agentUrl}/pm2/restart`,
-          { name },
-          { headers: this.headers },
-        ),
-      );
-      return data;
-    } catch (err) {
-      throw this.handleError(err, BackendErrorCode.PM2_RESTART_FAILED);
+      return JSON.parse(text);
+    } catch {
+      return { message: text };
     }
   }
 }
