@@ -53,6 +53,9 @@ export const DeploymentConfigSchema =
 
 @Schema({ _id: false })
 export class DatabaseDeploymentConfig {
+  @Prop({ type: String, required: true })
+  name: string;
+
   @Prop({
     type: String,
     enum: Object.values(DatabaseType),
@@ -74,10 +77,10 @@ export class DatabaseDeploymentConfig {
   manifestStatus: ManifestStatus;
 
   @Prop({ required: true })
-  rootUsername: string;
+  username: string;
 
   @Prop({ required: true })
-  rootPasswordEncrypted: string;
+  passwordEncrypted: string;
 
   @Prop({ required: true, min: 1, max: 3 })
   replicaCount: number;
@@ -122,8 +125,8 @@ export class Project {
   @Prop({ type: DeploymentConfigSchema, required: false })
   deploymentConfig?: DeploymentConfig;
 
-  @Prop({ type: DatabaseDeploymentConfigSchema, required: false })
-  databaseConfiguration?: DatabaseDeploymentConfig;
+  @Prop({ type: [DatabaseDeploymentConfigSchema], required: false })
+  databaseConfigurations?: DatabaseDeploymentConfig[];
 
   createdAt: Date;
   updatedAt: Date;

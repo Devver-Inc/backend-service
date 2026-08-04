@@ -11,6 +11,7 @@ import { EnvironmentVariables } from 'src/_utils/config/env.config';
 import { toSlug } from 'src/_utils/functions/to-slug.function';
 import { LogtoUserWithOrganizations } from 'src/logto/_utils/types/user-with-organization.type';
 import { ProjectsService } from 'src/projects/projects.service';
+import { DatabaseType } from 'src/projects/project.types';
 import { ControlPm2ProcessDto } from './_utils/dto/requests/control-pm2-process.dto';
 import { CreateAgentDeploymentDto } from './_utils/dto/requests/create-deployment.dto';
 import { CreateRepoDto } from './_utils/dto/requests/create-repo.dto';
@@ -20,7 +21,7 @@ import {
   GetLogsDto,
   RestoreResultDto,
 } from './_utils/dto/responses/get-deployment.dto';
-import { GetMongoDatabaseDto } from './_utils/dto/responses/get-mongo-database.dto';
+import { GetDatabaseDto } from './_utils/dto/responses/get-database.dto';
 import { GetRepoDto } from './_utils/dto/responses/get-repo.dto';
 import { DeployAgentExceptions } from './_utils/errors/deploy-agent-exceptions';
 import {
@@ -62,7 +63,7 @@ export class DeployAgentService {
     dto: CreateAgentDeploymentDto,
     user: LogtoUserWithOrganizations,
   ): Promise<Record<string, string>> => {
-    if (!dto.dbLinks || Object.keys(dto.dbLinks).length === 0) {
+    if (!dto.dbLinks?.length) {
       return {};
     }
 
@@ -145,10 +146,9 @@ export class DeployAgentService {
       repo: dto.repo,
       branch: dto.branch,
       deploymentId: result.deploymentId,
-      commit: dto.commit,
+      commit: result.commit,
       argoAppName: prepared.argoAppName,
       service: dto.service,
-      links: dto.links,
       dbLinks: dto.dbLinks,
       env: encryptedEnv,
       status: AgentDeploymentStatus.DEPLOYED,
@@ -213,6 +213,7 @@ export class DeployAgentService {
   listDeployments = async (
     projectId: string,
     user: LogtoUserWithOrganizations,
+    repo?: string,
   ): Promise<GetAgentDeploymentDto[]> => {
     await this.verifyProjectOwnership(projectId, user);
     const agentUrl = await this.getAgentUrl(
@@ -220,18 +221,24 @@ export class DeployAgentService {
       user.currentOrganization.name,
     );
     return this.deployAgentRequests
-      .listDeployments(agentUrl)
+      .listDeployments(agentUrl, repo)
       .then((items) => items.map(this.deployAgentMapper.toAgentDeploymentDto));
   };
 
-  listMongoDatabases = async (
+  listDatabases = async (
     projectId: string,
+    engine: DatabaseType,
     user: LogtoUserWithOrganizations,
-  ): Promise<GetMongoDatabaseDto[]> => {
+  ): Promise<GetDatabaseDto[]> => {
     await this.verifyProjectOwnership(projectId, user);
     const project = await this.projectsService.findProjectById(projectId);
 
-    if (!project.databaseConfiguration?.enabled) {
+    if (
+      !project.databaseConfigurations?.some(
+        (configuration) =>
+          configuration.type === engine && configuration.enabled,
+      )
+    ) {
       throw this.exceptions.DATABASE_NOT_ENABLED;
     }
 
@@ -240,7 +247,7 @@ export class DeployAgentService {
       project.name,
     );
 
-    return this.deployAgentRequests.listMongoDatabases(agentUrl);
+    return this.deployAgentRequests.listDatabases(agentUrl, engine);
   };
 
   getLogs = async (

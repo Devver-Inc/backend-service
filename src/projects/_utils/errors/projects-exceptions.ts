@@ -22,4 +22,8 @@ export class ProjectsExceptions {
   INVALID_DATABASE_CPU_REQUEST = new BadRequestException(
     'INVALID_DATABASE_CPU_REQUEST',
   );
+  DATABASE_TYPE_NOT_SUPPORTED = new BadRequestException(
+    'DATABASE_TYPE_NOT_SUPPORTED',
+  );
+  DUPLICATE_DATABASE_TYPE = new BadRequestException('DUPLICATE_DATABASE_TYPE');
 }

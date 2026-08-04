@@ -29,10 +29,11 @@ import {
   ErrorCode,
   ErrorResponse,
   LogsResponse,
-  MongoDatabaseResponse,
+  DatabaseResponse,
   PM2ActionResponse,
-  RepoResponse,
+  CreateRepoAgentResponse,
 } from './_utils/types/agent.types';
+import { DatabaseType } from 'src/projects/project.types';
 
 @Injectable()
 export class DeployAgentRequests {
@@ -70,7 +71,10 @@ export class DeployAgentRequests {
     }
   }
 
-  createRepo(agentUrl: string, body: CreateRepoRequest): Promise<RepoResponse> {
+  createRepo(
+    agentUrl: string,
+    body: CreateRepoRequest,
+  ): Promise<CreateRepoAgentResponse> {
     return this.request(
       'post',
       `${agentUrl}/repos`,
@@ -87,15 +91,21 @@ export class DeployAgentRequests {
     );
   }
 
-  listDeployments(agentUrl: string): Promise<AgentDeploymentListItem[]> {
+  listDeployments(
+    agentUrl: string,
+    repo?: string,
+  ): Promise<AgentDeploymentListItem[]> {
     return this.request(
       'get',
-      `${agentUrl}/deployments`,
+      `${agentUrl}/deployments${repo ? `?repo=${encodeURIComponent(repo)}` : ''}`,
       AgentErrorCode.DEPLOY_ERROR,
     );
   }
 
-  deploy(agentUrl: string, body: DeployRequest): Promise<DeployResponse> {
+  deploy(
+    agentUrl: string,
+    body: DeployRequest,
+  ): Promise<DeployResponse | ErrorResponse> {
     return this.request(
       'post',
       `${agentUrl}/deploy`,
@@ -120,11 +130,14 @@ export class DeployAgentRequests {
     );
   }
 
-  listMongoDatabases(agentUrl: string): Promise<MongoDatabaseResponse[]> {
+  listDatabases(
+    agentUrl: string,
+    engine: DatabaseType,
+  ): Promise<DatabaseResponse[]> {
     return this.request(
       'get',
-      `${agentUrl}/mongo/databases`,
-      BackendErrorCode.MONGO_DATABASES_FETCH_FAILED,
+      `${agentUrl}/databases/${engine}`,
+      BackendErrorCode.DATABASES_FETCH_FAILED,
     );
   }
 
@@ -305,13 +318,11 @@ export class DeployAgentRequests {
 
     const payload = data as AgentErrorPayload;
 
-    if (payload.type === 'validation')
-      return { message: `Validation failed on ${payload.on}` };
-    if (typeof payload.error === 'string') return { message: payload.error };
     if (payload.error && typeof payload.error === 'object') {
       return {
-        code: payload.error.code as AgentErrorCode,
+        code: payload.error.code,
         message: payload.error.message,
+        details: payload.error.details,
         logs: payload.error.logs,
         step: payload.error.step,
         stage: payload.error.stage as DeployStage | undefined,
@@ -327,7 +338,6 @@ export class DeployAgentRequests {
             : undefined,
       };
     }
-    if (payload.message) return { message: payload.message };
     return {};
   }
 
@@ -346,6 +356,7 @@ export class DeployAgentRequests {
             ? BackendErrorCode.UNAUTHORIZED
             : (parsed.code ?? fallbackCode),
         message: parsed.message ?? fallbackMessage,
+        details: parsed.details,
         logs: parsed.logs,
         step: parsed.step,
         stage: parsed.stage,

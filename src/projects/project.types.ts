@@ -6,6 +6,20 @@ export enum ManifestStatus {
 
 export enum DatabaseType {
   MONGO = 'mongo',
+  POSTGRES = 'postgres',
+  REDIS = 'redis',
+}
+
+export const DATABASE_CONNECTION_ENV: Record<DatabaseType, string> = {
+  [DatabaseType.MONGO]: 'DEVVER_MONGO_CONNECTION_STRING',
+  [DatabaseType.POSTGRES]: 'DEVVER_POSTGRES_CONNECTION_STRING',
+  [DatabaseType.REDIS]: 'DEVVER_REDIS_CONNECTION_STRING',
+};
+
+export interface DatabaseLink {
+  env: string;
+  engine: DatabaseType;
+  database: string;
 }
 
 export enum OverlayCommentPermission {
@@ -28,12 +42,13 @@ export interface DeploymentConfig {
 }
 
 export interface DatabaseDeploymentConfig {
+  name: string;
   type: DatabaseType;
   enabled: boolean;
   githubPath: string;
   manifestStatus: ManifestStatus;
-  rootUsername: string;
-  rootPasswordEncrypted: string;
+  username: string;
+  passwordEncrypted: string;
   replicaCount: number;
   ram: number;
   cpuCores: number;
@@ -46,14 +61,14 @@ export interface CreateProjectData {
   machineConfiguration?: MachineConfiguration;
   teamMemberIds?: string[];
   overlayAccessControl: OverlayAccessControl;
-  databaseConfiguration?: {
+  databaseConfigurations?: {
     type: DatabaseType;
-    rootUsername: string;
+    username: string;
     replicaCount: number;
     ram: number;
     cpuCores: number;
     storage: number;
-  };
+  }[];
 }
 
 export interface UpdateProjectData {
@@ -76,5 +91,5 @@ export interface ProjectDomainProps {
   teamMemberIds: string[];
   overlayAccessControl: OverlayAccessControl;
   deploymentConfig?: DeploymentConfig;
-  databaseConfiguration?: DatabaseDeploymentConfig;
+  databaseConfigurations?: DatabaseDeploymentConfig[];
 }

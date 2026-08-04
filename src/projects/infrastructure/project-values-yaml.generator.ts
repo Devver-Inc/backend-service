@@ -1,7 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { dump } from 'js-yaml';
 import { toSlug } from 'src/_utils/functions/to-slug.function';
-import { MachineConfiguration } from '../project.types';
+import {
+  DATABASE_CONNECTION_ENV,
+  DatabaseType,
+  MachineConfiguration,
+} from '../project.types';
 import { DEFAULT_STORAGE_CLASS } from './deployment.constants';
 
 @Injectable()
@@ -13,12 +17,19 @@ export class ProjectValuesYamlGenerator {
     devverSecret: string,
     projectId: string,
     gitAuthUrl: string,
-    databaseConnectionString?: string,
+    databaseConnectionStrings?: Partial<Record<DatabaseType, string>>,
   ): string {
     const orgName = toSlug(organizationName);
     const projName = toSlug(projectName);
     const memory = `${Math.round(machineConfig.ram * 1024)}Mi`;
     const cpu = `${Math.round(machineConfig.cpuCores * 1000)}m`;
+    const databaseEnv = Object.fromEntries(
+      Object.entries(DATABASE_CONNECTION_ENV).flatMap(([type, envKey]) => {
+        const connectionString =
+          databaseConnectionStrings?.[type as DatabaseType];
+        return connectionString ? [[envKey, connectionString]] : [];
+      }),
+    );
 
     return dump({
       organization: { name: orgName, domain: 'devver.app' },
@@ -36,9 +47,7 @@ export class ProjectValuesYamlGenerator {
           DEVVER_GIT_AUTH_URL: gitAuthUrl,
           DEVVER_WIDGET_URL:
             'https://cdn.jsdelivr.net/gh/Devver-Inc/overlay@dev/public/devver-overlay.iife.js', // TODO: change to main when ready
-          ...(databaseConnectionString
-            ? { DEVVER_MONGO_CONNECTION_STRING: databaseConnectionString }
-            : {}),
+          ...databaseEnv,
         },
       },
       resources: {

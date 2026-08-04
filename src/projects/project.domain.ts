@@ -21,7 +21,7 @@ export class ProjectDomain {
   readonly teamMemberIds: string[];
   readonly overlayAccessControl: OverlayAccessControl;
   readonly deploymentConfig?: DeploymentConfig;
-  readonly databaseConfiguration?: DatabaseDeploymentConfig;
+  readonly databaseConfigurations?: DatabaseDeploymentConfig[];
 
   private constructor(props: ProjectDomainProps) {
     this.name = props.name;
@@ -32,7 +32,7 @@ export class ProjectDomain {
     this.teamMemberIds = props.teamMemberIds;
     this.overlayAccessControl = props.overlayAccessControl;
     this.deploymentConfig = props.deploymentConfig;
-    this.databaseConfiguration = props.databaseConfiguration;
+    this.databaseConfigurations = props.databaseConfigurations;
   }
 
   static create(
@@ -40,7 +40,7 @@ export class ProjectDomain {
     organizationId: string,
     userId: string,
     organizationName: string,
-    encryptedMongoRootPassword?: string,
+    encryptedDatabasePasswords?: Map<string, string>,
   ): ProjectDomain {
     const githubPath = `${toSlug(organizationName)}/${toSlug(dto.name)}/values.yaml`;
 
@@ -49,26 +49,29 @@ export class ProjectDomain {
       manifestStatus: ManifestStatus.PENDING,
     };
 
-    if (dto.databaseConfiguration && !encryptedMongoRootPassword) {
+    if (dto.databaseConfigurations && !encryptedDatabasePasswords) {
       throw new Error(
-        'encryptedMongoRootPassword is required when databaseConfiguration is provided',
+        'encryptedDatabasePasswords is required when databaseConfigurations are provided',
       );
     }
 
-    const databaseConfiguration = dto.databaseConfiguration
-      ? {
-          type: dto.databaseConfiguration.type,
-          enabled: true,
-          githubPath: `${toSlug(organizationName)}/${toSlug(dto.name)}/values-db.yaml`,
-          manifestStatus: ManifestStatus.PENDING,
-          rootUsername: dto.databaseConfiguration.rootUsername,
-          rootPasswordEncrypted: encryptedMongoRootPassword as string,
-          replicaCount: dto.databaseConfiguration.replicaCount,
-          ram: dto.databaseConfiguration.ram,
-          cpuCores: dto.databaseConfiguration.cpuCores,
-          storage: dto.databaseConfiguration.storage,
-        }
-      : undefined;
+    const databaseConfigurations = dto.databaseConfigurations?.map(
+      (configuration) => ({
+        name: configuration.type,
+        type: configuration.type,
+        enabled: true,
+        githubPath: `${toSlug(organizationName)}/${toSlug(dto.name)}/values-${configuration.type}.yaml`,
+        manifestStatus: ManifestStatus.PENDING,
+        username: configuration.username,
+        passwordEncrypted: encryptedDatabasePasswords?.get(
+          configuration.type,
+        ) as string,
+        replicaCount: configuration.replicaCount,
+        ram: configuration.ram,
+        cpuCores: configuration.cpuCores,
+        storage: configuration.storage,
+      }),
+    );
 
     return new ProjectDomain({
       name: dto.name,
@@ -82,7 +85,7 @@ export class ProjectDomain {
       teamMemberIds: dto.teamMemberIds ?? [],
       overlayAccessControl: dto.overlayAccessControl,
       deploymentConfig,
-      databaseConfiguration,
+      databaseConfigurations,
     });
   }
 
@@ -92,10 +95,6 @@ export class ProjectDomain {
 
   setDeploymentConfig(config: DeploymentConfig): ProjectDomain {
     return new ProjectDomain({ ...this, deploymentConfig: config });
-  }
-
-  setDatabaseConfig(config: DatabaseDeploymentConfig): ProjectDomain {
-    return new ProjectDomain({ ...this, databaseConfiguration: config });
   }
 
   belongsToOrganization(organizationId: string): boolean {

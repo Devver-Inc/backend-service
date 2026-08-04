@@ -1,4 +1,5 @@
 import { DeployRequest, Services } from './agent.types';
+import { DatabaseLink } from 'src/projects/project.types';
 
 export interface PreparedDeployment {
   agentUrl: string;
@@ -23,8 +24,7 @@ export interface CreateDeploymentData {
   commit?: string;
   argoAppName?: string;
   service: Services;
-  links?: Record<string, Record<string, string>>;
-  dbLinks?: Record<string, string>;
+  dbLinks?: DatabaseLink[];
   env?: Record<string, string>;
 }
 

@@ -15,11 +15,11 @@ export class DatabaseConfigurationDto {
 
   @IsString()
   @IsNotEmpty()
-  rootUsername: string;
+  username: string;
 
   @IsString()
   @IsNotEmpty()
-  rootPassword: string;
+  password: string;
 
   @IsInt()
   @Min(1)

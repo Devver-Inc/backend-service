@@ -2,6 +2,9 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { DatabaseType } from 'src/projects/project.types';
 
 export class DatabaseConfigurationResponseDto {
+  @ApiProperty({ example: 'mongo' })
+  name: string;
+
   @ApiProperty({ enum: DatabaseType, example: DatabaseType.MONGO })
   type: DatabaseType;
 
@@ -9,10 +12,10 @@ export class DatabaseConfigurationResponseDto {
   enabled: boolean;
 
   @ApiPropertyOptional({ example: 'root' })
-  rootUsername?: string;
+  username?: string;
 
   @ApiPropertyOptional({ example: true })
-  hasRootPassword?: boolean;
+  hasPassword?: boolean;
 
   @ApiPropertyOptional({ example: 1 })
   replicaCount?: number;

@@ -23,6 +23,7 @@ import { LogtoUserWithOrganizations } from 'src/logto/_utils/types/user-with-org
 import { ProjectsService } from 'src/projects/projects.service';
 import { toSlug } from 'src/_utils/functions/to-slug.function';
 import { ProjectDocument } from 'src/projects/project.schema';
+import { DatabaseType } from 'src/projects/project.types';
 
 const POLLING_INTERVAL_MS = 5_000;
 const HEARTBEAT_INTERVAL_MS = 30_000;
@@ -175,7 +176,11 @@ export class ArgoCdSseService {
     project: ProjectDocument,
     user: LogtoUserWithOrganizations,
   ): string | undefined {
-    if (!project.databaseConfiguration?.enabled) {
+    if (
+      !project.databaseConfigurations?.some(
+        (database) => database.type === DatabaseType.MONGO && database.enabled,
+      )
+    ) {
       return undefined;
     }
 

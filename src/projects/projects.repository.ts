@@ -133,13 +133,21 @@ export class ProjectsRepository {
 
   updateDatabaseManifestStatus = (
     projectId: string,
+    databaseName: string,
     status: ManifestStatus,
   ): Promise<ProjectDocument> =>
     this.projectModel
       .findByIdAndUpdate(
         projectId,
-        { $set: { 'databaseConfiguration.manifestStatus': status } },
-        { returnDocument: 'after' },
+        {
+          $set: {
+            'databaseConfigurations.$[database].manifestStatus': status,
+          },
+        },
+        {
+          arrayFilters: [{ 'database.name': databaseName }],
+          returnDocument: 'after',
+        },
       )
       .orFail(new NotFoundException(this.NOT_FOUND_ERROR))
       .exec();

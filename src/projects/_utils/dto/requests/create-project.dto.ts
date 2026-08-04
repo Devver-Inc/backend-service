@@ -37,7 +37,8 @@ export class CreateProjectDto {
   overlayAccessControl: OverlayAccessControlDto;
 
   @Optional()
-  @ValidateNested()
+  @IsArray()
+  @ValidateNested({ each: true })
   @Type(() => DatabaseConfigurationDto)
-  databaseConfiguration?: DatabaseConfigurationDto;
+  databaseConfigurations?: DatabaseConfigurationDto[];
 }

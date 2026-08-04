@@ -7,12 +7,20 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  ParseEnumPipe,
   Post,
+  Query,
   Res,
   ForbiddenException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiOperation,
+  ApiParam,
+  ApiQuery,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { Response } from 'express';
 import { Protect } from 'src/_utils/decorators/protect.decorator';
 import { ConnectedUserWithOrgs } from 'src/logto/_utils/decorator/connected-user.decorator';
@@ -22,13 +30,15 @@ import { ControlPm2ProcessDto } from './_utils/dto/requests/control-pm2-process.
 import { CreateAgentDeploymentDto } from './_utils/dto/requests/create-deployment.dto';
 import { CreateRepoDto } from './_utils/dto/requests/create-repo.dto';
 import { GenerateGitTokenDto } from './_utils/dto/requests/generate-git-token.dto';
+import { ListDeploymentsQueryDto } from './_utils/dto/requests/list-deployments-query.dto';
 import {
   ControlPm2ProcessResultDto,
   GetAgentDeploymentDto,
   GetLogsDto,
   RestoreResultDto,
 } from './_utils/dto/responses/get-deployment.dto';
-import { GetMongoDatabaseDto } from './_utils/dto/responses/get-mongo-database.dto';
+import { GetDatabaseDto } from './_utils/dto/responses/get-database.dto';
+import { DatabaseType } from 'src/projects/project.types';
 import { GetRepoDto } from './_utils/dto/responses/get-repo.dto';
 import { GenerateGitTokenResult } from './_utils/types/git-authorization.types';
 import { DeployAgentService } from './deploy-agent.service';
@@ -159,6 +169,7 @@ export class DeployAgentController {
   @Protect()
   @Get('deployments')
   @ApiOperation({ summary: 'List all deployments for a project' })
+  @ApiQuery({ name: 'repo', required: false, type: String })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'UNAUTHORIZED' })
   @ApiResponse({
     status: HttpStatus.FORBIDDEN,
@@ -168,13 +179,14 @@ export class DeployAgentController {
   async listDeployments(
     @Param('projectId') projectId: string,
     @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
+    @Query() query: ListDeploymentsQueryDto,
   ): Promise<GetAgentDeploymentDto[]> {
-    return this.deployAgentService.listDeployments(projectId, user);
+    return this.deployAgentService.listDeployments(projectId, user, query.repo);
   }
 
   @Protect()
-  @Get('mongo/databases')
-  @ApiOperation({ summary: 'List Mongo databases created for a project' })
+  @Get('databases/:engine')
+  @ApiOperation({ summary: 'List databases created for a project by engine' })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'UNAUTHORIZED' })
   @ApiResponse({
     status: HttpStatus.FORBIDDEN,
@@ -186,14 +198,16 @@ export class DeployAgentController {
   })
   @ApiResponse({
     status: HttpStatus.SERVICE_UNAVAILABLE,
-    description: 'MONGO_INSTANCE_UNREACHABLE | MONGO_DATABASES_FETCH_FAILED',
+    description: 'DATABASE_INSTANCE_UNREACHABLE | DATABASES_FETCH_FAILED',
   })
   @ApiParam({ name: 'projectId', type: String })
-  async listMongoDatabases(
+  @ApiParam({ name: 'engine', enum: DatabaseType })
+  async listDatabases(
     @Param('projectId') projectId: string,
+    @Param('engine', new ParseEnumPipe(DatabaseType)) engine: DatabaseType,
     @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
-  ): Promise<GetMongoDatabaseDto[]> {
-    return this.deployAgentService.listMongoDatabases(projectId, user);
+  ): Promise<GetDatabaseDto[]> {
+    return this.deployAgentService.listDatabases(projectId, engine, user);
   }
 
   @Protect({ roles: [UserRoleEnum.ADMIN, UserRoleEnum.DEVELOPER] })
