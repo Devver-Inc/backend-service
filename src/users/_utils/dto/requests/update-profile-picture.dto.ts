@@ -1,3 +1,4 @@
+import { ApiProperty } from '@nestjs/swagger';
 import {
   HasMimeType,
   IsFile,
@@ -8,6 +9,7 @@ import { toMB } from 'src/_utils/file-size.helpers';
 import { IMAGES_MIME_TYPES } from 'src/_utils/mime-type.constants';
 
 export class UpdateProfilePictureDto {
+  @ApiProperty({ type: 'string', format: 'binary' })
   @IsFile()
   @MaxFileSize(toMB(8))
   @HasMimeType(IMAGES_MIME_TYPES)

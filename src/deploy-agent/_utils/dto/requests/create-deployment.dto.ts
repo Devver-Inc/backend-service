@@ -1,13 +1,18 @@
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
-  IsObject,
+  ArrayUnique,
+  IsBoolean,
+  IsArray,
+  IsEnum,
+  IsNotEmpty,
   IsOptional,
   IsString,
   Matches,
   MinLength,
   ValidateNested,
 } from 'class-validator';
+import { DatabaseLink, DatabaseType } from 'src/projects/project.types';
 import {
   BRANCH_PATTERN,
   COMMIT_PATTERN,
@@ -15,6 +20,7 @@ import {
 } from '../../constants/validation-patterns';
 import { ServiceConfig, Services } from '../../types/agent.types';
 import { ExactlyOneService } from '../../validators/exactly-one-service.validator';
+import { IsStringRecord } from '../../validators/is-string-record.validator';
 
 export class ServiceConfigDto implements ServiceConfig {
   @ApiPropertyOptional({ example: './apps/api' })
@@ -29,6 +35,7 @@ export class ServiceConfigDto implements ServiceConfig {
 
   @ApiPropertyOptional({ example: true })
   @IsOptional()
+  @IsBoolean()
   skipInstall?: boolean;
 
   @ApiPropertyOptional({ example: 'npm run build' })
@@ -37,10 +44,11 @@ export class ServiceConfigDto implements ServiceConfig {
   @MinLength(1)
   build?: string;
 
-  @ApiProperty({ example: 'npm run start:prod' })
+  @ApiPropertyOptional({ example: 'npm run start:prod' })
+  @IsOptional()
   @IsString()
   @MinLength(1)
-  start: string;
+  start?: string;
 }
 
 export class ServicesDto implements Services {
@@ -55,6 +63,22 @@ export class ServicesDto implements Services {
   @ValidateNested()
   @Type(() => ServiceConfigDto)
   web?: ServiceConfigDto;
+}
+
+export class DatabaseLinkDto implements DatabaseLink {
+  @ApiProperty({ example: 'DATABASE_URL' })
+  @IsString()
+  @Matches(/^[A-Za-z_][A-Za-z0-9_]*$/, { message: 'INVALID_ENV_NAME' })
+  env: string;
+
+  @ApiProperty({ enum: DatabaseType, example: DatabaseType.MONGO })
+  @IsEnum(DatabaseType)
+  engine: DatabaseType;
+
+  @ApiProperty({ example: 'myapp_prod' })
+  @IsString()
+  @IsNotEmpty()
+  database: string;
 }
 
 export class CreateAgentDeploymentDto {
@@ -81,27 +105,22 @@ export class CreateAgentDeploymentDto {
   service: ServicesDto;
 
   @ApiPropertyOptional({
-    type: 'object',
-    additionalProperties: {
-      type: 'object',
-      additionalProperties: { type: 'string' },
-    },
-    example: {
-      api: { DATABASE_SERVICE: 'database' },
-    },
+    type: () => DatabaseLinkDto,
+    isArray: true,
+    example: [
+      {
+        env: 'DATABASE_URL',
+        engine: DatabaseType.MONGO,
+        database: 'myapp_prod',
+      },
+    ],
   })
   @IsOptional()
-  @IsObject()
-  links?: Record<string, Record<string, string>>;
-
-  @ApiPropertyOptional({
-    type: 'object',
-    additionalProperties: { type: 'string' },
-    example: { DATABASE_URL: 'myapp_prod' },
-  })
-  @IsOptional()
-  @IsObject()
-  dbLinks?: Record<string, string>;
+  @IsArray()
+  @ArrayUnique((link: DatabaseLinkDto) => link.env)
+  @ValidateNested({ each: true })
+  @Type(() => DatabaseLinkDto)
+  dbLinks?: DatabaseLinkDto[];
 
   @ApiPropertyOptional({
     type: 'object',
@@ -109,6 +128,6 @@ export class CreateAgentDeploymentDto {
     example: { NODE_ENV: 'production', PORT: '3000' },
   })
   @IsOptional()
-  @IsObject()
+  @IsStringRecord()
   env?: Record<string, string>;
 }

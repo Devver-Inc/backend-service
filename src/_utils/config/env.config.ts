@@ -1,11 +1,13 @@
 import { Logger } from '@nestjs/common';
-import { plainToInstance, Transform, Type } from 'class-transformer';
+import { plainToInstance, Type } from 'class-transformer';
 import {
   IsBoolean,
   IsNumber,
   IsOptional,
   IsString,
   IsUrl,
+  MinLength,
+  ValidateIf,
   ValidateNested,
   validateSync,
 } from 'class-validator';
@@ -55,30 +57,30 @@ export class ServerConfig {
   FRONTEND_URL: string;
 }
 
-export class MinioConfig {
-  @IsString()
-  MINIO_ENDPOINT: string;
-
-  @Transform(({ value }) =>
-    value === null || value === undefined || value === ''
-      ? null
-      : Number(value),
-  )
-  @IsNumber()
+export class StorageConfig {
+  @IsUrl({ require_tld: false })
   @IsOptional()
-  MINIO_PORT?: number | null;
+  STORAGE_ENDPOINT?: string;
 
   @IsString()
-  MINIO_ACCESS_KEY: string;
+  STORAGE_REGION: string;
+
+  @ValidateIf((config: StorageConfig) => Boolean(config.STORAGE_SECRET_KEY))
+  @IsString()
+  STORAGE_ACCESS_KEY?: string;
+
+  @ValidateIf((config: StorageConfig) => Boolean(config.STORAGE_ACCESS_KEY))
+  @IsString()
+  STORAGE_SECRET_KEY?: string;
 
   @IsString()
-  MINIO_SECRET_KEY: string;
+  STORAGE_BUCKET: string;
 
-  @IsString()
-  MINIO_BUCKET_NAME: string;
+  @IsUrl({ require_tld: false })
+  STORAGE_PUBLIC_URL: string;
 
   @IsBoolean()
-  MINIO_USE_SSL: boolean;
+  STORAGE_FORCE_PATH_STYLE: boolean;
 }
 
 export class CorsConfig {
@@ -104,7 +106,14 @@ export class DeployAgentConfig {
   DEPLOY_AGENT_SECRET: string;
 
   @IsString()
+  @MinLength(32)
+  GIT_TOKEN_SECRET: string;
+
+  @IsString()
   K8S_BASE_DOMAIN: string;
+
+  @IsUrl({ require_tld: false })
+  GIT_AUTH_URL: string;
 }
 
 export class ArgoCdConfig {
@@ -134,8 +143,8 @@ export class EnvironmentVariables {
   SERVER: ServerConfig;
 
   @ValidateNested()
-  @Type(() => MinioConfig)
-  MINIO: MinioConfig;
+  @Type(() => StorageConfig)
+  STORAGE: StorageConfig;
 
   @ValidateNested()
   @Type(() => CorsConfig)
@@ -175,13 +184,16 @@ export function validateEnv(config: Record<string, unknown>) {
       NODE_ENV: config.NODE_ENV,
       FRONTEND_URL: config.FRONTEND_URL,
     },
-    MINIO: {
-      MINIO_ENDPOINT: config.MINIO_ENDPOINT,
-      MINIO_PORT: config.MINIO_PORT,
-      MINIO_ACCESS_KEY: config.MINIO_ACCESS_KEY,
-      MINIO_SECRET_KEY: config.MINIO_SECRET_KEY,
-      MINIO_BUCKET_NAME: config.MINIO_BUCKET_NAME,
-      MINIO_USE_SSL: parseEnvBoolean(config.MINIO_USE_SSL),
+    STORAGE: {
+      STORAGE_ENDPOINT: config.STORAGE_ENDPOINT,
+      STORAGE_REGION: config.STORAGE_REGION,
+      STORAGE_ACCESS_KEY: config.STORAGE_ACCESS_KEY,
+      STORAGE_SECRET_KEY: config.STORAGE_SECRET_KEY,
+      STORAGE_BUCKET: config.STORAGE_BUCKET,
+      STORAGE_PUBLIC_URL: config.STORAGE_PUBLIC_URL,
+      STORAGE_FORCE_PATH_STYLE: parseEnvBoolean(
+        config.STORAGE_FORCE_PATH_STYLE,
+      ),
     },
     CORS: {
       ALLOWED_ORIGINS: config.CORS_ALLOWED_ORIGINS
@@ -198,7 +210,9 @@ export function validateEnv(config: Record<string, unknown>) {
     },
     DEPLOY_AGENT: {
       DEPLOY_AGENT_SECRET: config.DEPLOY_AGENT_SECRET,
+      GIT_TOKEN_SECRET: config.GIT_TOKEN_SECRET,
       K8S_BASE_DOMAIN: config.K8S_BASE_DOMAIN,
+      GIT_AUTH_URL: config.GIT_AUTH_URL,
     },
     ENCRYPTION: {
       ENCRYPTION_KEY: config.ENCRYPTION_KEY,

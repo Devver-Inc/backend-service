@@ -9,7 +9,7 @@ import {
 } from 'src/logto/_utils/types/responses/responses.type';
 import { LogtoUserWithOrganizations } from 'src/logto/_utils/types/user-with-organization.type';
 import { LogtoRequests } from 'src/logto/logto.requests';
-import { MinioMapper } from 'src/minio/minio.mapper';
+import { StorageMapper } from 'src/storage/storage.mapper';
 import { UsersPaginatedQueryDto } from 'src/users/_utils/dto/query/user-paginated-query.dto';
 import { GetUserLightDto } from 'src/users/_utils/dto/responses/get-user-light.dto';
 import { UsersMapper } from 'src/users/user.mapper';
@@ -25,13 +25,13 @@ import { InvitationStatusEnum } from './_utils/enums/invitations-status.enum';
 import { UpdateInvitationStatusEnum } from './_utils/enums/update-invitations-status.enum';
 import { OrganizationDomain } from './organization.domain';
 import { OrganizationsMapper } from './organization.mapper';
-import { FileUploadService } from 'src/minio/file-upload.service';
+import { FileUploadService } from 'src/storage/file-upload.service';
 import { OrganizationsExceptions } from './_utils/errors/organizations-exceptions';
 import {
   LogtoRolesEnum,
   RoleTypeEnum,
 } from 'src/logto/_utils/types/roles.type';
-import { MinioService } from 'src/minio/minio.service';
+import { StorageService } from 'src/storage/storage.service';
 
 @Injectable()
 export class OrganizationsService {
@@ -40,8 +40,8 @@ export class OrganizationsService {
     private readonly logtoRequests: LogtoRequests,
     private readonly usersMapper: UsersMapper,
     private readonly fileUploadService: FileUploadService,
-    private readonly minioMapper: MinioMapper,
-    private readonly minioService: MinioService,
+    private readonly storageMapper: StorageMapper,
+    private readonly storageService: StorageService,
     private readonly exceptions: OrganizationsExceptions,
   ) {}
 
@@ -58,34 +58,32 @@ export class OrganizationsService {
       ),
     });
 
-    const fileMapping = createOrganizationDto.logoFile
-      ? [
-          {
-            file: createOrganizationDto.logoFile,
-            key: this.minioMapper.toOrganizationLogoKey(
-              organization.id,
-              createOrganizationDto.logoFile.extension,
-            ),
-          },
-        ]
-      : [];
+    const logoFile = createOrganizationDto.logoFile;
+    const logo = logoFile
+      ? this.storageMapper.createOrganizationLogoLocation(
+          organization.id,
+          logoFile.extension,
+        )
+      : undefined;
+    const fileMapping =
+      logo && logoFile
+        ? [
+            {
+              file: logoFile,
+              key: logo.key,
+            },
+          ]
+        : [];
 
     return this.fileUploadService.uploadFilesWithCleanup(
       fileMapping,
       async () => {
-        const logoUrl = createOrganizationDto.logoFile
-          ? this.minioMapper.toOrganizationLogoUrl(
-              organization.id,
-              createOrganizationDto.logoFile.extension,
-            )
-          : undefined;
-
         const updatedOrganization = await this.logtoRequests.updateOrganization(
           organization.id,
           {
             customData: {
               ...organization.customData,
-              ...(logoUrl && { logoUrl }),
+              ...(logo && { logoUrl: logo.url }),
             },
           },
         );
@@ -147,34 +145,40 @@ export class OrganizationsService {
     dto: UpdateOrganizationLogoDto,
   ): Promise<GetOrganizationLightDto> {
     const orgId = user.currentOrganization.id;
-    return this.fileUploadService.uploadFilesWithCleanup(
-      [
-        {
-          file: dto.logoFile,
-          key: this.minioMapper.toOrganizationLogoKey(
-            orgId,
-            dto.logoFile.extension,
-          ),
-        },
-      ],
-      async () => {
-        const updatedOrganization = await this.logtoRequests.updateOrganization(
-          orgId,
-          {
-            customData: {
-              ...user.currentOrganization.customData,
-              logoUrl: this.minioMapper.toOrganizationLogoUrl(
-                orgId,
-                dto.logoFile.extension,
-              ),
-            },
-          },
-        );
-        return this.organizationsMapper.toOrganizationLightDto(
-          updatedOrganization,
-        );
-      },
+    const logo = this.storageMapper.createOrganizationLogoLocation(
+      orgId,
+      dto.logoFile.extension,
     );
+    const previousLogoUrl = user.currentOrganization.customData.logoUrl;
+    const previousKey = previousLogoUrl
+      ? this.storageMapper.toObjectKeyFromPublicUrl(previousLogoUrl)
+      : null;
+    const updatedOrganization =
+      await this.fileUploadService.uploadFilesWithCleanup(
+        [
+          {
+            file: dto.logoFile,
+            key: logo.key,
+          },
+        ],
+        async () => {
+          const updatedOrganization =
+            await this.logtoRequests.updateOrganization(orgId, {
+              customData: {
+                ...user.currentOrganization.customData,
+                logoUrl: logo.url,
+              },
+            });
+          return this.organizationsMapper.toOrganizationLightDto(
+            updatedOrganization,
+          );
+        },
+      );
+
+    if (previousKey && previousKey !== logo.key) {
+      await this.storageService.deleteFiles([previousKey]);
+    }
+    return updatedOrganization;
   }
 
   async deleteOrganizationLogo(
@@ -182,7 +186,7 @@ export class OrganizationsService {
   ): Promise<GetOrganizationLightDto> {
     const currentLogoUrl = user.currentOrganization.customData.logoUrl;
     const logoKeyToDelete = currentLogoUrl
-      ? this.minioMapper.toObjectKeyFromPublicUrl(currentLogoUrl)
+      ? this.storageMapper.toObjectKeyFromPublicUrl(currentLogoUrl)
       : null;
 
     const updatedOrganization = await this.logtoRequests.updateOrganization(
@@ -196,7 +200,7 @@ export class OrganizationsService {
     );
 
     if (logoKeyToDelete) {
-      await this.minioService.deleteFiles([logoKeyToDelete]);
+      await this.storageService.deleteFiles([logoKeyToDelete]);
     }
 
     return this.organizationsMapper.toOrganizationLightDto(updatedOrganization);

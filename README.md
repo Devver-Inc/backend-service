@@ -2,7 +2,7 @@
 
 Backend API for Devver — a deployment and application management platform on Kubernetes.
 
-Built with **NestJS 11**, **MongoDB** (Mongoose), **MinIO** (S3-compatible storage), **Logto** (auth), **ArgoCD** (GitOps deploys).
+Built with **NestJS 11**, **MongoDB** (Mongoose), **S3-compatible object storage**, **Logto** (auth), **ArgoCD** (GitOps deploys).
 
 ## Prerequisites
 
@@ -30,7 +30,7 @@ cp .env.example .env
 
 ## Local Infrastructure (Docker Compose)
 
-The `docker-compose.yml` spins up **MongoDB** and **MinIO**:
+The `docker-compose.yml` spins up **MongoDB** and **RustFS**:
 
 ```bash
 docker compose up -d
@@ -39,8 +39,8 @@ docker compose up -d
 | Service | Port  | Access                                   |
 | ------- | ----- | ---------------------------------------- |
 | MongoDB | 27018 | `mongodb://localhost:27018`              |
-| MinIO   | 9000  | S3 API                                   |
-| MinIO   | 8900  | Console (`minioadmin` / `minioadmin123`) |
+| RustFS  | 9000  | S3 API                                   |
+| RustFS  | 9001  | Console (`rustfsadmin` / `rustfsadmin123`) |
 
 ## Environment Variables
 
@@ -55,19 +55,22 @@ docker compose up -d
 | `PORT`                      | Server       | API port (default: 3000)            |
 | `NODE_ENV`                  | Server       | `development` / `production`        |
 | `FRONTEND_URL`              | Server       | Frontend URL (for CORS and links)   |
-| `MINIO_ENDPOINT`            | MinIO        | MinIO host                          |
-| `MINIO_PORT`                | MinIO        | MinIO port (optional)               |
-| `MINIO_ACCESS_KEY`          | MinIO        | Access key                          |
-| `MINIO_SECRET_KEY`          | MinIO        | Secret key                          |
-| `MINIO_BUCKET_NAME`         | MinIO        | Bucket name                         |
-| `MINIO_USE_SSL`             | MinIO        | `true` / `false`                    |
+| `STORAGE_ENDPOINT`          | Storage      | Optional S3-compatible endpoint     |
+| `STORAGE_REGION`            | Storage      | S3 region                           |
+| `STORAGE_ACCESS_KEY`        | Storage      | Optional access key                 |
+| `STORAGE_SECRET_KEY`        | Storage      | Optional secret key                 |
+| `STORAGE_BUCKET`            | Storage      | Bucket name                         |
+| `STORAGE_PUBLIC_URL`        | Storage      | Public bucket base URL              |
+| `STORAGE_FORCE_PATH_STYLE`  | Storage      | Use path-style S3 URLs              |
 | `CORS_ALLOWED_ORIGINS`      | CORS         | Allowed origins (comma-separated)   |
 | `GITHUB_TOKEN`              | GitHub       | Personal access token               |
 | `GITHUB_OWNER`              | GitHub       | Manifests repository owner          |
 | `GITHUB_REPO`               | GitHub       | Manifests repository                |
 | `GITHUB_BRANCH`             | GitHub       | Target branch                       |
 | `DEPLOY_AGENT_SECRET`       | Deploy Agent | Shared secret with the deploy agent |
+| `GIT_TOKEN_SECRET`          | Deploy Agent | Backend-only Git token signing key  |
 | `K8S_BASE_DOMAIN`           | Deploy Agent | Base domain for K8s ingress         |
+| `GIT_AUTH_URL`              | Deploy Agent | Backend API URL including `/api/v1` |
 | `ARGOCD_BASE_URL`           | ArgoCD       | ArgoCD API URL                      |
 | `ARGOCD_API_KEY`            | ArgoCD       | ArgoCD API key                      |
 | `ENCRYPTION_KEY`            | Encryption   | Symmetric encryption key            |
@@ -124,7 +127,7 @@ src/
 ├── comments/                # Deployment comments
 ├── deploy-agent/            # Deploy agent communication
 ├── logto/                   # Authentication via Logto
-├── minio/                   # File uploads (S3/MinIO)
+├── storage/                 # S3-compatible object storage
 ├── organizations/           # Organization management
 ├── projects/                # Project management
 ├── users/                   # User management

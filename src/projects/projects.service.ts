@@ -16,8 +16,11 @@ import { GetProjectLightDto } from './_utils/dto/responses/get-project-light.dto
 import { ProjectsExceptions } from './_utils/errors/projects-exceptions';
 import { ProjectDomain } from './project.domain';
 import { ProjectsMapper } from './project.mapper';
-import { ManifestStatus, ProjectDocument } from './project.schema';
+import { ProjectDocument } from './project.schema';
+import { DatabaseLink, DatabaseType, ManifestStatus } from './project.types';
 import { ProjectsRepository } from './projects.repository';
+import { ProjectValuesYamlGenerator } from './infrastructure/project-values-yaml.generator';
+import { MongoDbProvider } from './infrastructure/database-provider/mongo.provider';
 
 @Injectable()
 export class ProjectsService {
@@ -31,6 +34,8 @@ export class ProjectsService {
     private readonly githubService: GitHubService,
     private readonly configService: ConfigService<EnvironmentVariables, true>,
     private readonly encryptionService: EncryptionService,
+    private readonly yamlGenerator: ProjectValuesYamlGenerator,
+    private readonly mongoProvider: MongoDbProvider,
   ) {}
 
   async createProject(
@@ -47,9 +52,12 @@ export class ProjectsService {
 
     this.assertDatabaseRequestsAreValid(dto);
 
-    const encryptedMongoRootPassword = dto.databaseConfiguration
-      ? this.encryptionService.encryptString(
-          dto.databaseConfiguration.rootPassword,
+    const encryptedDatabasePasswords = dto.databaseConfigurations
+      ? new Map(
+          dto.databaseConfigurations.map((configuration) => [
+            configuration.type,
+            this.encryptionService.encryptString(configuration.password),
+          ]),
         )
       : undefined;
     const domain = ProjectDomain.create(
@@ -57,76 +65,59 @@ export class ProjectsService {
       organizationId,
       user.id,
       organizationName,
-      encryptedMongoRootPassword,
+      encryptedDatabasePasswords,
     );
     const project = await this.projectsRepository.create(domain);
 
-    try {
-      const devverSecret = this.configService.get('DEPLOY_AGENT', {
-        infer: true,
-      }).DEPLOY_AGENT_SECRET;
-      const databaseConnectionString = dto.databaseConfiguration
-        ? domain.buildDatabaseConnectionString(
-            organizationName,
-            dto.databaseConfiguration.rootPassword,
-          )
-        : undefined;
-      const yamlContent = domain.toValuesYaml(
-        organizationName,
-        devverSecret,
-        databaseConnectionString,
-      );
-      await this.githubService.pushValuesYaml(
-        organizationName,
-        dto.name,
-        yamlContent,
-      );
-
-      await this.projectsRepository.updateDeploymentManifestStatus(
-        project._id.toString(),
-        ManifestStatus.PUSHED,
-      );
-
-      this.logger.log(
-        `values.yaml pushed for project ${dto.name} (org: ${organizationName})`,
-      );
-    } catch (error) {
-      this.logger.error('Failed to push values.yaml to GitHub:', error);
-      await this.projectsRepository.updateDeploymentManifestStatus(
-        project._id.toString(),
-        ManifestStatus.FAILED,
-      );
-      if (dto.databaseConfiguration) {
+    if (!(await this.publishProjectManifest(project, organizationName))) {
+      for (const configuration of domain.databaseConfigurations ?? []) {
         await this.projectsRepository.updateDatabaseManifestStatus(
           project._id.toString(),
+          configuration.name,
           ManifestStatus.FAILED,
         );
       }
       return this.projectsMapper.toProjectLightDto(project);
     }
 
-    if (dto.databaseConfiguration) {
+    for (const configuration of domain.databaseConfigurations ?? []) {
+      const requestConfiguration = dto.databaseConfigurations?.find(
+        (candidate) => candidate.type === configuration.type,
+      );
+      if (!requestConfiguration) continue;
+
       try {
-        const mongoYamlContent = domain.toMongoValuesYaml(
-          organizationName,
-          dto.databaseConfiguration.rootPassword,
-        );
-        await this.githubService.pushMongoValuesYaml(
+        const mongoYamlContent = this.mongoProvider.generateValuesYaml(
           organizationName,
           dto.name,
+          {
+            ...configuration,
+            rootUsername: configuration.username,
+            rootPassword: requestConfiguration.password,
+          },
+        );
+        await this.githubService.pushDatabaseValuesYaml(
+          organizationName,
+          dto.name,
+          configuration.name,
           mongoYamlContent,
         );
         await this.projectsRepository.updateDatabaseManifestStatus(
           project._id.toString(),
+          configuration.name,
           ManifestStatus.PUSHED,
         );
         this.logger.log(
-          `values-db.yaml pushed for project ${dto.name} (org: ${organizationName})`,
+          `values-${configuration.name}.yaml pushed for project ${dto.name} (org: ${organizationName})`,
         );
       } catch (error) {
-        this.logger.error('Failed to push values-db.yaml to GitHub:', error);
+        this.logger.error(
+          `Failed to push values-${configuration.name}.yaml to GitHub:`,
+          error,
+        );
         await this.projectsRepository.updateDatabaseManifestStatus(
           project._id.toString(),
+          configuration.name,
           ManifestStatus.FAILED,
         );
       }
@@ -137,6 +128,37 @@ export class ProjectsService {
 
   findProjectById = (projectId: string): Promise<ProjectDocument> =>
     this.projectsRepository.findById(projectId);
+
+  async resolveDatabaseLinks(
+    projectId: string,
+    organizationName: string,
+    databaseLinks: DatabaseLink[],
+  ): Promise<Record<string, string> | undefined> {
+    const project = await this.projectsRepository.findById(projectId);
+    const resolvedLinks: Record<string, string> = {};
+
+    for (const link of databaseLinks) {
+      const databaseConfig = project.databaseConfigurations?.find(
+        (configuration) =>
+          configuration.type === link.engine && configuration.enabled,
+      );
+      if (!databaseConfig) return undefined;
+
+      if (link.engine !== DatabaseType.MONGO) {
+        throw this.exceptions.DATABASE_TYPE_NOT_SUPPORTED;
+      }
+
+      resolvedLinks[link.env] = this.mongoProvider.buildConnectionString(
+        organizationName,
+        project.name,
+        databaseConfig.username,
+        this.encryptionService.decryptString(databaseConfig.passwordEncrypted),
+        link.database,
+      );
+    }
+
+    return resolvedLinks;
+  }
 
   findByProjectAndOrganizationId = (
     projectId: string,
@@ -188,35 +210,7 @@ export class ProjectsService {
     const project = await this.getProjectWithAccessCheck(projectId, user);
     const updated = await this.updateAndSave(project, (d) => d.update(dto));
 
-    try {
-      const organizationName = user.currentOrganization.name;
-      const domain = ProjectDomain.fromDocument(updated);
-      const devverSecret = this.configService.get('DEPLOY_AGENT', {
-        infer: true,
-      }).DEPLOY_AGENT_SECRET;
-      const databaseConnectionString = updated.databaseConfiguration
-        ? domain.buildDatabaseConnectionString(
-            organizationName,
-            this.encryptionService.decryptString(
-              updated.databaseConfiguration.rootPasswordEncrypted,
-            ),
-          )
-        : undefined;
-      await this.githubService.pushValuesYaml(
-        organizationName,
-        domain.name,
-        domain.toValuesYaml(
-          organizationName,
-          devverSecret,
-          databaseConnectionString,
-        ),
-      );
-      this.logger.log(
-        `values.yaml updated for project ${domain.name} (org: ${organizationName})`,
-      );
-    } catch (error) {
-      this.logger.error('Failed to update values.yaml on GitHub:', error);
-    }
+    await this.publishProjectManifest(updated, user.currentOrganization.name);
 
     return this.toFullProjectDto(updated);
   }
@@ -231,10 +225,12 @@ export class ProjectsService {
     // Delete GitHub manifests first so a failure here aborts the operation
     // before the DB record is removed, keeping the two stores consistent.
     await this.githubService.deleteValuesYaml(organizationName, project.name);
-    if (project.databaseConfiguration?.enabled) {
-      await this.githubService.deleteMongoValuesYaml(
+    for (const configuration of project.databaseConfigurations ?? []) {
+      if (!configuration.enabled) continue;
+      await this.githubService.deleteDatabaseValuesYaml(
         organizationName,
         project.name,
+        configuration.name,
       );
     }
     this.logger.log(
@@ -266,7 +262,7 @@ export class ProjectsService {
     user: LogtoUserWithOrganizations,
   ): Promise<GetProjectDto> {
     const project = await this.getProjectWithAccessCheck(projectId, user);
-    const domain = ProjectDomain.fromDocument(project);
+    const domain = ProjectDomain.from(project);
 
     if (!domain.isTeamMember(userId)) {
       throw this.exceptions.USER_NOT_TEAM_MEMBER;
@@ -295,7 +291,7 @@ export class ProjectsService {
         projectId,
         organizationId,
       );
-    const domain = ProjectDomain.fromDocument(project);
+    const domain = ProjectDomain.from(project);
 
     if (!user.isAdmin && !domain.isTeamMember(user.id)) {
       throw this.exceptions.PROJECT_ACCESS_DENIED;
@@ -325,14 +321,78 @@ export class ProjectsService {
     }
   }
 
+  private async publishProjectManifest(
+    project: ProjectDocument,
+    organizationName: string,
+  ): Promise<boolean> {
+    const projectId = project._id.toString();
+    try {
+      const deployAgentConfig = this.configService.get('DEPLOY_AGENT', {
+        infer: true,
+      });
+      const databaseConnectionStrings = this.buildDatabaseConnectionStrings(
+        project,
+        organizationName,
+      );
+      await this.githubService.pushValuesYaml(
+        organizationName,
+        project.name,
+        this.yamlGenerator.generateAppValues(
+          organizationName,
+          project.name,
+          project.machineConfiguration,
+          deployAgentConfig.DEPLOY_AGENT_SECRET,
+          projectId,
+          deployAgentConfig.GIT_AUTH_URL,
+          databaseConnectionStrings,
+        ),
+      );
+      await this.projectsRepository.updateDeploymentManifestStatus(
+        projectId,
+        ManifestStatus.PUSHED,
+      );
+      this.logger.log(
+        `values.yaml pushed for project ${project.name} (org: ${organizationName})`,
+      );
+      return true;
+    } catch (error) {
+      this.logger.error('Failed to push values.yaml to GitHub:', error);
+      await this.projectsRepository.updateDeploymentManifestStatus(
+        projectId,
+        ManifestStatus.FAILED,
+      );
+      return false;
+    }
+  }
+
   private async updateAndSave(
     project: ProjectDocument,
     updater: (domain: ProjectDomain) => ProjectDomain,
   ): Promise<ProjectDocument> {
-    const domain = ProjectDomain.fromDocument(project);
+    const domain = ProjectDomain.from(project);
     const updated = updater(domain);
     Object.assign(project, updated);
     return this.projectsRepository.save(project);
+  }
+
+  private buildDatabaseConnectionStrings(
+    project: ProjectDocument,
+    organizationName: string,
+  ): Partial<Record<DatabaseType, string>> {
+    const mongoConfig = project.databaseConfigurations?.find(
+      (configuration) =>
+        configuration.type === DatabaseType.MONGO && configuration.enabled,
+    );
+    if (!mongoConfig) return {};
+
+    return {
+      [DatabaseType.MONGO]: this.mongoProvider.buildConnectionString(
+        organizationName,
+        project.name,
+        mongoConfig.username,
+        this.encryptionService.decryptString(mongoConfig.passwordEncrypted),
+      ),
+    };
   }
 
   private async toFullProjectDto(
@@ -355,16 +415,26 @@ export class ProjectsService {
   }
 
   private assertDatabaseRequestsAreValid(dto: CreateProjectDto): void {
-    if (!dto.databaseConfiguration) {
+    if (!dto.databaseConfigurations?.length) {
       return;
     }
 
-    if (dto.databaseConfiguration.ram < 0.5) {
-      throw this.exceptions.INVALID_DATABASE_MEMORY_REQUEST;
-    }
+    const types = new Set<DatabaseType>();
+    for (const configuration of dto.databaseConfigurations) {
+      if (types.has(configuration.type)) {
+        throw this.exceptions.DUPLICATE_DATABASE_TYPE;
+      }
+      types.add(configuration.type);
 
-    if (dto.databaseConfiguration.cpuCores < 0.1) {
-      throw this.exceptions.INVALID_DATABASE_CPU_REQUEST;
+      if (configuration.type !== DatabaseType.MONGO) {
+        throw this.exceptions.DATABASE_TYPE_NOT_SUPPORTED;
+      }
+      if (configuration.ram < 0.5) {
+        throw this.exceptions.INVALID_DATABASE_MEMORY_REQUEST;
+      }
+      if (configuration.cpuCores < 0.1) {
+        throw this.exceptions.INVALID_DATABASE_CPU_REQUEST;
+      }
     }
   }
 }

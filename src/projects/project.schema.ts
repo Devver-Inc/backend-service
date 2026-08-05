@@ -1,22 +1,12 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument } from 'mongoose';
+import {
+  DatabaseType,
+  ManifestStatus,
+  OverlayCommentPermission,
+} from './project.types';
 
 export type ProjectDocument = HydratedDocument<Project>;
-
-export enum ManifestStatus {
-  PENDING = 'pending',
-  PUSHED = 'pushed',
-  FAILED = 'failed',
-}
-
-export enum DatabaseType {
-  MONGO = 'mongo',
-}
-
-export enum OverlayCommentPermission {
-  TEAM_ONLY = 'team_only',
-  EMAIL_REQUIRED = 'email_required',
-}
 
 @Schema({ _id: false })
 export class MachineConfiguration {
@@ -63,6 +53,9 @@ export const DeploymentConfigSchema =
 
 @Schema({ _id: false })
 export class DatabaseDeploymentConfig {
+  @Prop({ type: String, required: true })
+  name: string;
+
   @Prop({
     type: String,
     enum: Object.values(DatabaseType),
@@ -84,10 +77,10 @@ export class DatabaseDeploymentConfig {
   manifestStatus: ManifestStatus;
 
   @Prop({ required: true })
-  rootUsername: string;
+  username: string;
 
   @Prop({ required: true })
-  rootPasswordEncrypted: string;
+  passwordEncrypted: string;
 
   @Prop({ required: true, min: 1, max: 3 })
   replicaCount: number;
@@ -132,8 +125,8 @@ export class Project {
   @Prop({ type: DeploymentConfigSchema, required: false })
   deploymentConfig?: DeploymentConfig;
 
-  @Prop({ type: DatabaseDeploymentConfigSchema, required: false })
-  databaseConfiguration?: DatabaseDeploymentConfig;
+  @Prop({ type: [DatabaseDeploymentConfigSchema], required: false })
+  databaseConfigurations?: DatabaseDeploymentConfig[];
 
   createdAt: Date;
   updatedAt: Date;

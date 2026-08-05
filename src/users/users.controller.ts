@@ -7,7 +7,12 @@ import {
   Patch,
   Post,
 } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiConsumes,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { FormDataRequest } from 'nestjs-form-data';
 import { ConnectedUser } from 'src/logto/_utils/decorator/connected-user.decorator';
 import { LogtoUser } from 'src/logto/_utils/types/responses/responses.type';
@@ -44,6 +49,7 @@ export class UsersController {
   @Protect()
   @Post('me/picture')
   @FormDataRequest()
+  @ApiConsumes('multipart/form-data')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Upload profile picture for current user' })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'UNAUTHORIZED' })

@@ -5,7 +5,7 @@ import { MemoryStoredFile, NestjsFormDataModule } from 'nestjs-form-data';
 import { EnvironmentVariables, validateEnv } from './_utils/config/env.config';
 import { GitHubModule } from './_shared/github/github.module';
 import { CommentsModule } from './comments/comments.module';
-import { MinioModule } from './minio/minio.module';
+import { StorageModule } from './storage/storage.module';
 import { ProjectsModule } from './projects/projects.module';
 import { UsersModule } from './users/users.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
@@ -30,7 +30,7 @@ import { EncryptionModule } from './_utils/encryption/encryption.module';
     GitHubModule,
     UsersModule,
     WebhooksModule,
-    MinioModule,
+    StorageModule,
     ProjectsModule,
     CommentsModule,
     DeployAgentModule,

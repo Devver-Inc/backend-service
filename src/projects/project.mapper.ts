@@ -41,20 +41,19 @@ export class ProjectsMapper {
     overlayAccessControl: {
       commentPermission: project.overlayAccessControl?.commentPermission,
     },
-    databaseConfiguration: project.databaseConfiguration
-      ? {
-          type: project.databaseConfiguration.type,
-          enabled: project.databaseConfiguration.enabled,
-          rootUsername: project.databaseConfiguration.rootUsername,
-          hasRootPassword: Boolean(
-            project.databaseConfiguration.rootPasswordEncrypted,
-          ),
-          replicaCount: project.databaseConfiguration.replicaCount,
-          ram: project.databaseConfiguration.ram,
-          cpuCores: project.databaseConfiguration.cpuCores,
-          storage: project.databaseConfiguration.storage,
-        }
-      : null,
+    databaseConfigurations: (project.databaseConfigurations ?? []).map(
+      (configuration) => ({
+        name: configuration.name,
+        type: configuration.type,
+        enabled: configuration.enabled,
+        username: configuration.username,
+        hasPassword: Boolean(configuration.passwordEncrypted),
+        replicaCount: configuration.replicaCount,
+        ram: configuration.ram,
+        cpuCores: configuration.cpuCores,
+        storage: configuration.storage,
+      }),
+    ),
     createdAt: project.createdAt,
     updatedAt: project.updatedAt,
   });

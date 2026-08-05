@@ -121,13 +121,14 @@ export class GitHubService {
     await this.createOrUpdateFile(path, yamlContent, message);
   }
 
-  async pushMongoValuesYaml(
+  async pushDatabaseValuesYaml(
     organizationName: string,
     projectName: string,
+    databaseName: string,
     yamlContent: string,
   ): Promise<void> {
-    const path = `${toSlug(organizationName)}/${toSlug(projectName)}/values-mongo.yaml`;
-    const message = `Deploy Mongo for ${projectName} for ${organizationName}`;
+    const path = `${toSlug(organizationName)}/${toSlug(projectName)}/values-${toSlug(databaseName)}.yaml`;
+    const message = `Deploy ${databaseName} for ${projectName} for ${organizationName}`;
 
     await this.createOrUpdateFile(path, yamlContent, message);
   }
@@ -200,12 +201,13 @@ export class GitHubService {
     await this.deleteFile(path, message);
   }
 
-  async deleteMongoValuesYaml(
+  async deleteDatabaseValuesYaml(
     organizationName: string,
     projectName: string,
+    databaseName: string,
   ): Promise<void> {
-    const path = `${toSlug(organizationName)}/${toSlug(projectName)}/values-mongo.yaml`;
-    const message = `Remove Mongo for ${projectName} from ${organizationName}`;
+    const path = `${toSlug(organizationName)}/${toSlug(projectName)}/values-${toSlug(databaseName)}.yaml`;
+    const message = `Remove ${databaseName} for ${projectName} from ${organizationName}`;
     await this.deleteFile(path, message);
   }
 

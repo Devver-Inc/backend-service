@@ -7,7 +7,7 @@ import {
   Max,
   Min,
 } from 'class-validator';
-import { DatabaseType } from 'src/projects/project.schema';
+import { DatabaseType } from 'src/projects/project.types';
 
 export class DatabaseConfigurationDto {
   @IsEnum(DatabaseType)
@@ -15,11 +15,11 @@ export class DatabaseConfigurationDto {
 
   @IsString()
   @IsNotEmpty()
-  rootUsername: string;
+  username: string;
 
   @IsString()
   @IsNotEmpty()
-  rootPassword: string;
+  password: string;
 
   @IsInt()
   @Min(1)

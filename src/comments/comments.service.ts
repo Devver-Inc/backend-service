@@ -42,7 +42,7 @@ export class CommentsService {
   ): Promise<PaginationDto<GetCommentDto[]>> {
     const project = await this.findProject(projectId, user);
 
-    const projectDomain = ProjectDomain.fromDocument(project);
+    const projectDomain = ProjectDomain.from(project);
 
     if (!projectDomain.authorizeRead(user?.id, user?.isAdmin ?? false)) {
       throw this.exceptions.COMMENT_ACCESS_DENIED;
@@ -74,7 +74,7 @@ export class CommentsService {
   ): Promise<GetCommentDto> {
     const project = await this.findProject(projectId, user);
 
-    const projectDomain = ProjectDomain.fromDocument(project);
+    const projectDomain = ProjectDomain.from(project);
     const authorization = projectDomain.authorizeComment(
       user?.id,
       user?.isAdmin ?? false,

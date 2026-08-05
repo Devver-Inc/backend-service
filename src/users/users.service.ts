@@ -2,9 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { LogtoUser } from 'src/logto/_utils/types/responses/responses.type';
 import { LogtoRequests } from 'src/logto/logto.requests';
 import { LogtoService } from 'src/logto/logto.service';
-import { FileUploadService } from 'src/minio/file-upload.service';
-import { MinioMapper } from 'src/minio/minio.mapper';
-import { MinioService } from 'src/minio/minio.service';
+import { FileUploadService } from 'src/storage/file-upload.service';
+import { StorageMapper } from 'src/storage/storage.mapper';
+import { StorageService } from 'src/storage/storage.service';
 import { UpdateAccountDto } from './_utils/dto/requests/update-account.dto';
 import { UpdateProfilePictureDto } from './_utils/dto/requests/update-profile-picture.dto';
 
@@ -14,8 +14,8 @@ export class UsersService {
     private readonly logtoService: LogtoService,
     private readonly logtoRequests: LogtoRequests,
     private readonly fileUploadService: FileUploadService,
-    private readonly minioMapper: MinioMapper,
-    private readonly minioService: MinioService,
+    private readonly storageMapper: StorageMapper,
+    private readonly storageService: StorageService,
   ) {}
 
   async findManyByIds(ids: string[]): Promise<Map<string, LogtoUser>> {
@@ -36,36 +36,35 @@ export class UsersService {
   }
 
   async uploadProfilePicture(user: LogtoUser, dto: UpdateProfilePictureDto) {
-    const profilePictureKey = this.minioMapper.toUserProfilePictureKey(
+    const picture = this.storageMapper.createUserProfilePictureLocation(
       user.id,
       dto.profilePictureFile.extension,
     );
+    const previousKey = user.avatar
+      ? this.storageMapper.toObjectKeyFromPublicUrl(user.avatar)
+      : null;
 
     await this.fileUploadService.uploadFilesWithCleanup(
-      [{ file: dto.profilePictureFile, key: profilePictureKey }],
+      [{ file: dto.profilePictureFile, key: picture.key }],
       async () => {
-        await this.logtoRequests.updateUserProfilePicture(
-          user.id,
-          this.minioMapper.toGetProfilePictureUrl(
-            user.id,
-            dto.profilePictureFile.extension,
-          ),
-        );
+        await this.logtoRequests.updateUserProfilePicture(user.id, picture.url);
       },
     );
+
+    if (previousKey && previousKey !== picture.key) {
+      await this.storageService.deleteFiles([previousKey]);
+    }
   }
 
   async deleteProfilePicture(user: LogtoUser) {
-    const picture =
-      (user as unknown as { picture?: string | null }).picture ?? null;
-    const objectKey = picture
-      ? this.minioMapper.toObjectKeyFromPublicUrl(picture)
+    const objectKey = user.avatar
+      ? this.storageMapper.toObjectKeyFromPublicUrl(user.avatar)
       : null;
 
     await this.logtoRequests.updateUserProfilePicture(user.id, null);
 
     if (objectKey) {
-      await this.minioService.deleteFiles([objectKey]);
+      await this.storageService.deleteFiles([objectKey]);
     }
   }
 }

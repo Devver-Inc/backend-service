@@ -2,6 +2,7 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument } from 'mongoose';
 import { Services } from '../_utils/types/agent.types';
 import { AgentDeploymentStatus } from '../_utils/types/deployment.types';
+import { DatabaseLink } from 'src/projects/project.types';
 
 export type { Services };
 export { AgentDeploymentStatus };
@@ -34,11 +35,8 @@ export class Deployment {
   @Prop({ type: Object, required: true })
   service: Services;
 
-  @Prop({ type: Object })
-  links?: Record<string, Record<string, string>>;
-
-  @Prop({ type: Object })
-  dbLinks?: Record<string, string>;
+  @Prop({ type: [Object] })
+  dbLinks?: DatabaseLink[];
 
   @Prop({ type: Object })
   env?: Record<string, string>;

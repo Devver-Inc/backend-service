@@ -1,12 +1,17 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  HttpException,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Response } from 'express';
 import { EncryptionService } from 'src/_utils/encryption/encryption.service';
 import { EnvironmentVariables } from 'src/_utils/config/env.config';
 import { toSlug } from 'src/_utils/functions/to-slug.function';
 import { LogtoUserWithOrganizations } from 'src/logto/_utils/types/user-with-organization.type';
-import { ProjectDomain } from 'src/projects/project.domain';
 import { ProjectsService } from 'src/projects/projects.service';
+import { DatabaseType } from 'src/projects/project.types';
 import { ControlPm2ProcessDto } from './_utils/dto/requests/control-pm2-process.dto';
 import { CreateAgentDeploymentDto } from './_utils/dto/requests/create-deployment.dto';
 import { CreateRepoDto } from './_utils/dto/requests/create-repo.dto';
@@ -16,26 +21,21 @@ import {
   GetLogsDto,
   RestoreResultDto,
 } from './_utils/dto/responses/get-deployment.dto';
-import { GetMongoDatabaseDto } from './_utils/dto/responses/get-mongo-database.dto';
+import { GetDatabaseDto } from './_utils/dto/responses/get-database.dto';
 import { GetRepoDto } from './_utils/dto/responses/get-repo.dto';
 import { DeployAgentExceptions } from './_utils/errors/deploy-agent-exceptions';
 import {
   AgentErrorCode,
-  DeployRequest,
   DeployResponse,
   ErrorResponse,
 } from './_utils/types/agent.types';
-import { AgentDeploymentStatus } from './_utils/types/deployment.types';
+import {
+  AgentDeploymentStatus,
+  PreparedDeployment,
+} from './_utils/types/deployment.types';
 import { DeployAgentMapper } from './deploy-agent.mapper';
 import { DeployAgentRepository } from './deploy-agent.repository';
 import { DeployAgentRequests } from './deploy-agent.requests';
-
-interface PreparedDeployment {
-  agentUrl: string;
-  argoAppName: string;
-  deployAgentBody: DeployRequest;
-  mergedEnv?: Record<string, string>;
-}
 
 @Injectable()
 export class DeployAgentService {
@@ -51,7 +51,8 @@ export class DeployAgentService {
     private readonly exceptions: DeployAgentExceptions,
     configService: ConfigService<EnvironmentVariables, true>,
   ) {
-    this.baseDomain = configService.get('DEPLOY_AGENT').K8S_BASE_DOMAIN;
+    const deployAgentConfig = configService.get('DEPLOY_AGENT');
+    this.baseDomain = deployAgentConfig.K8S_BASE_DOMAIN;
   }
 
   private buildAgentUrl = (orgName: string, projectName: string): string =>
@@ -62,30 +63,19 @@ export class DeployAgentService {
     dto: CreateAgentDeploymentDto,
     user: LogtoUserWithOrganizations,
   ): Promise<Record<string, string>> => {
-    if (!dto.dbLinks || Object.keys(dto.dbLinks).length === 0) {
+    if (!dto.dbLinks?.length) {
       return {};
     }
 
-    const project = await this.projectsService.findProjectById(projectId);
-    if (!project.databaseConfiguration?.enabled) {
+    const links = await this.projectsService.resolveDatabaseLinks(
+      projectId,
+      user.currentOrganization.name,
+      dto.dbLinks,
+    );
+    if (!links) {
       throw this.exceptions.DATABASE_NOT_ENABLED;
     }
-
-    const rootPassword = this.encryptionService.decryptString(
-      project.databaseConfiguration.rootPasswordEncrypted,
-    );
-
-    const projectDomain = ProjectDomain.fromDocument(project);
-    const envLinks: Record<string, string> = {};
-    for (const [envKey, databaseName] of Object.entries(dto.dbLinks)) {
-      envLinks[envKey] = projectDomain.buildDatabaseConnectionString(
-        user.currentOrganization.name,
-        rootPassword,
-        databaseName,
-      );
-    }
-
-    return envLinks;
+    return links;
   };
 
   private getAgentUrl = (projectId: string, orgName: string): Promise<string> =>
@@ -156,10 +146,9 @@ export class DeployAgentService {
       repo: dto.repo,
       branch: dto.branch,
       deploymentId: result.deploymentId,
-      commit: dto.commit,
+      commit: result.commit,
       argoAppName: prepared.argoAppName,
       service: dto.service,
-      links: dto.links,
       dbLinks: dto.dbLinks,
       env: encryptedEnv,
       status: AgentDeploymentStatus.DEPLOYED,
@@ -178,15 +167,12 @@ export class DeployAgentService {
 
   private toDeployStreamError(err: unknown): ErrorResponse {
     const response =
-      err && typeof err === 'object' && 'getResponse' in err
-        ? (err as { getResponse: () => unknown }).getResponse()
-        : undefined;
+      err instanceof HttpException ? err.getResponse() : undefined;
 
     if (
       response &&
       typeof response === 'object' &&
-      'success' in response &&
-      (response as { success?: unknown }).success === false
+      (response as Partial<ErrorResponse>).success === false
     ) {
       return response as ErrorResponse;
     }
@@ -227,6 +213,7 @@ export class DeployAgentService {
   listDeployments = async (
     projectId: string,
     user: LogtoUserWithOrganizations,
+    repo?: string,
   ): Promise<GetAgentDeploymentDto[]> => {
     await this.verifyProjectOwnership(projectId, user);
     const agentUrl = await this.getAgentUrl(
@@ -234,18 +221,24 @@ export class DeployAgentService {
       user.currentOrganization.name,
     );
     return this.deployAgentRequests
-      .listDeployments(agentUrl)
+      .listDeployments(agentUrl, repo)
       .then((items) => items.map(this.deployAgentMapper.toAgentDeploymentDto));
   };
 
-  listMongoDatabases = async (
+  listDatabases = async (
     projectId: string,
+    engine: DatabaseType,
     user: LogtoUserWithOrganizations,
-  ): Promise<GetMongoDatabaseDto[]> => {
+  ): Promise<GetDatabaseDto[]> => {
     await this.verifyProjectOwnership(projectId, user);
     const project = await this.projectsService.findProjectById(projectId);
 
-    if (!project.databaseConfiguration?.enabled) {
+    if (
+      !project.databaseConfigurations?.some(
+        (configuration) =>
+          configuration.type === engine && configuration.enabled,
+      )
+    ) {
       throw this.exceptions.DATABASE_NOT_ENABLED;
     }
 
@@ -254,7 +247,7 @@ export class DeployAgentService {
       project.name,
     );
 
-    return this.deployAgentRequests.listMongoDatabases(agentUrl);
+    return this.deployAgentRequests.listDatabases(agentUrl, engine);
   };
 
   getLogs = async (
@@ -270,44 +263,37 @@ export class DeployAgentService {
     return this.deployAgentRequests.getLogs(agentUrl, deploymentId);
   };
 
-  startProcess = async (
+  private controlProcess = async (
     projectId: string,
     dto: ControlPm2ProcessDto,
     user: LogtoUserWithOrganizations,
+    action: 'start' | 'stop' | 'restart',
   ): Promise<ControlPm2ProcessResultDto> => {
     await this.verifyProjectOwnership(projectId, user);
     const agentUrl = await this.getAgentUrl(
       projectId,
       user.currentOrganization.name,
     );
-    return this.deployAgentRequests.startProcess(agentUrl, dto.name);
+    return this.deployAgentRequests[`${action}Process`](agentUrl, dto.name);
   };
 
-  stopProcess = async (
+  startProcess = (
     projectId: string,
     dto: ControlPm2ProcessDto,
     user: LogtoUserWithOrganizations,
-  ): Promise<ControlPm2ProcessResultDto> => {
-    await this.verifyProjectOwnership(projectId, user);
-    const agentUrl = await this.getAgentUrl(
-      projectId,
-      user.currentOrganization.name,
-    );
-    return this.deployAgentRequests.stopProcess(agentUrl, dto.name);
-  };
+  ) => this.controlProcess(projectId, dto, user, 'start');
 
-  restartProcess = async (
+  stopProcess = (
     projectId: string,
     dto: ControlPm2ProcessDto,
     user: LogtoUserWithOrganizations,
-  ): Promise<ControlPm2ProcessResultDto> => {
-    await this.verifyProjectOwnership(projectId, user);
-    const agentUrl = await this.getAgentUrl(
-      projectId,
-      user.currentOrganization.name,
-    );
-    return this.deployAgentRequests.restartProcess(agentUrl, dto.name);
-  };
+  ) => this.controlProcess(projectId, dto, user, 'stop');
+
+  restartProcess = (
+    projectId: string,
+    dto: ControlPm2ProcessDto,
+    user: LogtoUserWithOrganizations,
+  ) => this.controlProcess(projectId, dto, user, 'restart');
 
   createRepo = async (
     projectId: string,

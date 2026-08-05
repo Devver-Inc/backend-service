@@ -1,36 +1,16 @@
-// project.domain.ts
-import { dump } from 'js-yaml';
 import { toSlug } from 'src/_utils/functions/to-slug.function';
-import { CreateProjectDto } from './_utils/dto/requests/create-project.dto';
-import { UpdateProjectDto } from './_utils/dto/requests/update-project.dto';
 import {
-  MachineConfiguration,
+  CommentAuthorization,
+  CreateProjectData,
   DatabaseDeploymentConfig,
+  DeploymentConfig,
+  MachineConfiguration,
+  ManifestStatus,
   OverlayAccessControl,
   OverlayCommentPermission,
-  DeploymentConfig,
-  ManifestStatus,
-  ProjectDocument,
-} from './project.schema';
-
-interface CommentAuthorization {
-  allowed: boolean;
-  emailToPersist?: string;
-}
-
-interface ProjectDomainProps {
-  name: string;
-  description?: string;
-  organizationId: string;
-  createdBy: string;
-  machineConfiguration: MachineConfiguration;
-  teamMemberIds: string[];
-  overlayAccessControl: OverlayAccessControl;
-  deploymentConfig?: DeploymentConfig;
-  databaseConfiguration?: DatabaseDeploymentConfig;
-}
-
-const DEFAULT_STORAGE_CLASS = 'nfs-devver-prod';
+  ProjectDomainProps,
+  UpdateProjectData,
+} from './project.types';
 
 export class ProjectDomain {
   readonly name: string;
@@ -41,7 +21,7 @@ export class ProjectDomain {
   readonly teamMemberIds: string[];
   readonly overlayAccessControl: OverlayAccessControl;
   readonly deploymentConfig?: DeploymentConfig;
-  readonly databaseConfiguration?: DatabaseDeploymentConfig;
+  readonly databaseConfigurations?: DatabaseDeploymentConfig[];
 
   private constructor(props: ProjectDomainProps) {
     this.name = props.name;
@@ -52,15 +32,15 @@ export class ProjectDomain {
     this.teamMemberIds = props.teamMemberIds;
     this.overlayAccessControl = props.overlayAccessControl;
     this.deploymentConfig = props.deploymentConfig;
-    this.databaseConfiguration = props.databaseConfiguration;
+    this.databaseConfigurations = props.databaseConfigurations;
   }
 
   static create(
-    dto: CreateProjectDto,
+    dto: CreateProjectData,
     organizationId: string,
     userId: string,
     organizationName: string,
-    encryptedMongoRootPassword?: string,
+    encryptedDatabasePasswords?: Map<string, string>,
   ): ProjectDomain {
     const githubPath = `${toSlug(organizationName)}/${toSlug(dto.name)}/values.yaml`;
 
@@ -69,26 +49,29 @@ export class ProjectDomain {
       manifestStatus: ManifestStatus.PENDING,
     };
 
-    if (dto.databaseConfiguration && !encryptedMongoRootPassword) {
+    if (dto.databaseConfigurations && !encryptedDatabasePasswords) {
       throw new Error(
-        'encryptedMongoRootPassword is required when databaseConfiguration is provided',
+        'encryptedDatabasePasswords is required when databaseConfigurations are provided',
       );
     }
 
-    const databaseConfiguration = dto.databaseConfiguration
-      ? {
-          type: dto.databaseConfiguration.type,
-          enabled: true,
-          githubPath: `${toSlug(organizationName)}/${toSlug(dto.name)}/values-db.yaml`,
-          manifestStatus: ManifestStatus.PENDING,
-          rootUsername: dto.databaseConfiguration.rootUsername,
-          rootPasswordEncrypted: encryptedMongoRootPassword as string,
-          replicaCount: dto.databaseConfiguration.replicaCount,
-          ram: dto.databaseConfiguration.ram,
-          cpuCores: dto.databaseConfiguration.cpuCores,
-          storage: dto.databaseConfiguration.storage,
-        }
-      : undefined;
+    const databaseConfigurations = dto.databaseConfigurations?.map(
+      (configuration) => ({
+        name: configuration.type,
+        type: configuration.type,
+        enabled: true,
+        githubPath: `${toSlug(organizationName)}/${toSlug(dto.name)}/values-${configuration.type}.yaml`,
+        manifestStatus: ManifestStatus.PENDING,
+        username: configuration.username,
+        passwordEncrypted: encryptedDatabasePasswords?.get(
+          configuration.type,
+        ) as string,
+        replicaCount: configuration.replicaCount,
+        ram: configuration.ram,
+        cpuCores: configuration.cpuCores,
+        storage: configuration.storage,
+      }),
+    );
 
     return new ProjectDomain({
       name: dto.name,
@@ -102,143 +85,16 @@ export class ProjectDomain {
       teamMemberIds: dto.teamMemberIds ?? [],
       overlayAccessControl: dto.overlayAccessControl,
       deploymentConfig,
-      databaseConfiguration,
+      databaseConfigurations,
     });
   }
 
-  static fromDocument(doc: ProjectDocument): ProjectDomain {
-    return new ProjectDomain({
-      name: doc.name,
-      description: doc.description,
-      organizationId: doc.organizationId,
-      createdBy: doc.createdBy,
-      machineConfiguration: doc.machineConfiguration,
-      teamMemberIds: doc.teamMemberIds,
-      overlayAccessControl: doc.overlayAccessControl,
-      deploymentConfig: doc.deploymentConfig,
-      databaseConfiguration: doc.databaseConfiguration,
-    });
+  static from(props: ProjectDomainProps): ProjectDomain {
+    return new ProjectDomain(props);
   }
 
   setDeploymentConfig(config: DeploymentConfig): ProjectDomain {
     return new ProjectDomain({ ...this, deploymentConfig: config });
-  }
-
-  setDatabaseConfig(config: DatabaseDeploymentConfig): ProjectDomain {
-    return new ProjectDomain({ ...this, databaseConfiguration: config });
-  }
-
-  // TODO: migrate devverSecret injection to Vault (external secret reference) instead of inlining
-  // plaintext in the values YAML pushed to GitHub.
-  toValuesYaml(
-    organizationName: string,
-    devverSecret: string,
-    databaseConnectionString?: string,
-  ): string {
-    if (!this.deploymentConfig) {
-      throw new Error('Project has no deployment configuration');
-    }
-
-    const orgName = toSlug(organizationName);
-    const projectName = toSlug(this.name);
-    const memory = `${Math.round(this.machineConfiguration.ram * 1024)}Mi`;
-    const cpu = `${Math.round(this.machineConfiguration.cpuCores * 1000)}m`;
-
-    return dump({
-      organization: { name: orgName, domain: 'devver.app' },
-      project: { name: projectName },
-      imagePullSecrets: [{ name: 'ghcr-secret' }],
-      container: {
-        image: 'ghcr.io/devver-inc/deploy-agent:latest',
-        port: 80,
-        type: 'app',
-        command: [],
-        args: [],
-        env: {
-          DEVVER_SECRET: devverSecret, // TODO: replace with Vault reference
-          NODE_ENV: 'production',
-          DEVVER_WIDGET_URL:
-            'https://cdn.jsdelivr.net/gh/Devver-Inc/overlay@dev/public/devver-overlay.iife.js', // TODO: change to main when ready
-          ...(databaseConnectionString
-            ? {
-                DEVVER_MONGO_CONNECTION_STRING: databaseConnectionString,
-              }
-            : {}),
-        },
-      },
-      resources: {
-        requests: { memory, cpu },
-        limits: { memory: '2Gi', cpu: '2000m' },
-      },
-      persistence: {
-        enabled: true,
-        app: {
-          size: '5Gi',
-          mountPath: '/app',
-          storageClass: DEFAULT_STORAGE_CLASS,
-        },
-        root: {
-          size: '5Gi',
-          mountPath: '/root',
-          storageClass: DEFAULT_STORAGE_CLASS,
-        },
-      },
-      replicaCount: 1,
-      ports: { http: 80, https: 443 },
-      labels: {},
-      annotations: {},
-    });
-  }
-
-  // TODO: migrate rootPassword injection to Vault (external secret reference) instead of inlining
-  // plaintext in the values YAML pushed to GitHub.
-  toMongoValuesYaml(organizationName: string, rootPassword: string): string {
-    if (!this.databaseConfiguration) {
-      throw new Error('Project has no database deployment configuration');
-    }
-
-    const orgName = toSlug(organizationName);
-    const projectName = toSlug(this.name);
-    const memory = `${Math.round(this.databaseConfiguration.ram * 1024)}Mi`;
-    const cpu = `${Math.round(this.databaseConfiguration.cpuCores * 1000)}m`;
-    const storage = `${this.databaseConfiguration.storage}Gi`;
-
-    return dump({
-      namespace: { create: false },
-      organization: { name: orgName, domain: 'devver.app' },
-      project: { name: projectName },
-      auth: {
-        rootUsername: this.databaseConfiguration.rootUsername,
-        rootPassword: rootPassword, // TODO: replace with Vault reference
-      },
-      replicaCount: this.databaseConfiguration.replicaCount,
-      persistence: { size: storage, storageClass: DEFAULT_STORAGE_CLASS },
-      resources: {
-        requests: { memory, cpu },
-        limits: { memory: '1Gi', cpu: '500m' },
-      },
-    });
-  }
-
-  buildDatabaseConnectionString(
-    organizationName: string,
-    rootPassword: string,
-    targetDatabase = 'admin',
-  ): string {
-    if (!this.databaseConfiguration) {
-      throw new Error('Project has no database deployment configuration');
-    }
-
-    const orgName = toSlug(organizationName);
-    const projectName = toSlug(this.name);
-    const username = encodeURIComponent(
-      this.databaseConfiguration.rootUsername,
-    );
-    const password = encodeURIComponent(rootPassword);
-    const host = `${orgName}-${projectName}-mongo`;
-    const database = encodeURIComponent(targetDatabase);
-
-    return `mongodb://${username}:${password}@${host}:27017/${database}?authSource=admin&tls=true&tlsAllowInvalidCertificates=true`;
   }
 
   belongsToOrganization(organizationId: string): boolean {
@@ -301,7 +157,7 @@ export class ProjectDomain {
     });
   }
 
-  update(dto: UpdateProjectDto): ProjectDomain {
+  update(dto: UpdateProjectData): ProjectDomain {
     return new ProjectDomain({
       ...this,
       description: dto.description ?? this.description,

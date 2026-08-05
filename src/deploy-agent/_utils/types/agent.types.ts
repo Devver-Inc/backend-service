@@ -31,6 +31,9 @@ export enum AgentErrorCode {
   DEPLOY_ERROR = 'DEPLOY_ERROR',
   PORT_CONFLICT = 'PORT_CONFLICT',
   VALIDATION_ERROR = 'VALIDATION_ERROR',
+  DATABASE_CONFIGURATION_ERROR = 'DATABASE_CONFIGURATION_ERROR',
+  DATABASE_INSTANCE_UNREACHABLE = 'DATABASE_INSTANCE_UNREACHABLE',
+  UNSUPPORTED_DATABASE_ENGINE = 'UNSUPPORTED_DATABASE_ENGINE',
 }
 
 export enum BackendErrorCode {
@@ -38,7 +41,7 @@ export enum BackendErrorCode {
   REPO_CREATE_FAILED = 'REPO_CREATE_FAILED',
   REPO_DELETE_FAILED = 'REPO_DELETE_FAILED',
   DEPLOYMENT_DELETE_FAILED = 'DEPLOYMENT_DELETE_FAILED',
-  MONGO_DATABASES_FETCH_FAILED = 'MONGO_DATABASES_FETCH_FAILED',
+  DATABASES_FETCH_FAILED = 'DATABASES_FETCH_FAILED',
   LOGS_FETCH_FAILED = 'LOGS_FETCH_FAILED',
   PM2_START_FAILED = 'PM2_START_FAILED',
   PM2_STOP_FAILED = 'PM2_STOP_FAILED',
@@ -54,7 +57,7 @@ export interface ServiceConfig {
   install?: string;
   skipInstall?: boolean;
   build?: string;
-  start: string;
+  start?: string;
 }
 
 export interface Services {
@@ -78,7 +81,13 @@ export interface DeployRequest {
   overlayAccessControl: { commentPermission: string };
 }
 
-export interface RepoResponse {
+export interface CreateRepoAgentResponse {
+  success: true;
+  name: string;
+  pushUrl: string;
+}
+
+export interface ListRepoAgentResponse {
   name: string;
   createdAt: string;
   pushUrl: string;
@@ -108,9 +117,20 @@ export interface DeploymentResponse {
 
 export type AgentDeploymentListItem = DeploymentResponse;
 
+export interface DeployBenchmark {
+  validation?: number;
+  snapshot?: number;
+  worktree?: number;
+  install?: number;
+  build?: number;
+  process?: number;
+  nginx?: number;
+}
+
 export interface DeployResponse extends DeploymentResponse {
   success: true;
   duration: number;
+  benchmark: DeployBenchmark;
 }
 
 export interface DeployPhaseEvent {
@@ -135,6 +155,7 @@ export interface ErrorResponse {
   error: {
     code: ErrorCode;
     message: string;
+    details?: string;
     logs?: string;
     step?: number;
     stage?: DeployStage;
@@ -143,6 +164,28 @@ export interface ErrorResponse {
   };
   duration: number;
 }
+
+export interface AgentErrorPayload {
+  error?: {
+    code?: AgentErrorCode;
+    message?: string;
+    details?: string;
+    logs?: string;
+    step?: number;
+    stage?: DeployStage;
+    service?: string;
+    rollback?: {
+      attempted?: boolean;
+      success?: boolean;
+      message?: string;
+    };
+  };
+}
+
+export type DeploySseEvent =
+  | { event: 'phase'; data: DeployPhaseEvent }
+  | { event: 'complete'; data: DeployResponse }
+  | { event: 'error'; data: ErrorResponse };
 
 export interface LogEntry {
   service: string;
@@ -155,10 +198,12 @@ export interface LogsResponse {
   logs: LogEntry[];
 }
 
-export interface MongoDatabaseResponse {
+export interface DatabaseResponse {
   name: string;
-  sizeOnDisk: number;
-  empty: boolean;
+  sizeOnDisk?: number;
+  empty?: boolean;
+  keyCount?: number;
+  expiringKeyCount?: number;
 }
 
 export enum PM2Action {
