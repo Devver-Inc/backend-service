@@ -202,30 +202,6 @@ export class GitHubService {
     );
   }
 
-  /**
-   * Check if a file exists in the repository
-   */
-  async fileExists(path: string): Promise<boolean> {
-    try {
-      await this.octokit.repos.getContent({
-        owner: this.owner,
-        repo: this.repo,
-        path,
-        ref: this.branch,
-      });
-      return true;
-    } catch (error) {
-      if (
-        error instanceof Error &&
-        'status' in error &&
-        (error as Error & { status: number }).status === 404
-      ) {
-        return false;
-      }
-      throw error;
-    }
-  }
-
   private isNotFoundError(error: unknown): boolean {
     return (
       error instanceof Error &&

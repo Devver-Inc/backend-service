@@ -24,6 +24,9 @@ import { GetProjectDto } from './_utils/dto/responses/get-project.dto';
 import { GetProjectLightDto } from './_utils/dto/responses/get-project-light.dto';
 import { ProjectsService } from './projects.service';
 import { UserRoleEnum } from 'src/logto/_utils/enums/permissions.enum';
+import { Public } from 'src/logto/_utils/decorator/public.decorator';
+import { OverlayAccessControlResponseDto } from './_utils/dto/responses/overlay-access-control-response.dto';
+import { ProjectParamsDto } from 'src/deploy-agent/_utils/dto/requests/agent-params.dto';
 
 @ApiTags('Projects')
 @Controller('projects')
@@ -52,6 +55,22 @@ export class ProjectsController {
     @Query() query: ProjectsPaginatedQueryDto,
   ): Promise<PaginationDto<GetProjectLightDto[]>> {
     return this.projectsService.getProjects(user, query);
+  }
+
+  @Public()
+  @Get(':projectId/overlay-access')
+  @ApiOperation({
+    summary: "Who may comment on the project's previews (read by the overlay)",
+  })
+  @ApiResponse({ status: HttpStatus.OK, type: OverlayAccessControlResponseDto })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'PROJECT_NOT_FOUND',
+  })
+  getOverlayAccess(
+    @Param() { projectId }: ProjectParamsDto,
+  ): Promise<OverlayAccessControlResponseDto> {
+    return this.projectsService.getOverlayAccess(projectId);
   }
 
   @Protect()

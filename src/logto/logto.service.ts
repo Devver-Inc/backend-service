@@ -64,10 +64,13 @@ export class LogtoService {
   async createAuthInfo(payload: LogtoPayload): Promise<AuthInfo> {
     const sub = payload.sub;
     if (!sub) throw new BadRequestException('Invalid Payload');
-    const user = await this.getUserInformations(payload.sub);
-    const selectedOrganization = payload.organization_id
-      ? await this.getOrganizationInformations(payload.organization_id)
-      : null;
+    // Roles come from the token; user and org come from a short cache (LogtoRequests).
+    const [user, selectedOrganization] = await Promise.all([
+      this.logtoRequests.fetchUserCached(sub),
+      payload.organization_id
+        ? this.logtoRequests.fetchOrganizationCached(payload.organization_id)
+        : null,
+    ]);
     return this.logtoMapper.toAuthInfo(payload, user, selectedOrganization);
   }
 

@@ -65,12 +65,4 @@ export class CommentDomain {
       position: doc.position,
     });
   }
-
-  isAuthor(userId: string): boolean {
-    return this.userId === userId;
-  }
-
-  belongsToProject(projectId: string): boolean {
-    return this.projectId === projectId;
-  }
 }

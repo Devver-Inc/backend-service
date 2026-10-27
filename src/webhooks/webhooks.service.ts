@@ -20,31 +20,9 @@ export class WebhooksService {
     }
 
     try {
-      switch (payload.event) {
-        case LogtoWebhookEvent.POST_REGISTER:
-          await this.usersService.createAccount(payload.user);
-          break;
-
-        case LogtoWebhookEvent.USER_CREATED:
-          break;
-
-        case LogtoWebhookEvent.USER_UPDATED:
-          break;
-
-        case LogtoWebhookEvent.USER_DELETED:
-          break;
-
-        case LogtoWebhookEvent.ORGANIZATION_CREATED:
-          break;
-
-        case LogtoWebhookEvent.ORGANIZATION_UPDATED:
-          break;
-
-        case LogtoWebhookEvent.ORGANIZATION_DELETED:
-          break;
-
-        default:
-          this.logger.warn(`Unhandled webhook event: ${payload.event}`);
+      // Only registration needs work here; other events are delivered but unused.
+      if (payload.event === LogtoWebhookEvent.POST_REGISTER) {
+        await this.usersService.createAccount(payload.user);
       }
     } catch (error) {
       this.logger.error(

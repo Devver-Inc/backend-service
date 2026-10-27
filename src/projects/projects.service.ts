@@ -27,6 +27,7 @@ import {
   DatabaseLink,
   DatabaseType,
   ManifestStatus,
+  OverlayAccessControl,
 } from './project.types';
 import { ProjectsRepository } from './projects.repository';
 import { ProjectValuesYamlGenerator } from './infrastructure/project-values-yaml.generator';
@@ -128,6 +129,13 @@ export class ProjectsService {
 
   findProjectById = (projectId: string): Promise<ProjectDocument> =>
     this.projectsRepository.findById(projectId);
+
+  getOverlayAccess = (projectId: string): Promise<OverlayAccessControl> =>
+    this.projectsRepository
+      .findById(projectId)
+      .then(({ overlayAccessControl }) => ({
+        commentPermission: overlayAccessControl.commentPermission,
+      }));
 
   /** `{ [link.env]: connection string }` for a deployment's database links. */
   async resolveDatabaseLinks(

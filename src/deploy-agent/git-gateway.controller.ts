@@ -7,10 +7,12 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Public } from 'src/logto/_utils/decorator/public.decorator';
 import { GitGatewayAuthorizeDto } from './_utils/dto/requests/git-gateway-authorize.dto';
 import { GitGatewaySecretGuard } from './_utils/guards/git-gateway-secret.guard';
 import { GitAuthorizationService } from './git-authorization.service';
 
+@Public()
 @ApiTags('Git gateway')
 @Controller('git-gateway')
 export class GitGatewayController {

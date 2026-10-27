@@ -9,16 +9,12 @@ import {
 import {
   LOGTO_API_INDICATOR,
   LOGTO_CLIENT_TOKEN,
-  LOGTO_CREDENTIALS,
   LOGTO_JWKS_TOKEN,
   LOGTO_TENANT_ID,
   LOGTO_URIS_TOKEN,
 } from 'src/_utils/constants';
 import { JwksUris } from 'src/logto/_utils/types/jwks-set.types';
-import {
-  LogtoClient,
-  LogtoClientCredentials,
-} from 'src/logto/_utils/types/logto.types';
+import { LogtoClient } from 'src/logto/_utils/types/logto.types';
 import { OpenIdConfig } from 'src/logto/_utils/types/openid-config.types';
 
 export const logtoProviders: Provider[] = [
@@ -41,36 +37,6 @@ export const logtoProviders: Provider[] = [
         });
         logger.log('Logto client initialized successfully', LOGTO_CLIENT_TOKEN);
         return apiClient as LogtoClient;
-      } catch (error) {
-        logger.error(
-          'Failed to initialize Logto client',
-          error,
-          LOGTO_CLIENT_TOKEN,
-        );
-        throw error;
-      }
-    },
-    inject: [ConfigService, Logger],
-  },
-  {
-    provide: LOGTO_CREDENTIALS,
-    useFactory: (
-      configService: ConfigService<EnvironmentVariables, true>,
-      logger: Logger,
-    ): LogtoClientCredentials => {
-      const clientId = configService.get<LogtoConfig>('LOGTO').LOGTO_CLIENT_ID;
-      const clientSecret = configService.get<LogtoConfig>('LOGTO').LOGTO_SECRET;
-      const baseUrl = configService.get<LogtoConfig>('LOGTO').LOGTO_BASE_URL;
-
-      try {
-        const { clientCredentials } = createManagementApi(LOGTO_TENANT_ID, {
-          clientId: clientId,
-          clientSecret: clientSecret,
-          baseUrl: baseUrl,
-          apiIndicator: LOGTO_API_INDICATOR,
-        });
-        logger.log('Logto client initialized successfully', LOGTO_CLIENT_TOKEN);
-        return clientCredentials as LogtoClientCredentials;
       } catch (error) {
         logger.error(
           'Failed to initialize Logto client',

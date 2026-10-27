@@ -1,3 +1,4 @@
+import { Public } from 'src/logto/_utils/decorator/public.decorator';
 import {
   Body,
   Controller,
@@ -256,6 +257,7 @@ export class OrganizationsController {
     return this.organizationsService.getUserInvitations(user);
   }
 
+  @Public()
   @Get('invitations/:invitationId')
   @ApiParam({
     name: 'invitationId',

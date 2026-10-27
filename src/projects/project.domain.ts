@@ -78,14 +78,6 @@ export class ProjectDomain {
     return new ProjectDomain(props);
   }
 
-  setDeploymentConfig(config: DeploymentConfig): ProjectDomain {
-    return new ProjectDomain({ ...this, deploymentConfig: config });
-  }
-
-  belongsToOrganization(organizationId: string): boolean {
-    return this.organizationId === organizationId;
-  }
-
   isTeamMember(userId: string): boolean {
     return this.teamMemberIds.includes(userId);
   }

@@ -33,8 +33,17 @@ import {
 } from './_utils/types/requests/requests.types';
 import { LogtoUserWithOrganizations } from './_utils/types/user-with-organization.type';
 
+const CACHE_TTL_MS = 60_000;
+const CACHE_MAX_ENTRIES = 10_000;
+
 @Injectable()
 export class LogtoRequests {
+  // ponytail: per-process cache cleared wholesale when full; each replica may serve 60 s stale data after another replica's write; use Redis if that matters
+  private readonly cache = new Map<
+    string,
+    { value: Promise<unknown>; expiresAt: number }
+  >();
+
   constructor(
     @Inject(LOGTO_CLIENT_TOKEN) private readonly logtoClient: LogtoClient,
     private readonly exceptions: LogtoExceptions,
@@ -169,18 +178,21 @@ export class LogtoRequests {
     organizationId: string,
     params: UpdateOrganizationBody,
   ) =>
-    this.handleOrganizationResponse(
-      this.logtoClient.PATCH('/api/organizations/{id}', {
-        params: { path: { id: organizationId } },
-        body: {
-          ...params,
-          ...(params.customData !== undefined && {
-            // Logto's generated types restrict organization custom data to Record<string, never>
-            // so we need to cast our richer structure here before sending it to the API
-            customData: params.customData as unknown as Record<string, never>,
-          }),
-        } as any,
-      }),
+    this.forget(
+      `org:${organizationId}`,
+      this.handleOrganizationResponse(
+        this.logtoClient.PATCH('/api/organizations/{id}', {
+          params: { path: { id: organizationId } },
+          body: {
+            ...params,
+            ...(params.customData !== undefined && {
+              // Logto's generated types restrict organization custom data to Record<string, never>
+              // so we need to cast our richer structure here before sending it to the API
+              customData: params.customData as unknown as Record<string, never>,
+            }),
+          } as any,
+        }),
+      ),
     );
 
   /**
@@ -191,11 +203,14 @@ export class LogtoRequests {
    * @returns void (204 status)
    */
   deleteOrganization = (organizationId: string) =>
-    this.handleResponse(
-      this.logtoClient.DELETE('/api/organizations/{id}', {
-        params: { path: { id: organizationId } },
-      }),
-      this.exceptions.ERROR_DELETE_ORGANIZATION,
+    this.forget(
+      `org:${organizationId}`,
+      this.handleResponse(
+        this.logtoClient.DELETE('/api/organizations/{id}', {
+          params: { path: { id: organizationId } },
+        }),
+        this.exceptions.ERROR_DELETE_ORGANIZATION,
+      ),
     );
 
   /**
@@ -233,20 +248,6 @@ export class LogtoRequests {
     this.handleResponse(
       this.logtoClient.GET('/api/users/{userId}/organizations', {
         params: { path: { userId: userId } },
-      }),
-    );
-
-  /**
-   * GET /api/organizations/{id}/users/{userId}/scopes
-   * Get current user permissions in an organization.
-   * @link https://openapi.logto.io/operation/operation-getorganizationuserscopes
-   * @param user
-   * @returns User permissions
-   */
-  getCurrentUserPermissions = (userId: string, organizationId: string) =>
-    this.handleResponse(
-      this.logtoClient.GET('/api/organizations/{id}/users/{userId}/scopes', {
-        params: { path: { id: organizationId, userId: userId } },
       }),
     );
 
@@ -396,6 +397,29 @@ export class LogtoRequests {
    * @param organizationId
    * @returns Organization information
    */
+  /** For authentication: one Logto call per user/org per minute instead of per request. */
+  fetchUserCached = (userId: string) =>
+    this.cached(`user:${userId}`, () => this.fetchUserInformations(userId));
+
+  fetchOrganizationCached = (organizationId: string) =>
+    this.cached(`org:${organizationId}`, () =>
+      this.fetchOrganizationInformations(organizationId),
+    );
+
+  private cached<T>(key: string, load: () => Promise<T>): Promise<T> {
+    const hit = this.cache.get(key);
+    if (hit && hit.expiresAt > Date.now()) return hit.value as Promise<T>;
+    if (this.cache.size >= CACHE_MAX_ENTRIES) this.cache.clear();
+
+    const value = load();
+    this.cache.set(key, { value, expiresAt: Date.now() + CACHE_TTL_MS });
+    value.catch(() => this.cache.delete(key));
+    return value;
+  }
+
+  private forget = <T>(key: string, write: Promise<T>): Promise<T> =>
+    write.finally(() => this.cache.delete(key));
+
   fetchOrganizationInformations = (organizationId: string) =>
     this.handleOrganizationResponse(
       this.logtoClient.GET('/api/organizations/{id}', {
@@ -406,35 +430,41 @@ export class LogtoRequests {
     );
 
   updateUserProfile = (userId: string, dto: UpdateAccountDto) =>
-    this.handleResponse(
-      this.logtoClient.PATCH('/api/users/{userId}/profile', {
-        params: {
-          path: { userId: userId },
-        },
-        body: {
-          profile: {
-            familyName: dto.lastName,
-            givenName: dto.firstName,
+    this.forget(
+      `user:${userId}`,
+      this.handleResponse(
+        this.logtoClient.PATCH('/api/users/{userId}/profile', {
+          params: {
+            path: { userId: userId },
           },
-        },
-      }),
-      this.exceptions.ERROR_UPDATE_USER_PROFILE,
+          body: {
+            profile: {
+              familyName: dto.lastName,
+              givenName: dto.firstName,
+            },
+          },
+        }),
+        this.exceptions.ERROR_UPDATE_USER_PROFILE,
+      ),
     );
 
   updateUserProfilePicture = (
     userId: string,
     profilePictureUrl: string | null,
   ) =>
-    this.handleResponse(
-      this.logtoClient.PATCH('/api/users/{userId}', {
-        params: {
-          path: { userId: userId },
-        },
-        body: {
-          avatar: profilePictureUrl,
-        },
-      }),
-      this.exceptions.ERROR_UPDATE_USER_PROFILE,
+    this.forget(
+      `user:${userId}`,
+      this.handleResponse(
+        this.logtoClient.PATCH('/api/users/{userId}', {
+          params: {
+            path: { userId: userId },
+          },
+          body: {
+            avatar: profilePictureUrl,
+          },
+        }),
+        this.exceptions.ERROR_UPDATE_USER_PROFILE,
+      ),
     );
 
   /**

@@ -17,10 +17,6 @@ export class ProjectsMapper {
     createdAt: project.createdAt,
   });
 
-  toProjectLightDtoFromArray = (
-    projects: ProjectDocument[],
-  ): GetProjectLightDto[] => projects.map(this.toProjectLightDto);
-
   toProjectDto = (
     project: ProjectDocument,
     createdByUser: LogtoUser | null,

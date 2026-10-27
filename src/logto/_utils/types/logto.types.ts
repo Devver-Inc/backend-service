@@ -1,4 +1,3 @@
-import { ClientCredentials } from 'node_modules/@logto/api/lib/client-credentials';
 import { paths } from 'node_modules/@logto/api/lib/generated-types/management';
 import { type Client } from 'openapi-fetch';
 
@@ -10,7 +9,3 @@ import { type Client } from 'openapi-fetch';
  */
 export type LogtoClient = Client<paths>;
 
-/**
- * The client credentials instance used for authentication.
- */
-export type LogtoClientCredentials = ClientCredentials;

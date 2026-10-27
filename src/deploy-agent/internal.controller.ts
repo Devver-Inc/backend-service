@@ -1,5 +1,6 @@
 import { Controller, Get, Param, UseGuards } from '@nestjs/common';
 import { ApiExcludeController } from '@nestjs/swagger';
+import { Public } from 'src/logto/_utils/decorator/public.decorator';
 import { ProjectParamsDto } from './_utils/dto/requests/agent-params.dto';
 import { AgentTokenGuard } from './_utils/guards/agent-token.guard';
 import { ReconcileItem } from './_utils/types/agent.types';
@@ -7,6 +8,7 @@ import { DeployAgentService } from './deploy-agent.service';
 
 /** Called by agents from inside the cluster, never by users. */
 @ApiExcludeController()
+@Public()
 @UseGuards(AgentTokenGuard)
 @Controller('internal/projects/:projectId')
 export class InternalController {

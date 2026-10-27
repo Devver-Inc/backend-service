@@ -7,7 +7,6 @@ import {
 import { LogtoInvitation } from 'src/logto/_utils/types/responses/invitation.types';
 import {
   LogtoOrganization,
-  LogtoOrganizationPermissions,
   LogtoUser,
 } from 'src/logto/_utils/types/responses/responses.type';
 import { UsersMapper } from 'src/users/user.mapper';
@@ -70,9 +69,6 @@ export class OrganizationsMapper {
       ? new Date(invitation.acceptedAt).toISOString()
       : undefined,
   });
-
-  toGetPermissions = (permissions: LogtoOrganizationPermissions): string[] =>
-    permissions.map((x) => x.name);
 
   toGetOrganizationMembersQuery = (
     paginatedQueryDto: UsersPaginatedQueryDto,
