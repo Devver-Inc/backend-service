@@ -15,7 +15,6 @@ export interface UpsertDeploymentData {
   serviceName: ServiceName;
   deploymentId: string;
   host: string;
-  commit: string;
   service: Services;
   dbLinks?: DatabaseLink[];
 }

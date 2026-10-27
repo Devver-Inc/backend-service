@@ -32,9 +32,6 @@ export class Deployment {
   @Prop({ required: true })
   host: string;
 
-  @Prop({ required: true })
-  commit: string;
-
   @Prop({ type: Object, required: true })
   service: Services;
 

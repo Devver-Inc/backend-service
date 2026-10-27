@@ -23,11 +23,7 @@ import { GetRepoDto } from './_utils/dto/responses/get-repo.dto';
 import { deploymentIdentity } from './_utils/functions/deployment-identity.function';
 import { lastSseEvent } from './_utils/functions/last-sse-event.function';
 import { serviceNameOf } from './_utils/functions/service-name-of.function';
-import {
-  DeploymentAction,
-  DeploymentStatus,
-  ReconcileItem,
-} from './_utils/types/agent.types';
+import { DeploymentAction, ReconcileItem } from './_utils/types/agent.types';
 import { DeployAgentMapper } from './deploy-agent.mapper';
 import { DeployAgentRepository } from './deploy-agent.repository';
 import { DeployAgentRequests } from './deploy-agent.requests';
@@ -228,9 +224,7 @@ export class DeployAgentService {
       );
     }
 
-    const last = lastSseEvent(tail);
-    if (last?.event === 'done') {
-      const status = last.data as DeploymentStatus;
+    if (lastSseEvent(tail)?.event === 'done') {
       await this.vault.write(vaultPaths.deployment(projectId, id), env);
       await this.deployAgentRepository.upsertDeployment({
         projectId,
@@ -240,7 +234,6 @@ export class DeployAgentService {
         serviceName,
         deploymentId: id,
         host,
-        commit: status.commit,
         service: dto.service,
         dbLinks: dto.dbLinks,
       });
