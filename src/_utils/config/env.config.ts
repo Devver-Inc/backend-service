@@ -114,6 +114,19 @@ export class DeployAgentConfig {
 
   @IsUrl({ require_tld: false })
   GIT_AUTH_URL: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(32)
+  GIT_GATEWAY_SECRET?: string;
+
+  @IsOptional()
+  @IsString()
+  GIT_GATEWAY_PUBLIC_KEY?: string;
+
+  @IsOptional()
+  @IsString()
+  GIT_SSH_HOST?: string;
 }
 
 export class ArgoCdConfig {
@@ -213,6 +226,9 @@ export function validateEnv(config: Record<string, unknown>) {
       GIT_TOKEN_SECRET: config.GIT_TOKEN_SECRET,
       K8S_BASE_DOMAIN: config.K8S_BASE_DOMAIN,
       GIT_AUTH_URL: config.GIT_AUTH_URL,
+      GIT_GATEWAY_SECRET: config.GIT_GATEWAY_SECRET,
+      GIT_GATEWAY_PUBLIC_KEY: config.GIT_GATEWAY_PUBLIC_KEY,
+      GIT_SSH_HOST: config.GIT_SSH_HOST,
     },
     ENCRYPTION: {
       ENCRYPTION_KEY: config.ENCRYPTION_KEY,

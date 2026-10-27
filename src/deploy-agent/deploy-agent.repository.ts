@@ -47,7 +47,12 @@ export class DeployAgentRepository {
   ): Promise<DeploymentDocument> =>
     this.deploymentModel
       .findOneAndUpdate(
-        { projectId: data.projectId, repo: data.repo, branch: data.branch },
+        {
+          projectId: data.projectId,
+          repo: data.repo,
+          branch: data.branch,
+          serviceName: data.serviceName,
+        },
         { $set: { ...data } },
         { upsert: true, returnDocument: 'after' },
       )
@@ -63,11 +68,12 @@ export class DeployAgentRepository {
   };
 
   markDeploymentRemovedByDeploymentId = async (
+    projectId: string,
     deploymentId: string,
   ): Promise<void> => {
     await this.deploymentModel
       .updateOne(
-        { deploymentId },
+        { projectId, deploymentId },
         { $set: { status: AgentDeploymentStatus.REMOVED } },
       )
       .orFail(new NotFoundException(this.DEPLOYMENT_NOT_FOUND))

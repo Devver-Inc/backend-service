@@ -8,6 +8,11 @@ import {
 } from '../project.types';
 import { DEFAULT_STORAGE_CLASS } from './deployment.constants';
 
+export interface GitSshValues {
+  host?: string;
+  gatewayPublicKey?: string;
+}
+
 @Injectable()
 export class ProjectValuesYamlGenerator {
   generateAppValues(
@@ -18,6 +23,7 @@ export class ProjectValuesYamlGenerator {
     projectId: string,
     gitAuthUrl: string,
     databaseConnectionStrings?: Partial<Record<DatabaseType, string>>,
+    gitSsh?: GitSshValues,
   ): string {
     const orgName = toSlug(organizationName);
     const projName = toSlug(projectName);
@@ -47,6 +53,10 @@ export class ProjectValuesYamlGenerator {
           DEVVER_GIT_AUTH_URL: gitAuthUrl,
           DEVVER_WIDGET_URL:
             'https://cdn.jsdelivr.net/gh/Devver-Inc/overlay@dev/public/devver-overlay.iife.js', // TODO: change to main when ready
+          ...(gitSsh?.host && { DEVVER_GIT_SSH_HOST: gitSsh.host }),
+          ...(gitSsh?.gatewayPublicKey && {
+            DEVVER_GIT_GATEWAY_PUBLIC_KEY: gitSsh.gatewayPublicKey,
+          }),
           ...databaseEnv,
         },
       },

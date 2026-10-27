@@ -85,6 +85,7 @@ export interface CreateRepoAgentResponse {
   success: true;
   name: string;
   pushUrl: string;
+  sshPushUrl?: string;
 }
 
 export interface ListRepoAgentResponse {

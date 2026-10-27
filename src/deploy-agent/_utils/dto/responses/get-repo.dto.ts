@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class GetRepoDto {
   @ApiProperty({ example: '507f1f77bcf86cd799439011' })
@@ -9,6 +9,11 @@ export class GetRepoDto {
 
   @ApiProperty({ example: 'https://git.example.com/org/my-repo.git' })
   pushUrl: string;
+
+  @ApiPropertyOptional({
+    example: 'ssh://git@agent.example.com:2222/app/repos/my-repo.git',
+  })
+  sshPushUrl?: string;
 
   @ApiProperty({ example: '507f1f77bcf86cd799439012' })
   projectId: string;

@@ -17,6 +17,9 @@ export class DeployRepo {
   @Prop({ required: true })
   pushUrl: string;
 
+  @Prop()
+  sshPushUrl?: string;
+
   createdAt: Date;
   updatedAt: Date;
 }

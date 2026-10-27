@@ -26,15 +26,21 @@ import { GetRepoDto } from './_utils/dto/responses/get-repo.dto';
 import { DeployAgentExceptions } from './_utils/errors/deploy-agent-exceptions';
 import {
   AgentErrorCode,
+  DeployRequest,
   DeployResponse,
   ErrorResponse,
 } from './_utils/types/agent.types';
+import { RESTORE_CONCURRENCY } from './_utils/constants/restore.constants';
+import { serviceNameOf } from './_utils/functions/service-name-of.function';
 import {
   AgentDeploymentStatus,
   PreparedDeployment,
 } from './_utils/types/deployment.types';
 import { DeployAgentMapper } from './deploy-agent.mapper';
-import { DeployAgentRepository } from './deploy-agent.repository';
+import {
+  DeployAgentRepository,
+  DeploymentLean,
+} from './deploy-agent.repository';
 import { DeployAgentRequests } from './deploy-agent.requests';
 
 @Injectable()
@@ -145,6 +151,7 @@ export class DeployAgentService {
       organizationId: user.currentOrganization.id,
       repo: dto.repo,
       branch: dto.branch,
+      serviceName: serviceNameOf(dto.service),
       deploymentId: result.deploymentId,
       commit: result.commit,
       argoAppName: prepared.argoAppName,
@@ -316,6 +323,7 @@ export class DeployAgentService {
         organizationId: user.currentOrganization.id,
         name: agentRepo.name,
         pushUrl: agentRepo.pushUrl,
+        sshPushUrl: agentRepo.sshPushUrl,
       })
       .then(this.deployAgentMapper.toRepoDto);
   };
@@ -428,6 +436,7 @@ export class DeployAgentService {
     );
     await this.deployAgentRequests.removeDeployment(agentUrl, deploymentId);
     await this.deployAgentRepository.markDeploymentRemovedByDeploymentId(
+      projectId,
       deploymentId,
     );
   };
@@ -447,49 +456,71 @@ export class DeployAgentService {
 
     const repos =
       await this.deployAgentRepository.findReposByProject(projectId);
-    for (const repo of repos) {
-      await this.deployAgentRequests
-        .createRepo(agentUrl, { name: repo.name, baseUrl: repo.pushUrl })
-        .then(() => {
-          restoredRepos += 1;
-        })
-        .catch((err: unknown) => {
-          this.logger.warn(
-            `Failed to restore repo "${repo.name}": ${err instanceof Error ? err.message : String(err)}`,
-          );
-        });
-    }
+    await Promise.all(
+      repos.map((repo) =>
+        this.deployAgentRequests
+          .createRepo(agentUrl, { name: repo.name, baseUrl: agentUrl })
+          .then(() => {
+            restoredRepos += 1;
+          })
+          .catch((err: unknown) => {
+            this.logger.warn(
+              `Failed to restore repo "${repo.name}": ${err instanceof Error ? err.message : String(err)}`,
+            );
+          }),
+      ),
+    );
 
     const deployments =
       await this.deployAgentRepository.findDeploymentsByProject(
         projectId,
         AgentDeploymentStatus.DEPLOYED,
       );
-    for (const dep of deployments) {
-      const plainEnv = dep.env
-        ? this.encryptionService.decryptRecord(dep.env)
-        : undefined;
-      await this.deployAgentRequests
-        .deploy(agentUrl, {
-          repo: dep.repo,
-          branch: dep.branch,
-          commit: dep.commit,
-          service: dep.service,
-          env: plainEnv,
-          projectId,
-          organizationId: user.currentOrganization.id,
-          overlayAccessControl: project.overlayAccessControl,
-        })
-        .then((result) => {
-          if (result.success) restoredDeployments += 1;
-        })
-        .catch((err: unknown) => {
-          this.logger.warn(
-            `Failed to restore deployment "${dep.deploymentId}": ${err instanceof Error ? err.message : String(err)}`,
-          );
-        });
+    for (let i = 0; i < deployments.length; i += RESTORE_CONCURRENCY) {
+      await Promise.all(
+        deployments
+          .slice(i, i + RESTORE_CONCURRENCY)
+          .map((dep) =>
+            this.restoreDeployment(agentUrl, projectId, user, project, dep),
+          )
+          .map((restored) =>
+            restored.then((ok) => {
+              if (ok) restoredDeployments += 1;
+            }),
+          ),
+      );
     }
 
     return { restoredRepos, restoredDeployments };
+  };
+
+  private restoreDeployment = (
+    agentUrl: string,
+    projectId: string,
+    user: LogtoUserWithOrganizations,
+    project: { overlayAccessControl: DeployRequest['overlayAccessControl'] },
+    dep: DeploymentLean,
+  ): Promise<boolean> => {
+    const plainEnv = dep.env
+      ? this.encryptionService.decryptRecord(dep.env)
+      : undefined;
+    return this.deployAgentRequests
+      .deploy(agentUrl, {
+        repo: dep.repo,
+        branch: dep.branch,
+        commit: dep.commit,
+        service: dep.service,
+        env: plainEnv,
+        projectId,
+        organizationId: user.currentOrganization.id,
+        overlayAccessControl: project.overlayAccessControl,
+      })
+      .then((result) => result.success)
+      .catch((err: unknown) => {
+        this.logger.warn(
+          `Failed to restore deployment "${dep.deploymentId}": ${err instanceof Error ? err.message : String(err)}`,
+        );
+        return false;
+      });
   };
 }

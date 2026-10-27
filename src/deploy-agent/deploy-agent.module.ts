@@ -12,6 +12,11 @@ import { DeployRepo, DeployRepoSchema } from './schemas/repo.schema';
 import { DeployAgentExceptions } from './_utils/errors/deploy-agent-exceptions';
 import { GitTokenService } from './infrastructure/git-token.service';
 import { GitAuthorizationService } from './git-authorization.service';
+import { GitGatewayController } from './git-gateway.controller';
+import { SshKey, SshKeySchema } from './schemas/ssh-key.schema';
+import { SshKeysController } from './ssh-keys.controller';
+import { SshKeysRepository } from './ssh-keys.repository';
+import { SshKeysService } from './ssh-keys.service';
 
 @Module({
   imports: [
@@ -19,10 +24,11 @@ import { GitAuthorizationService } from './git-authorization.service';
     MongooseModule.forFeature([
       { name: DeployRepo.name, schema: DeployRepoSchema },
       { name: Deployment.name, schema: DeploymentSchema },
+      { name: SshKey.name, schema: SshKeySchema },
     ]),
     forwardRef(() => ProjectsModule),
   ],
-  controllers: [DeployAgentController],
+  controllers: [DeployAgentController, SshKeysController, GitGatewayController],
   providers: [
     DeployAgentService,
     DeployAgentRepository,
@@ -31,6 +37,8 @@ import { GitAuthorizationService } from './git-authorization.service';
     DeployAgentExceptions,
     GitTokenService,
     GitAuthorizationService,
+    SshKeysService,
+    SshKeysRepository,
   ],
   exports: [DeployAgentService],
 })

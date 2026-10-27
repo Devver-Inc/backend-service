@@ -345,6 +345,10 @@ export class ProjectsService {
           projectId,
           deployAgentConfig.GIT_AUTH_URL,
           databaseConnectionStrings,
+          {
+            host: deployAgentConfig.GIT_SSH_HOST,
+            gatewayPublicKey: deployAgentConfig.GIT_GATEWAY_PUBLIC_KEY,
+          },
         ),
       );
       await this.projectsRepository.updateDeploymentManifestStatus(

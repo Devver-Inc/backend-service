@@ -1,4 +1,4 @@
-import { DeployRequest, Services } from './agent.types';
+import { DeployRequest, ServiceName, Services } from './agent.types';
 import { DatabaseLink } from 'src/projects/project.types';
 
 export interface PreparedDeployment {
@@ -13,6 +13,7 @@ export interface CreateRepoData {
   organizationId: string;
   name: string;
   pushUrl: string;
+  sshPushUrl?: string;
 }
 
 export interface CreateDeploymentData {
@@ -20,6 +21,7 @@ export interface CreateDeploymentData {
   organizationId: string;
   repo: string;
   branch: string;
+  serviceName: ServiceName;
   deploymentId: string;
   commit?: string;
   argoAppName?: string;

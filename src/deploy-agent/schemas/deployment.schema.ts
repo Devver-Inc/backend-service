@@ -1,6 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument } from 'mongoose';
-import { Services } from '../_utils/types/agent.types';
+import { ServiceName, Services } from '../_utils/types/agent.types';
 import { AgentDeploymentStatus } from '../_utils/types/deployment.types';
 import { DatabaseLink } from 'src/projects/project.types';
 
@@ -22,6 +22,9 @@ export class Deployment {
 
   @Prop({ required: true })
   branch: string;
+
+  @Prop({ type: String, required: true, enum: ['web', 'api'] })
+  serviceName: ServiceName;
 
   @Prop({ required: true })
   deploymentId: string;
@@ -54,4 +57,8 @@ export class Deployment {
 export const DeploymentSchema = SchemaFactory.createForClass(Deployment);
 
 DeploymentSchema.index({ projectId: 1 });
-DeploymentSchema.index({ projectId: 1, repo: 1, branch: 1 }, { unique: true });
+// Requires src/_migrations/deployment-service-name.ts (drops the old unique index).
+DeploymentSchema.index(
+  { projectId: 1, repo: 1, branch: 1, serviceName: 1 },
+  { unique: true },
+);
