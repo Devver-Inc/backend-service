@@ -80,13 +80,8 @@ export class OrganizationsMapper {
 
   toOrganizationCustomDataType = (
     ownerId: string,
-    adminIds: string[],
     logoUrl = '',
-  ): OrganizationCustomData => ({
-    ownerId: ownerId,
-    adminIds: [ownerId, ...adminIds],
-    logoUrl: logoUrl,
-  });
+  ): OrganizationCustomData => ({ ownerId, logoUrl });
 
   toGetInvitationLinkUrl = (
     invitation: LogtoInvitation,

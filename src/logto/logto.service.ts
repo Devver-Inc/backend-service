@@ -79,75 +79,74 @@ export class LogtoService {
     return PERSONAL_EMAIL_DOMAINS.includes(domain) ? null : domain;
   }
 
+  /**
+   * Runs on Logto's PostRegister webhook, which may be delivered more than
+   * once: the personal org is recorded on the user and the work org is found
+   * by exact name, so a replay creates nothing.
+   */
   async manageUserWithoutOrganization(user: LogtoUser) {
-    const adminRoleId = await this.getRoleIdsForRoleNames(LogtoRolesEnum.ADMIN);
-
-    await this.createOrganizationIfNotExistsAndAssignUserWithRoles(
-      user,
-      `${user.id}'s Organization`,
-      `${user.id}'s personal Organization`,
-      adminRoleId,
+    const [adminRoleId, viewerRoleId] = await this.getRoleIdsForRoleNames(
+      LogtoRolesEnum.ADMIN,
+      LogtoRolesEnum.VIEWER,
     );
+
+    if (!user.customData?.personalOrganizationId) {
+      const personal = await this.createOrganizationWithAdmin(
+        user,
+        `${user.id}'s Organization`,
+        `${user.id}'s personal Organization`,
+        adminRoleId,
+      );
+      await this.logtoRequests.updateUserCustomData(user.id, {
+        ...user.customData,
+        personalOrganizationId: personal.id,
+      });
+    }
+
+    // Colleagues signing up later join through JIT, as viewers: an admin promotes them.
     const professionalDomain = this.getProfessionalUserEmailOrNull(
       user.primaryEmail ?? '',
     );
-    if (professionalDomain) {
-      const domainName = professionalDomain.split('.')[0];
-      const professionalOrganization =
-        await this.createOrganizationIfNotExistsAndAssignUserWithRoles(
-          user,
-          `${domainName}`,
-          `${domainName} professional Organization`,
-          adminRoleId,
-        );
-
-      if (professionalOrganization)
-        await this.logtoRequests.addOrganizationJitEmailDomain(
-          professionalOrganization.id,
-          professionalDomain,
-        );
+    if (
+      professionalDomain &&
+      !(await this.logtoRequests.findOrganizationByName(professionalDomain))
+    ) {
+      const work = await this.createOrganizationWithAdmin(
+        user,
+        professionalDomain,
+        `${professionalDomain} professional Organization`,
+        adminRoleId,
+      );
+      await this.logtoRequests.addOrganizationJitEmailDomain(
+        work.id,
+        professionalDomain,
+      );
+      await this.logtoRequests.addOrganizationJitDefaultRoles(work.id, [
+        viewerRoleId,
+      ]);
     }
   }
 
-  async createOrganizationIfNotExistsAndAssignUserWithRoles(
+  private async createOrganizationWithAdmin(
     user: LogtoUser,
-    organizationName: string,
-    organizationDescription: string,
-    roles: string[] = [],
+    name: string,
+    description: string,
+    adminRoleId: string,
   ) {
-    const organizations = await this.logtoRequests.getOrganizations();
-    const organizationWithNameAlreadyExists = organizations?.some(
-      (org) => org.name === organizationName,
-    );
-
-    if (organizationWithNameAlreadyExists) {
-      return;
-    }
-
-    const newOrganization = await this.logtoRequests.createOrganization({
-      name: organizationName,
-      description: organizationDescription,
+    const organization = await this.logtoRequests.createOrganization({
+      name,
+      description,
       customData: this.organizationsMapper.toOrganizationCustomDataType(
         user.id,
-        [user.id],
       ),
     });
-
-    const roleIds = await this.getRoleIdsForRoleNames(LogtoRolesEnum.ADMIN);
-
-    await this.logtoRequests.addOrganizationJitDefaultRoles(
-      newOrganization.id,
-      roleIds,
-    );
-    await this.logtoRequests.addUsersToOrganization(newOrganization.id, [
-      user.id,
-    ]);
+    await this.logtoRequests.addUsersToOrganization(organization.id, [user.id]);
     await this.logtoRequests.assignRolesToOrganizationMembers(
-      newOrganization.id,
+      organization.id,
       [user.id],
-      roles,
+      [adminRoleId],
     );
-    return newOrganization;
+    return organization;
   }
 
   private async getRoleIdsForRoleNames(

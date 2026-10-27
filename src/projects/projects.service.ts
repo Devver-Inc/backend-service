@@ -322,10 +322,8 @@ export class ProjectsService {
       return;
     }
 
-    const { members } = await this.logtoRequests.getOrganizationMembers(
-      organizationId,
-      { page_size: 100 },
-    );
+    const members =
+      await this.logtoRequests.getAllOrganizationMembers(organizationId);
 
     const foundIds = new Set(members.map((m) => m.id));
     const invalidIds = userIds.filter((id) => !foundIds.has(id));
@@ -429,8 +427,8 @@ export class ProjectsService {
       this.logtoRequests.fetchUserSafe(project.createdBy),
       project.teamMemberIds.length
         ? this.logtoRequests
-            .getOrganizationMembers(project.organizationId, { page_size: 100 })
-            .then(({ members }) => ({
+            .getAllOrganizationMembers(project.organizationId)
+            .then((members) => ({
               members: members.filter((m) =>
                 project.teamMemberIds.includes(m.id),
               ),

@@ -13,6 +13,7 @@ import { LogtoInvitation } from 'src/logto/_utils/types/responses/invitation.typ
 import {
   LogtoOrganizationRaw,
   LogtoResponseType,
+  LogtoOrganizationMember,
   LogtoUser,
 } from 'src/logto/_utils/types/responses/responses.type';
 import { CreateInvitationDto } from 'src/organizations/_utils/dto/requests/create-invitation.dto';
@@ -568,6 +569,47 @@ export class LogtoRequests {
       this.logtoClient.DELETE('/api/organizations/{id}/users/{userId}', {
         params: { path: { id: organizationId, userId: userId } },
       }),
+    );
+
+  /** Every member with its organization roles, all pages. */
+  getAllOrganizationMembers = async (
+    organizationId: string,
+  ): Promise<LogtoOrganizationMember[]> => {
+    const pageSize = 100;
+    const all: LogtoOrganizationMember[] = [];
+    for (let page = 1; ; page++) {
+      const { members } = await this.fetchOrganizationMembers(organizationId, {
+        page,
+        page_size: pageSize,
+      });
+      all.push(...(members as LogtoOrganizationMember[]));
+      if (members.length < pageSize) return all;
+    }
+  };
+
+  /** Exact-name lookup across the whole tenant (Logto's `q` is a fuzzy search). */
+  findOrganizationByName = (name: string) =>
+    this.getOrganizations({ q: name, page_size: 100 }).then((orgs) =>
+      orgs.find((org) => org.name === name),
+    );
+
+  /**
+   * PATCH /api/users/{userId}/custom-data
+   * @link https://openapi.logto.io/operation/operation-updateusercustomdata
+   */
+  updateUserCustomData = (
+    userId: string,
+    customData: Record<string, unknown>,
+  ) =>
+    this.forget(
+      `user:${userId}`,
+      this.handleResponse(
+        this.logtoClient.PATCH('/api/users/{userId}/custom-data', {
+          params: { path: { userId } },
+          // Logto types customData as Record<string, never>; same cast as updateOrganization.
+          body: { customData: customData as Record<string, never> },
+        }),
+      ),
     );
 
   private fetchOrganizationMembers = async (
