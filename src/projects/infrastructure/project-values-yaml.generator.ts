@@ -24,6 +24,7 @@ export class ProjectValuesYamlGenerator {
     gitAuthUrl: string,
     databaseConnectionStrings?: Partial<Record<DatabaseType, string>>,
     gitSsh?: GitSshValues,
+    previewDomain?: string,
   ): string {
     const orgName = toSlug(organizationName);
     const projName = toSlug(projectName);
@@ -51,6 +52,7 @@ export class ProjectValuesYamlGenerator {
           DEVVER_SECRET: devverSecret, // TODO: replace with Vault reference
           DEVVER_PROJECT_ID: projectId,
           DEVVER_GIT_AUTH_URL: gitAuthUrl,
+          ...(previewDomain && { DEVVER_PREVIEW_DOMAIN: previewDomain }),
           DEVVER_WIDGET_URL:
             'https://cdn.jsdelivr.net/gh/Devver-Inc/overlay@dev/public/devver-overlay.iife.js', // TODO: change to main when ready
           ...(gitSsh?.host && { DEVVER_GIT_SSH_HOST: gitSsh.host }),

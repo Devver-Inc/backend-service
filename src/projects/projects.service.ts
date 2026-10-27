@@ -349,6 +349,7 @@ export class ProjectsService {
             host: deployAgentConfig.GIT_SSH_HOST,
             gatewayPublicKey: deployAgentConfig.GIT_GATEWAY_PUBLIC_KEY,
           },
+          `preview.${deployAgentConfig.K8S_BASE_DOMAIN}`,
         ),
       );
       await this.projectsRepository.updateDeploymentManifestStatus(
