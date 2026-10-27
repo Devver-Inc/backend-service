@@ -4,7 +4,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, QueryFilter } from 'mongoose';
+import { Model, QueryFilter, Types } from 'mongoose';
+import { Comment } from 'src/comments/comments.schema';
 import { escapeRegex } from 'src/_utils/functions/escape-regex.function';
 import { ProjectsPaginatedQueryDto } from './_utils/dto/query/projects-paginated-query.dto';
 import { ProjectDomain } from './project.domain';
@@ -20,7 +21,22 @@ export class ProjectsRepository {
 
   constructor(
     @InjectModel(Project.name) private projectModel: Model<Project>,
+    @InjectModel(Comment.name) private commentModel: Model<Comment>,
   ) {}
+
+  findIdsByOrganization = (organizationId: string): Promise<string[]> =>
+    this.projectModel
+      .find({ organizationId }, { _id: 1 })
+      .lean()
+      .exec()
+      .then((docs) => docs.map((doc) => doc._id.toString()));
+
+  /** Comments belong to the project and go with it (finding 27). */
+  deleteComments = (projectId: string): Promise<void> =>
+    this.commentModel
+      .deleteMany({ projectId: new Types.ObjectId(projectId) })
+      .exec()
+      .then(() => {});
 
   create = async (domain: ProjectDomain): Promise<ProjectDocument> => {
     try {

@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { forwardRef, Inject, Injectable } from '@nestjs/common';
+import { ProjectsService } from 'src/projects/projects.service';
 import { toPaginatedDto } from 'src/_utils/pagination/pagination.mapper';
 import { PaginationDto } from 'src/_utils/pagination/responses/pagination.dto';
 import { UserRoleEnum } from 'src/logto/_utils/enums/permissions.enum';
@@ -43,6 +44,8 @@ export class OrganizationsService {
     private readonly storageMapper: StorageMapper,
     private readonly storageService: StorageService,
     private readonly exceptions: OrganizationsExceptions,
+    @Inject(forwardRef(() => ProjectsService))
+    private readonly projectsService: ProjectsService,
   ) {}
 
   async createOrganization(
@@ -220,6 +223,9 @@ export class OrganizationsService {
       throw this.exceptions.CANNOT_DELETE_WITH_MULTIPLE_MEMBERS;
     }
 
+    await this.projectsService.deleteOrganizationProjects(
+      user.currentOrganization.id,
+    );
     await this.logtoRequests.deleteOrganization(user.currentOrganization.id);
   }
 
@@ -468,6 +474,9 @@ export class OrganizationsService {
     }
 
     if (members.length === 1) {
+      await this.projectsService.deleteOrganizationProjects(
+        user.currentOrganization.id,
+      );
       await this.logtoRequests.deleteOrganization(user.currentOrganization.id);
       return user.currentOrganization;
     }

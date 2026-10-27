@@ -8,4 +8,3 @@ import { type Client } from 'openapi-fetch';
  * and will automatically include the access token in requests.
  */
 export type LogtoClient = Client<paths>;
-

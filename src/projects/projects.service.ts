@@ -238,10 +238,20 @@ export class ProjectsService {
     await this.githubService.deleteValuesYaml(projectId);
 
     await this.deployAgentService.deleteProjectState(projectId);
+    await this.projectsRepository.deleteComments(projectId);
     await this.vault.delete(vaultPaths.agent(projectId));
     await this.vault.delete(vaultPaths.mongo(projectId));
     await this.projectsRepository.deleteById(projectId);
     this.logger.log(`Project ${projectId} deleted`);
+  }
+
+  /** Before an organization is deleted in Logto, so nothing it owned is left running. */
+  async deleteOrganizationProjects(organizationId: string): Promise<void> {
+    for (const projectId of await this.projectsRepository.findIdsByOrganization(
+      organizationId,
+    )) {
+      await this.deleteProjectCascade(projectId);
+    }
   }
 
   async addTeamMembers(
