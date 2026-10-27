@@ -110,7 +110,6 @@ export class DeployAgentConfig {
   @IsString()
   K8S_BASE_DOMAIN: string;
 
-  /** Backend URL reachable from inside the cluster, handed to agents for reconciliation. */
   @IsUrl({ require_tld: false })
   BACKEND_INTERNAL_URL: string;
 
@@ -119,7 +118,6 @@ export class DeployAgentConfig {
   @MinLength(32)
   GIT_GATEWAY_SECRET?: string;
 
-  /** Host in the repos' push URL: ssh://<projectId>@<GIT_SSH_HOST>/app/repos/<name>.git */
   @IsString()
   GIT_SSH_HOST: string;
 }

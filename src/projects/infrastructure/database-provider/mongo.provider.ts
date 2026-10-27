@@ -19,7 +19,6 @@ export class MongoDbProvider {
     return `mongodb://${username}:${password}@${host}:27017/${database}?authSource=admin&tls=true&tlsAllowInvalidCertificates=true`;
   }
 
-  /** The root credentials come from Vault (vaultPaths.mongo) through the chart's ExternalSecret. */
   generateValuesYaml(
     project: { id: string; name: string },
     config: {

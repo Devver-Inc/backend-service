@@ -11,7 +11,6 @@ export type LogtoResponseType<T> = {
 export type LogtoUser = NonNullable<
   Awaited<ReturnType<LogtoRequests['fetchUserInformations']>>
 >;
-/** A member as GET /api/organizations/{id}/users returns it: with its roles there. */
 export type LogtoOrganizationMember = LogtoUser & {
   organizationRoles: { id: string; name: string }[];
 };

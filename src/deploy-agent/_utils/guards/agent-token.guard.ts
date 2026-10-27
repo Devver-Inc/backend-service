@@ -10,7 +10,6 @@ import { Request } from 'express';
 import { EnvironmentVariables } from 'src/_utils/config/env.config';
 import { agentToken } from 'src/_utils/functions/project-keys.function';
 
-/** Lets a project's agent in with its own DEVVER_SECRET, for that project only. */
 @Injectable()
 export class AgentTokenGuard implements CanActivate {
   constructor(

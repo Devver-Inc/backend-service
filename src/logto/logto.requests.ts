@@ -398,7 +398,6 @@ export class LogtoRequests {
    * @param organizationId
    * @returns Organization information
    */
-  /** For authentication: one Logto call per user/org per minute instead of per request. */
   fetchUserCached = (userId: string) =>
     this.cached(`user:${userId}`, () => this.fetchUserInformations(userId));
 
@@ -571,7 +570,6 @@ export class LogtoRequests {
       }),
     );
 
-  /** Every member with its organization roles, all pages. */
   getAllOrganizationMembers = async (
     organizationId: string,
   ): Promise<LogtoOrganizationMember[]> => {
@@ -593,10 +591,6 @@ export class LogtoRequests {
       orgs.find((org) => org.name === name),
     );
 
-  /**
-   * PATCH /api/users/{userId}/custom-data
-   * @link https://openapi.logto.io/operation/operation-updateusercustomdata
-   */
   updateUserCustomData = (
     userId: string,
     customData: Record<string, unknown>,

@@ -64,7 +64,6 @@ export class LogtoService {
   async createAuthInfo(payload: LogtoPayload): Promise<AuthInfo> {
     const sub = payload.sub;
     if (!sub) throw new BadRequestException('Invalid Payload');
-    // Roles come from the token; user and org come from a short cache (LogtoRequests).
     const [user, selectedOrganization] = await Promise.all([
       this.logtoRequests.fetchUserCached(sub),
       payload.organization_id

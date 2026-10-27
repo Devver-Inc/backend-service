@@ -279,7 +279,6 @@ export class OrganizationsService {
       );
     }
 
-    // Roles come with each member: one paginated listing, no call per member.
     const search = paginatedQueryDto.search?.toLowerCase();
     const filteredMembers = (
       await this.logtoRequests.getAllOrganizationMembers(
@@ -354,7 +353,6 @@ export class OrganizationsService {
       await this.logtoRequests.getUserInvitations(user.primaryEmail)
     ).filter((i) => i.status === InvitationStatusEnum.PENDING);
 
-    // One lookup per organization, not per invitation.
     const organizationIds = [
       ...new Set(invitations.map((invitation) => invitation.organizationId)),
     ];

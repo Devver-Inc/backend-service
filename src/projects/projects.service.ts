@@ -137,7 +137,6 @@ export class ProjectsService {
         commentPermission: overlayAccessControl.commentPermission,
       }));
 
-  /** `{ [link.env]: connection string }` for a deployment's database links. */
   async resolveDatabaseLinks(
     project: ProjectDocument,
     databaseLinks: DatabaseLink[],
@@ -245,7 +244,6 @@ export class ProjectsService {
     this.logger.log(`Project ${projectId} deleted`);
   }
 
-  /** Before an organization is deleted in Logto, so nothing it owned is left running. */
   async deleteOrganizationProjects(organizationId: string): Promise<void> {
     for (const projectId of await this.projectsRepository.findIdsByOrganization(
       organizationId,
@@ -333,7 +331,6 @@ export class ProjectsService {
     }
   }
 
-  /** Writes the agent's secrets to Vault, then its values.yaml to the manifests repo. */
   private async publishProjectManifest(
     project: ProjectDocument,
     organization: { id: string; name: string },

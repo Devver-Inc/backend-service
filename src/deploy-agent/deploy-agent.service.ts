@@ -263,7 +263,6 @@ export class DeployAgentService {
     );
   };
 
-  /** Called when a project goes away: its namespace (and agent) is deleted with it. */
   deleteProjectState = async (projectId: string): Promise<void> => {
     const deployments = await this.deployAgentRepository.findDeployments({
       projectId,

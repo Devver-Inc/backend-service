@@ -1,4 +1,3 @@
-/** Last complete `event:`/`data:` block of an SSE text, or undefined. */
 export const lastSseEvent = (
   text: string,
 ): { event: string; data: unknown } | undefined => {

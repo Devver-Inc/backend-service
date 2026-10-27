@@ -20,7 +20,6 @@ export class WebhooksService {
     }
 
     try {
-      // Only registration needs work here; other events are delivered but unused.
       if (payload.event === LogtoWebhookEvent.POST_REGISTER) {
         await this.usersService.createAccount(payload.user);
       }

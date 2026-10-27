@@ -31,7 +31,6 @@ export class ProjectsRepository {
       .exec()
       .then((docs) => docs.map((doc) => doc._id.toString()));
 
-  /** Comments belong to the project and go with it (finding 27). */
   deleteComments = (projectId: string): Promise<void> =>
     this.commentModel
       .deleteMany({ projectId: new Types.ObjectId(projectId) })

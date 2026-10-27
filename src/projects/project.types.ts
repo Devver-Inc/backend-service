@@ -45,7 +45,6 @@ export interface DatabaseDeploymentConfig {
   type: DatabaseType;
   enabled: boolean;
   manifestStatus: ManifestStatus;
-  /** The password lives in Vault under vaultPaths.mongo(projectId). */
   username: string;
   replicaCount: number;
   ram: number;

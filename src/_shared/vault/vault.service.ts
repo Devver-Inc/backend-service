@@ -9,7 +9,6 @@ import {
 const SERVICE_ACCOUNT_TOKEN_PATH =
   '/var/run/secrets/kubernetes.io/serviceaccount/token';
 
-/** KV v2 client. Paths are relative to the mount, e.g. `projects/p-<id>/agent`. */
 @Injectable()
 export class VaultService {
   private readonly config: VaultConfig;

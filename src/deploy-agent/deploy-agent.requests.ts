@@ -57,7 +57,6 @@ export class DeployAgentRequests {
       () => false,
     );
 
-  /** Resolves once the agent answers 200; the body is the SSE stream of the deploy. */
   putDeployment = (
     projectId: string,
     id: string,

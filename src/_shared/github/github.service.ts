@@ -107,7 +107,6 @@ export class GitHubService {
     }
   }
 
-  /** Manifests live under p-<projectId>/: the ApplicationSet names the app and namespace after it. */
   async pushValuesYaml(projectId: string, yamlContent: string): Promise<void> {
     await this.createOrUpdateFile(
       `${projectNamespace(projectId)}/values.yaml`,

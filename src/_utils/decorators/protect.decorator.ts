@@ -12,7 +12,6 @@ export type ProtectOptions = {
   skipOrganizationCheck?: boolean;
 };
 
-/** Authentication is global (AccessTokenGuard); this adds organization and role checks. */
 export function Protect(opts?: ProtectOptions) {
   const guards = opts?.skipOrganizationCheck
     ? [RolesGuard]

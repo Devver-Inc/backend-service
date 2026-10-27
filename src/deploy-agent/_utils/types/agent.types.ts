@@ -29,7 +29,6 @@ export interface DeploymentStatus {
   startedAt: string;
 }
 
-/** Body of every agent 4xx/5xx and of the `failed` SSE event. */
 export interface AgentError {
   code: string;
   message: string;
@@ -38,5 +37,4 @@ export interface AgentError {
 
 export type DeploymentAction = 'start' | 'stop' | 'restart';
 
-/** Item of GET /internal/projects/:projectId/deployments, replayed by the agent at boot. */
 export type ReconcileItem = PutDeploymentBody & { id: string };

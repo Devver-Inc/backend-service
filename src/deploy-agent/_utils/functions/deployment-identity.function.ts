@@ -3,7 +3,6 @@ import { toSlug } from 'src/_utils/functions/to-slug.function';
 import { ServiceName } from '../types/agent.types';
 
 const MAX_ID = 63;
-// DNS label = <label>--<24-char projectId>, at most 63 chars.
 const MAX_LABEL = MAX_ID - '--'.length - 24;
 const HASH_LENGTH = 6;
 

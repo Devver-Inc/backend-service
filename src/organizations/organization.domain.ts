@@ -40,7 +40,6 @@ export class OrganizationDomain {
     return this.ownerId === userId;
   }
 
-  /** Logto's `admin` role is the only source of truth for admins. */
   isAdmin(userId: string): boolean {
     return this.admins().some((member) => member.id === userId);
   }

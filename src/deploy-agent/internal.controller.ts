@@ -6,7 +6,6 @@ import { AgentTokenGuard } from './_utils/guards/agent-token.guard';
 import { ReconcileItem } from './_utils/types/agent.types';
 import { DeployAgentService } from './deploy-agent.service';
 
-/** Called by agents from inside the cluster, never by users. */
 @ApiExcludeController()
 @Public()
 @UseGuards(AgentTokenGuard)
