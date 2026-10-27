@@ -34,11 +34,9 @@ export class GitGatewayController {
     status: HttpStatus.FORBIDDEN,
     description: 'PUSH_NOT_ALLOWED',
   })
-  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'REPO_NOT_FOUND' })
   authorize(@Body() dto: GitGatewayAuthorizeDto): Promise<void> {
     return this.gitAuthorizationService.authorizePush(
       dto.projectId,
-      dto.repo,
       dto.publicKey,
     );
   }
