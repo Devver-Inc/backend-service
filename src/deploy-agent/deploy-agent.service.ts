@@ -198,7 +198,7 @@ export class DeployAgentService {
       id,
       {
         repo: dto.repo,
-        ref: dto.commit ?? dto.branch,
+        ref: dto.branch,
         host,
         service: dto.service[serviceName] ?? {},
         env,
@@ -248,7 +248,7 @@ export class DeployAgentService {
     if (!response.writableEnded) response.end();
   };
 
-  /** Desired state the agent replays at boot, pinned to the commits that were deployed. */
+  /** Desired state the agent replays at boot. ref is the branch: the agent follows pushes to it. */
   listDesiredDeployments = async (
     projectId: string,
   ): Promise<ReconcileItem[]> => {
@@ -259,7 +259,7 @@ export class DeployAgentService {
       docs.map(async (doc) => ({
         id: doc.deploymentId,
         repo: doc.repo,
-        ref: doc.commit,
+        ref: doc.branch,
         host: doc.host,
         service: doc.service[doc.serviceName] ?? {},
         env:

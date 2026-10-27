@@ -14,7 +14,6 @@ import {
 import { DatabaseLink, DatabaseType } from 'src/projects/project.types';
 import {
   BRANCH_PATTERN,
-  COMMIT_PATTERN,
   REPO_NAME_PATTERN,
 } from '../../constants/validation-patterns';
 import { ServiceConfig, Services } from '../../types/agent.types';
@@ -85,15 +84,6 @@ export class CreateAgentDeploymentDto {
   @IsString()
   @Matches(BRANCH_PATTERN, { message: 'INVALID_BRANCH_NAME' })
   branch: string;
-
-  @ApiPropertyOptional({
-    example: 'a1b2c3d',
-    description: 'Pins the deploy to this commit; defaults to the branch head',
-  })
-  @IsOptional()
-  @IsString()
-  @Matches(COMMIT_PATTERN, { message: 'INVALID_COMMIT_HASH' })
-  commit?: string;
 
   @ApiProperty({ type: () => ServicesDto })
   @ExactlyOneService()

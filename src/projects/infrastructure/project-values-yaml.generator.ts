@@ -36,7 +36,6 @@ export class ProjectValuesYamlGenerator {
       project: { id: project.id, name: project.name },
       imagePullSecrets: [{ name: 'ghcr-secret' }],
       container: {
-        image: 'ghcr.io/devver-inc/deploy-agent:latest',
         port: 80,
         type: 'app',
         command: [],
