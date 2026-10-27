@@ -26,4 +26,5 @@ export class ProjectsExceptions {
     'DATABASE_TYPE_NOT_SUPPORTED',
   );
   DUPLICATE_DATABASE_TYPE = new BadRequestException('DUPLICATE_DATABASE_TYPE');
+  DATABASE_NOT_ENABLED = new BadRequestException('DATABASE_NOT_ENABLED');
 }

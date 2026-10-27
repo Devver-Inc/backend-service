@@ -3,11 +3,12 @@ import {
   CanActivate,
   ExecutionContext,
   Injectable,
+  RawBodyRequest,
   UnauthorizedException,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { EnvironmentVariables } from 'src/_utils/config/env.config';
-import { LogtoPayload } from '../../../logto/_utils/schemas/logto-payload.types';
 
 @Injectable()
 export class LogtoWebhookSignatureGuard implements CanActivate {
@@ -16,11 +17,14 @@ export class LogtoWebhookSignatureGuard implements CanActivate {
   ) {}
 
   canActivate(context: ExecutionContext): boolean {
-    const request = context.switchToHttp().getRequest();
+    const request = context
+      .switchToHttp()
+      .getRequest<RawBodyRequest<Request>>();
     const signature = request.headers['logto-signature-sha-256'];
-    const body = request.body;
+    // Signed bytes, not a re-serialization of the parsed body (main.ts sets rawBody).
+    const body = request.rawBody;
 
-    if (!signature) {
+    if (typeof signature !== 'string' || !body) {
       throw new UnauthorizedException('Missing webhook signature');
     }
 
@@ -33,7 +37,7 @@ export class LogtoWebhookSignatureGuard implements CanActivate {
     return true;
   }
 
-  private verifySignature(payload: LogtoPayload, signature: string): boolean {
+  private verifySignature(payload: Buffer, signature: string): boolean {
     const signingKey =
       this.configService.get('LOGTO').LOGTO_WEBHOOK_SIGNING_KEY;
 
@@ -42,7 +46,7 @@ export class LogtoWebhookSignatureGuard implements CanActivate {
     }
 
     const expectedSignature = createHmac('sha256', signingKey)
-      .update(JSON.stringify(payload))
+      .update(payload)
       .digest('hex');
 
     try {

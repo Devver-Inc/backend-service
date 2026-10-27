@@ -2,7 +2,6 @@ import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   ArrayUnique,
-  IsBoolean,
   IsArray,
   IsEnum,
   IsNotEmpty,
@@ -15,7 +14,6 @@ import {
 import { DatabaseLink, DatabaseType } from 'src/projects/project.types';
 import {
   BRANCH_PATTERN,
-  COMMIT_PATTERN,
   REPO_NAME_PATTERN,
 } from '../../constants/validation-patterns';
 import { ServiceConfig, Services } from '../../types/agent.types';
@@ -32,11 +30,6 @@ export class ServiceConfigDto implements ServiceConfig {
   @IsOptional()
   @IsString()
   install?: string;
-
-  @ApiPropertyOptional({ example: true })
-  @IsOptional()
-  @IsBoolean()
-  skipInstall?: boolean;
 
   @ApiPropertyOptional({ example: 'npm run build' })
   @IsOptional()
@@ -91,12 +84,6 @@ export class CreateAgentDeploymentDto {
   @IsString()
   @Matches(BRANCH_PATTERN, { message: 'INVALID_BRANCH_NAME' })
   branch: string;
-
-  @ApiPropertyOptional({ example: 'a1b2c3d' })
-  @IsOptional()
-  @IsString()
-  @Matches(COMMIT_PATTERN, { message: 'INVALID_COMMIT_HASH' })
-  commit?: string;
 
   @ApiProperty({ type: () => ServicesDto })
   @ExactlyOneService()

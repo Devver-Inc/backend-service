@@ -27,14 +27,6 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Protect()
-  @Post('/account')
-  @ApiOperation({ summary: 'Create account for current user' })
-  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'UNAUTHORIZED' })
-  createAccountForUser(@ConnectedUser() user: LogtoUser) {
-    return this.usersService.createAccount(user);
-  }
-
-  @Protect()
   @Patch('me')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Update current user account' })

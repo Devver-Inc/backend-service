@@ -47,13 +47,4 @@ export class PaginatedQueryDto {
         : { _id: this.toMongoDbSortDirection },
     };
   }
-
-  get toMongoDbFacet(): PipelineStage.Facet {
-    return {
-      $facet: {
-        items: [{ $skip: this.skip }, { $limit: this.pageSize }],
-        total: [{ $count: 'total' }],
-      },
-    };
-  }
 }

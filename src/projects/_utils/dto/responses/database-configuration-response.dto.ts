@@ -14,9 +14,6 @@ export class DatabaseConfigurationResponseDto {
   @ApiPropertyOptional({ example: 'root' })
   username?: string;
 
-  @ApiPropertyOptional({ example: true })
-  hasPassword?: boolean;
-
   @ApiPropertyOptional({ example: 1 })
   replicaCount?: number;
 

@@ -14,14 +14,11 @@ export class DeployRepo {
   @Prop({ required: true })
   name: string;
 
-  @Prop({ required: true })
-  pushUrl: string;
-
   createdAt: Date;
   updatedAt: Date;
 }
 
 export const DeployRepoSchema = SchemaFactory.createForClass(DeployRepo);
 
-DeployRepoSchema.index({ projectId: 1 });
+DeployRepoSchema.index({ organizationId: 1 });
 DeployRepoSchema.index({ projectId: 1, name: 1 }, { unique: true });

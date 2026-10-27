@@ -2,7 +2,6 @@
  * Providers Tokens
  */
 export const LOGTO_CLIENT_TOKEN = 'LogtoClient';
-export const LOGTO_CREDENTIALS = 'LogtoClientCredentials';
 export const LOGTO_JWKS_TOKEN = 'LogtoJwks';
 export const LOGTO_URIS_TOKEN = 'LogtoUris';
 export const STORAGE_CLIENT_TOKEN = 'StorageClient';

@@ -1,29 +1,21 @@
-// protect.decorator.ts
 import { applyDecorators, SetMetadata, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiUnauthorizedResponse } from '@nestjs/swagger';
 import { ROLES_KEY } from 'src/_utils/constants';
+import { UserRoleEnum } from 'src/logto/_utils/enums/permissions.enum';
+import { ErrorCodes } from '../enums/error-codes.enum';
+import { RequireOrganizationGuard } from '../guards/require-organization.guard';
 import { RolesGuard } from '../guards/roles.guard';
 import { ProtectedAutoRolesDecorator } from './protected-auto-roles.decorator';
-import { AccessTokenGuard } from 'src/logto/_utils/middleware/access-token.guard';
-import {
-  UserPermissionsEnum,
-  UserRoleEnum,
-} from 'src/logto/_utils/enums/permissions.enum';
-import { RequireOrganizationGuard } from '../guards/require-organization.guard';
-import { ErrorCodes } from '../enums/error-codes.enum';
 
 export type ProtectOptions = {
   roles?: UserRoleEnum[];
-  permissions?: UserPermissionsEnum[];
   skipOrganizationCheck?: boolean;
 };
 
 export function Protect(opts?: ProtectOptions) {
-  const guards: any[] = [AccessTokenGuard, RolesGuard];
-
-  if (!opts?.skipOrganizationCheck) {
-    guards.push(RequireOrganizationGuard);
-  }
+  const guards = opts?.skipOrganizationCheck
+    ? [RolesGuard]
+    : [RolesGuard, RequireOrganizationGuard];
 
   return applyDecorators(
     SetMetadata(ROLES_KEY, opts),

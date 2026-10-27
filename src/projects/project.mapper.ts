@@ -17,10 +17,6 @@ export class ProjectsMapper {
     createdAt: project.createdAt,
   });
 
-  toProjectLightDtoFromArray = (
-    projects: ProjectDocument[],
-  ): GetProjectLightDto[] => projects.map(this.toProjectLightDto);
-
   toProjectDto = (
     project: ProjectDocument,
     createdByUser: LogtoUser | null,
@@ -47,7 +43,6 @@ export class ProjectsMapper {
         type: configuration.type,
         enabled: configuration.enabled,
         username: configuration.username,
-        hasPassword: Boolean(configuration.passwordEncrypted),
         replicaCount: configuration.replicaCount,
         ram: configuration.ram,
         cpuCores: configuration.cpuCores,

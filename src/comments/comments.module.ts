@@ -2,7 +2,6 @@ import { forwardRef, Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ProjectsModule } from 'src/projects/projects.module';
 import { UsersModule } from 'src/users/users.module';
-import { OptionalAccessTokenGuard } from 'src/logto/_utils/middleware/optional-access-token.guard';
 import { CommentsController } from './comments.controller';
 import { CommentsMapper } from './comments.mapper';
 import { CommentsRepository } from './comments.repository';
@@ -27,7 +26,6 @@ import { CommentsService } from './comments.service';
     CommentsMapper,
     CommentsRepository,
     CommentsExceptions,
-    OptionalAccessTokenGuard,
   ],
 })
 export class CommentsModule {}

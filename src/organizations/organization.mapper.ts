@@ -7,7 +7,6 @@ import {
 import { LogtoInvitation } from 'src/logto/_utils/types/responses/invitation.types';
 import {
   LogtoOrganization,
-  LogtoOrganizationPermissions,
   LogtoUser,
 } from 'src/logto/_utils/types/responses/responses.type';
 import { UsersMapper } from 'src/users/user.mapper';
@@ -71,9 +70,6 @@ export class OrganizationsMapper {
       : undefined,
   });
 
-  toGetPermissions = (permissions: LogtoOrganizationPermissions): string[] =>
-    permissions.map((x) => x.name);
-
   toGetOrganizationMembersQuery = (
     paginatedQueryDto: UsersPaginatedQueryDto,
   ) => ({
@@ -84,13 +80,8 @@ export class OrganizationsMapper {
 
   toOrganizationCustomDataType = (
     ownerId: string,
-    adminIds: string[],
     logoUrl = '',
-  ): OrganizationCustomData => ({
-    ownerId: ownerId,
-    adminIds: [ownerId, ...adminIds],
-    logoUrl: logoUrl,
-  });
+  ): OrganizationCustomData => ({ ownerId, logoUrl });
 
   toGetInvitationLinkUrl = (
     invitation: LogtoInvitation,

@@ -102,18 +102,24 @@ export class GitHubConfig {
   GITHUB_BRANCH: string;
 }
 export class DeployAgentConfig {
-  @IsString()
-  DEPLOY_AGENT_SECRET: string;
-
+  /** Master key: each project's agent token is HMAC(DEPLOY_AGENT_SECRET, projectId). */
   @IsString()
   @MinLength(32)
-  GIT_TOKEN_SECRET: string;
+  DEPLOY_AGENT_SECRET: string;
 
   @IsString()
   K8S_BASE_DOMAIN: string;
 
   @IsUrl({ require_tld: false })
-  GIT_AUTH_URL: string;
+  BACKEND_INTERNAL_URL: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(32)
+  GIT_GATEWAY_SECRET?: string;
+
+  @IsString()
+  GIT_SSH_HOST: string;
 }
 
 export class ArgoCdConfig {
@@ -124,9 +130,23 @@ export class ArgoCdConfig {
   ARGOCD_API_KEY: string;
 }
 
-export class EncryptionConfig {
+export class VaultConfig {
+  @IsUrl({ require_tld: false })
+  VAULT_ADDR: string;
+
   @IsString()
-  ENCRYPTION_KEY: string;
+  VAULT_KV_MOUNT: string;
+
+  @IsString()
+  VAULT_AUTH_MOUNT: string;
+
+  @IsString()
+  VAULT_ROLE: string;
+
+  /** Local development only; in the cluster the backend logs in with its service account. */
+  @IsOptional()
+  @IsString()
+  VAULT_TOKEN?: string;
 }
 
 export class EnvironmentVariables {
@@ -159,8 +179,8 @@ export class EnvironmentVariables {
   DEPLOY_AGENT: DeployAgentConfig;
 
   @ValidateNested()
-  @Type(() => EncryptionConfig)
-  ENCRYPTION: EncryptionConfig;
+  @Type(() => VaultConfig)
+  VAULT: VaultConfig;
 
   @ValidateNested()
   @Type(() => ArgoCdConfig)
@@ -210,12 +230,17 @@ export function validateEnv(config: Record<string, unknown>) {
     },
     DEPLOY_AGENT: {
       DEPLOY_AGENT_SECRET: config.DEPLOY_AGENT_SECRET,
-      GIT_TOKEN_SECRET: config.GIT_TOKEN_SECRET,
       K8S_BASE_DOMAIN: config.K8S_BASE_DOMAIN,
-      GIT_AUTH_URL: config.GIT_AUTH_URL,
+      BACKEND_INTERNAL_URL: config.BACKEND_INTERNAL_URL,
+      GIT_GATEWAY_SECRET: config.GIT_GATEWAY_SECRET,
+      GIT_SSH_HOST: config.GIT_SSH_HOST,
     },
-    ENCRYPTION: {
-      ENCRYPTION_KEY: config.ENCRYPTION_KEY,
+    VAULT: {
+      VAULT_ADDR: config.VAULT_ADDR,
+      VAULT_KV_MOUNT: config.VAULT_KV_MOUNT ?? 'devver_K8s',
+      VAULT_AUTH_MOUNT: config.VAULT_AUTH_MOUNT ?? 'devver_k8s_prod',
+      VAULT_ROLE: config.VAULT_ROLE ?? 'backend-service',
+      VAULT_TOKEN: config.VAULT_TOKEN,
     },
     ARGOCD: {
       ARGOCD_BASE_URL: config.ARGOCD_BASE_URL,
