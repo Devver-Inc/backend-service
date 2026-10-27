@@ -47,7 +47,6 @@ export class ProjectsMapper {
         type: configuration.type,
         enabled: configuration.enabled,
         username: configuration.username,
-        hasPassword: Boolean(configuration.passwordEncrypted),
         replicaCount: configuration.replicaCount,
         ram: configuration.ram,
         cpuCores: configuration.cpuCores,

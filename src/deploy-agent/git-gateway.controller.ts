@@ -8,7 +8,6 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { GitGatewayAuthorizeDto } from './_utils/dto/requests/git-gateway-authorize.dto';
-import { GitGatewayTargetDto } from './_utils/dto/responses/git-gateway-target.dto';
 import { GitGatewaySecretGuard } from './_utils/guards/git-gateway-secret.guard';
 import { GitAuthorizationService } from './git-authorization.service';
 
@@ -21,22 +20,25 @@ export class GitGatewayController {
 
   @UseGuards(GitGatewaySecretGuard)
   @Post('authorize')
-  @HttpCode(HttpStatus.OK)
+  @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
-    summary: 'Authorize an SSH key for a project and return its agent target',
+    summary:
+      'Allow or deny an SSH push; the gateway routes to the project agent itself',
   })
-  @ApiResponse({ status: HttpStatus.OK, type: GitGatewayTargetDto })
+  @ApiResponse({ status: HttpStatus.NO_CONTENT, description: 'Push allowed' })
   @ApiResponse({
     status: HttpStatus.UNAUTHORIZED,
     description: 'UNKNOWN_SSH_KEY',
   })
   @ApiResponse({
     status: HttpStatus.FORBIDDEN,
-    description: 'SSH_KEY_OWNER_NOT_MEMBER',
+    description: 'PUSH_NOT_ALLOWED',
   })
-  authorize(@Body() dto: GitGatewayAuthorizeDto): Promise<GitGatewayTargetDto> {
-    return this.gitAuthorizationService.authorizeGatewayKey(
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'REPO_NOT_FOUND' })
+  authorize(@Body() dto: GitGatewayAuthorizeDto): Promise<void> {
+    return this.gitAuthorizationService.authorizePush(
       dto.projectId,
+      dto.repo,
       dto.publicKey,
     );
   }

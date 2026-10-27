@@ -2,23 +2,18 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import {
-  CreateDeploymentData,
   CreateRepoData,
-  AgentDeploymentStatus,
+  UpsertDeploymentData,
 } from './_utils/types/deployment.types';
 import { Deployment, DeploymentDocument } from './schemas/deployment.schema';
 import { DeployRepo, DeployRepoDocument } from './schemas/repo.schema';
 import { LeanWithMongoId } from 'src/_utils/types';
-export type { CreateRepoData, CreateDeploymentData };
 
 export type DeployRepoLean = LeanWithMongoId<DeployRepo>;
 export type DeploymentLean = LeanWithMongoId<Deployment>;
 
 @Injectable()
 export class DeployAgentRepository {
-  REPO_NOT_FOUND = 'REPO_NOT_FOUND';
-  DEPLOYMENT_NOT_FOUND = 'DEPLOYMENT_NOT_FOUND';
-
   constructor(
     @InjectModel(DeployRepo.name) private repoModel: Model<DeployRepo>,
     @InjectModel(Deployment.name) private deploymentModel: Model<Deployment>,
@@ -33,7 +28,7 @@ export class DeployAgentRepository {
   findRepo = (projectId: string, name: string): Promise<DeployRepoDocument> =>
     this.repoModel
       .findOne({ projectId, name })
-      .orFail(new NotFoundException(this.REPO_NOT_FOUND))
+      .orFail(new NotFoundException('REPO_NOT_FOUND'))
       .exec();
 
   deleteRepo = (projectId: string, name: string): Promise<void> =>
@@ -43,59 +38,41 @@ export class DeployAgentRepository {
       .then(() => {});
 
   upsertDeployment = (
-    data: CreateDeploymentData & { status: AgentDeploymentStatus },
+    data: UpsertDeploymentData,
   ): Promise<DeploymentDocument> =>
     this.deploymentModel
       .findOneAndUpdate(
-        {
-          projectId: data.projectId,
-          repo: data.repo,
-          branch: data.branch,
-          serviceName: data.serviceName,
-        },
-        { $set: { ...data } },
+        { projectId: data.projectId, deploymentId: data.deploymentId },
+        { $set: data },
         { upsert: true, returnDocument: 'after' },
       )
       .exec();
 
-  findDeploymentsByProject = async (
-    projectId: string,
-    status?: AgentDeploymentStatus,
-  ): Promise<DeploymentLean[]> => {
-    const filter: Record<string, unknown> = { projectId };
-    if (status) filter.status = status;
-    return this.deploymentModel.find(filter).lean().exec();
-  };
+  findDeployments = (
+    filter: { projectId: string; repo?: string } | { organizationId: string },
+  ): Promise<DeploymentLean[]> =>
+    this.deploymentModel.find(filter).lean().exec();
 
-  markDeploymentRemovedByDeploymentId = async (
-    projectId: string,
-    deploymentId: string,
-  ): Promise<void> => {
-    await this.deploymentModel
-      .updateOne(
-        { projectId, deploymentId },
-        { $set: { status: AgentDeploymentStatus.REMOVED } },
-      )
-      .orFail(new NotFoundException(this.DEPLOYMENT_NOT_FOUND))
-      .exec();
-  };
-
-  findArgoAppNameByProject = (projectId: string): Promise<string | undefined> =>
+  deleteDeployment = (projectId: string, deploymentId: string): Promise<void> =>
     this.deploymentModel
-      .findOne({ projectId, argoAppName: { $exists: true, $ne: null } })
-      .lean()
+      .deleteOne({ projectId, deploymentId })
+      .orFail(new NotFoundException('DEPLOYMENT_NOT_FOUND'))
       .exec()
-      .then((doc) => doc?.argoAppName ?? undefined);
+      .then(() => {});
 
-  markDeploymentsByRepoRemoved = (
-    projectId: string,
-    repo: string,
+  deleteDeployments = (
+    filter: { projectId: string; repo?: string } | { organizationId: string },
   ): Promise<void> =>
     this.deploymentModel
-      .updateMany(
-        { projectId, repo },
-        { $set: { status: AgentDeploymentStatus.REMOVED } },
-      )
+      .deleteMany(filter)
+      .exec()
+      .then(() => {});
+
+  deleteRepos = (
+    filter: { projectId: string } | { organizationId: string },
+  ): Promise<void> =>
+    this.repoModel
+      .deleteMany(filter)
       .exec()
       .then(() => {});
 }

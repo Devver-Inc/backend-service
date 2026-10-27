@@ -37,7 +37,6 @@ export interface OverlayAccessControl {
 }
 
 export interface DeploymentConfig {
-  githubPath: string;
   manifestStatus: ManifestStatus;
 }
 
@@ -45,10 +44,9 @@ export interface DatabaseDeploymentConfig {
   name: string;
   type: DatabaseType;
   enabled: boolean;
-  githubPath: string;
   manifestStatus: ManifestStatus;
+  /** The password lives in Vault under vaultPaths.mongo(projectId). */
   username: string;
-  passwordEncrypted: string;
   replicaCount: number;
   ram: number;
   cpuCores: number;

@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Octokit } from '@octokit/rest';
 import { EnvironmentVariables } from 'src/_utils/config/env.config';
-import { toSlug } from 'src/_utils/functions/to-slug.function';
+import { projectNamespace } from 'src/_utils/functions/project-keys.function';
 
 @Injectable()
 export class GitHubService {
@@ -107,30 +107,25 @@ export class GitHubService {
     }
   }
 
-  /**
-   * Push values.yaml file for an organization/project
-   */
-  async pushValuesYaml(
-    organizationName: string,
-    projectName: string,
-    yamlContent: string,
-  ): Promise<void> {
-    const path = `${toSlug(organizationName)}/${toSlug(projectName)}/values.yaml`;
-    const message = `Deploy ${projectName} for ${organizationName}`;
-
-    await this.createOrUpdateFile(path, yamlContent, message);
+  /** Manifests live under p-<projectId>/: the ApplicationSet names the app and namespace after it. */
+  async pushValuesYaml(projectId: string, yamlContent: string): Promise<void> {
+    await this.createOrUpdateFile(
+      `${projectNamespace(projectId)}/values.yaml`,
+      yamlContent,
+      `Deploy project ${projectId}`,
+    );
   }
 
   async pushDatabaseValuesYaml(
-    organizationName: string,
-    projectName: string,
+    projectId: string,
     databaseName: string,
     yamlContent: string,
   ): Promise<void> {
-    const path = `${toSlug(organizationName)}/${toSlug(projectName)}/values-${toSlug(databaseName)}.yaml`;
-    const message = `Deploy ${databaseName} for ${projectName} for ${organizationName}`;
-
-    await this.createOrUpdateFile(path, yamlContent, message);
+    await this.createOrUpdateFile(
+      `${projectNamespace(projectId)}/values-${databaseName}.yaml`,
+      yamlContent,
+      `Deploy ${databaseName} for project ${projectId}`,
+    );
   }
 
   /**
@@ -189,26 +184,22 @@ export class GitHubService {
     }
   }
 
-  /**
-   * Delete values.yaml for an organization/project (also removes the folder)
-   */
-  async deleteValuesYaml(
-    organizationName: string,
-    projectName: string,
-  ): Promise<void> {
-    const path = `${toSlug(organizationName)}/${toSlug(projectName)}/values.yaml`;
-    const message = `Remove ${projectName} from ${organizationName}`;
-    await this.deleteFile(path, message);
+  /** Deleting values.yaml also removes the folder, and with it the Argo app and namespace. */
+  async deleteValuesYaml(projectId: string): Promise<void> {
+    await this.deleteFile(
+      `${projectNamespace(projectId)}/values.yaml`,
+      `Remove project ${projectId}`,
+    );
   }
 
   async deleteDatabaseValuesYaml(
-    organizationName: string,
-    projectName: string,
+    projectId: string,
     databaseName: string,
   ): Promise<void> {
-    const path = `${toSlug(organizationName)}/${toSlug(projectName)}/values-${toSlug(databaseName)}.yaml`;
-    const message = `Remove ${databaseName} for ${projectName} from ${organizationName}`;
-    await this.deleteFile(path, message);
+    await this.deleteFile(
+      `${projectNamespace(projectId)}/values-${databaseName}.yaml`,
+      `Remove ${databaseName} for project ${projectId}`,
+    );
   }
 
   /**

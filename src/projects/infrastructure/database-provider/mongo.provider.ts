@@ -1,53 +1,41 @@
 import { Injectable } from '@nestjs/common';
 import { dump } from 'js-yaml';
-import { toSlug } from 'src/_utils/functions/to-slug.function';
+import { projectNamespace } from 'src/_utils/functions/project-keys.function';
 import { DEFAULT_STORAGE_CLASS } from '../deployment.constants';
 
 @Injectable()
 export class MongoDbProvider {
   buildConnectionString(
-    organizationName: string,
-    projectName: string,
+    projectId: string,
     rootUsername: string,
     rootPassword: string,
     targetDatabase = 'admin',
   ): string {
-    const orgName = toSlug(organizationName);
-    const projName = toSlug(projectName);
     const username = encodeURIComponent(rootUsername);
     const password = encodeURIComponent(rootPassword);
-    const host = `${orgName}-${projName}-mongo`;
+    const host = `${projectNamespace(projectId)}-mongo`;
     const database = encodeURIComponent(targetDatabase);
 
     return `mongodb://${username}:${password}@${host}:27017/${database}?authSource=admin&tls=true&tlsAllowInvalidCertificates=true`;
   }
 
+  /** The root credentials come from Vault (vaultPaths.mongo) through the chart's ExternalSecret. */
   generateValuesYaml(
-    organizationName: string,
-    projectName: string,
+    project: { id: string; name: string },
     config: {
-      rootUsername: string;
-      rootPassword: string;
       replicaCount: number;
       ram: number;
       cpuCores: number;
       storage: number;
     },
   ): string {
-    const orgName = toSlug(organizationName);
-    const projName = toSlug(projectName);
     const memory = `${Math.round(config.ram * 1024)}Mi`;
     const cpu = `${Math.round(config.cpuCores * 1000)}m`;
     const storage = `${config.storage}Gi`;
 
     return dump({
       namespace: { create: false },
-      organization: { name: orgName, domain: 'devver.app' },
-      project: { name: projName },
-      auth: {
-        rootUsername: config.rootUsername,
-        rootPassword: config.rootPassword, // TODO: replace with Vault reference
-      },
+      project: { id: project.id, name: project.name },
       replicaCount: config.replicaCount,
       persistence: { size: storage, storageClass: DEFAULT_STORAGE_CLASS },
       resources: {

@@ -1,14 +1,14 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument } from 'mongoose';
 import { ServiceName, Services } from '../_utils/types/agent.types';
-import { AgentDeploymentStatus } from '../_utils/types/deployment.types';
 import { DatabaseLink } from 'src/projects/project.types';
-
-export type { Services };
-export { AgentDeploymentStatus };
 
 export type DeploymentDocument = HydratedDocument<Deployment>;
 
+/**
+ * Desired state: one document per deployment the project's agent should run.
+ * The env lives in Vault under vaultPaths.deployment(projectId, deploymentId).
+ */
 @Schema({ timestamps: true })
 export class Deployment {
   @Prop({ required: true })
@@ -29,11 +29,11 @@ export class Deployment {
   @Prop({ required: true })
   deploymentId: string;
 
-  @Prop()
-  commit?: string;
+  @Prop({ required: true })
+  host: string;
 
-  @Prop()
-  argoAppName?: string;
+  @Prop({ required: true })
+  commit: string;
 
   @Prop({ type: Object, required: true })
   service: Services;
@@ -41,24 +41,11 @@ export class Deployment {
   @Prop({ type: [Object] })
   dbLinks?: DatabaseLink[];
 
-  @Prop({ type: Object })
-  env?: Record<string, string>;
-
-  @Prop({
-    type: String,
-    enum: AgentDeploymentStatus,
-  })
-  status: AgentDeploymentStatus;
-
   createdAt: Date;
   updatedAt: Date;
 }
 
 export const DeploymentSchema = SchemaFactory.createForClass(Deployment);
 
-DeploymentSchema.index({ projectId: 1 });
-// Requires src/_migrations/deployment-service-name.ts (drops the old unique index).
-DeploymentSchema.index(
-  { projectId: 1, repo: 1, branch: 1, serviceName: 1 },
-  { unique: true },
-);
+DeploymentSchema.index({ organizationId: 1 });
+DeploymentSchema.index({ projectId: 1, deploymentId: 1 }, { unique: true });

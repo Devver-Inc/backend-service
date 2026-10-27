@@ -1,4 +1,4 @@
-import { toSlug } from 'src/_utils/functions/to-slug.function';
+import { UserRoleEnum } from 'src/logto/_utils/enums/permissions.enum';
 import {
   CommentAuthorization,
   CreateProjectData,
@@ -39,33 +39,18 @@ export class ProjectDomain {
     dto: CreateProjectData,
     organizationId: string,
     userId: string,
-    organizationName: string,
-    encryptedDatabasePasswords?: Map<string, string>,
   ): ProjectDomain {
-    const githubPath = `${toSlug(organizationName)}/${toSlug(dto.name)}/values.yaml`;
-
     const deploymentConfig: DeploymentConfig = {
-      githubPath,
       manifestStatus: ManifestStatus.PENDING,
     };
-
-    if (dto.databaseConfigurations && !encryptedDatabasePasswords) {
-      throw new Error(
-        'encryptedDatabasePasswords is required when databaseConfigurations are provided',
-      );
-    }
 
     const databaseConfigurations = dto.databaseConfigurations?.map(
       (configuration) => ({
         name: configuration.type,
         type: configuration.type,
         enabled: true,
-        githubPath: `${toSlug(organizationName)}/${toSlug(dto.name)}/values-${configuration.type}.yaml`,
         manifestStatus: ManifestStatus.PENDING,
         username: configuration.username,
-        passwordEncrypted: encryptedDatabasePasswords?.get(
-          configuration.type,
-        ) as string,
         replicaCount: configuration.replicaCount,
         ram: configuration.ram,
         cpuCores: configuration.cpuCores,
@@ -103,6 +88,14 @@ export class ProjectDomain {
 
   isTeamMember(userId: string): boolean {
     return this.teamMemberIds.includes(userId);
+  }
+
+  /** Deploy and git push: org admins, or developers on the project's team. */
+  canPush(userId: string, orgRoleNames: readonly string[]): boolean {
+    if (orgRoleNames.includes(UserRoleEnum.ADMIN)) return true;
+    return (
+      orgRoleNames.includes(UserRoleEnum.DEVELOPER) && this.isTeamMember(userId)
+    );
   }
 
   authorizeRead(userId: string | undefined, isAdmin: boolean): boolean {

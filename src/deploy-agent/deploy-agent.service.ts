@@ -1,329 +1,88 @@
 import {
-  BadRequestException,
-  HttpException,
+  ForbiddenException,
+  forwardRef,
+  Inject,
   Injectable,
-  Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Response } from 'express';
-import { EncryptionService } from 'src/_utils/encryption/encryption.service';
+import { VaultService } from 'src/_shared/vault/vault.service';
 import { EnvironmentVariables } from 'src/_utils/config/env.config';
-import { toSlug } from 'src/_utils/functions/to-slug.function';
+import {
+  projectNamespace,
+  vaultPaths,
+} from 'src/_utils/functions/project-keys.function';
 import { LogtoUserWithOrganizations } from 'src/logto/_utils/types/user-with-organization.type';
+import { ProjectDomain } from 'src/projects/project.domain';
+import { ProjectDocument } from 'src/projects/project.schema';
 import { ProjectsService } from 'src/projects/projects.service';
-import { DatabaseType } from 'src/projects/project.types';
-import { ControlPm2ProcessDto } from './_utils/dto/requests/control-pm2-process.dto';
 import { CreateAgentDeploymentDto } from './_utils/dto/requests/create-deployment.dto';
 import { CreateRepoDto } from './_utils/dto/requests/create-repo.dto';
-import {
-  ControlPm2ProcessResultDto,
-  GetAgentDeploymentDto,
-  GetLogsDto,
-  RestoreResultDto,
-} from './_utils/dto/responses/get-deployment.dto';
-import { GetDatabaseDto } from './_utils/dto/responses/get-database.dto';
+import { GetAgentDeploymentDto } from './_utils/dto/responses/get-deployment.dto';
 import { GetRepoDto } from './_utils/dto/responses/get-repo.dto';
-import { DeployAgentExceptions } from './_utils/errors/deploy-agent-exceptions';
-import {
-  AgentErrorCode,
-  DeployRequest,
-  DeployResponse,
-  ErrorResponse,
-} from './_utils/types/agent.types';
-import { RESTORE_CONCURRENCY } from './_utils/constants/restore.constants';
+import { deploymentIdentity } from './_utils/functions/deployment-identity.function';
+import { lastSseEvent } from './_utils/functions/last-sse-event.function';
 import { serviceNameOf } from './_utils/functions/service-name-of.function';
 import {
-  AgentDeploymentStatus,
-  PreparedDeployment,
-} from './_utils/types/deployment.types';
+  DeploymentAction,
+  DeploymentStatus,
+  ReconcileItem,
+} from './_utils/types/agent.types';
 import { DeployAgentMapper } from './deploy-agent.mapper';
-import {
-  DeployAgentRepository,
-  DeploymentLean,
-} from './deploy-agent.repository';
+import { DeployAgentRepository } from './deploy-agent.repository';
 import { DeployAgentRequests } from './deploy-agent.requests';
+
+const LOGS_TAIL = 200;
 
 @Injectable()
 export class DeployAgentService {
-  private readonly logger = new Logger(DeployAgentService.name);
-  private readonly baseDomain: string;
+  private readonly previewDomain: string;
 
   constructor(
     private readonly deployAgentRepository: DeployAgentRepository,
     private readonly deployAgentRequests: DeployAgentRequests,
     private readonly deployAgentMapper: DeployAgentMapper,
+    @Inject(forwardRef(() => ProjectsService))
     private readonly projectsService: ProjectsService,
-    private readonly encryptionService: EncryptionService,
-    private readonly exceptions: DeployAgentExceptions,
+    private readonly vault: VaultService,
     configService: ConfigService<EnvironmentVariables, true>,
   ) {
-    const deployAgentConfig = configService.get('DEPLOY_AGENT');
-    this.baseDomain = deployAgentConfig.K8S_BASE_DOMAIN;
-  }
-
-  private buildAgentUrl = (orgName: string, projectName: string): string =>
-    `https://${toSlug(orgName)}.${toSlug(projectName)}.${this.baseDomain}`;
-
-  private resolveDatabaseLinks = async (
-    projectId: string,
-    dto: CreateAgentDeploymentDto,
-    user: LogtoUserWithOrganizations,
-  ): Promise<Record<string, string>> => {
-    if (!dto.dbLinks?.length) {
-      return {};
-    }
-
-    const links = await this.projectsService.resolveDatabaseLinks(
-      projectId,
-      user.currentOrganization.name,
-      dto.dbLinks,
-    );
-    if (!links) {
-      throw this.exceptions.DATABASE_NOT_ENABLED;
-    }
-    return links;
-  };
-
-  private getAgentUrl = (projectId: string, orgName: string): Promise<string> =>
-    this.projectsService
-      .findProjectById(projectId)
-      .then((project) => this.buildAgentUrl(orgName, project.name));
-
-  private verifyProjectOwnership = async (
-    projectId: string,
-    user: LogtoUserWithOrganizations,
-  ): Promise<void> => {
-    await this.projectsService.assertProjectAccess(projectId, user);
-  };
-
-  assertProjectAccess = (
-    projectId: string,
-    user: LogtoUserWithOrganizations,
-  ): Promise<void> => this.verifyProjectOwnership(projectId, user);
-
-  private prepareDeployment = async (
-    projectId: string,
-    dto: CreateAgentDeploymentDto,
-    user: LogtoUserWithOrganizations,
-  ): Promise<PreparedDeployment> => {
-    await this.verifyProjectOwnership(projectId, user);
-    const project = await this.projectsService.findProjectById(projectId);
-    const agentUrl = this.buildAgentUrl(
-      user.currentOrganization.name,
-      project.name,
-    );
-    const databaseEnv = await this.resolveDatabaseLinks(projectId, dto, user);
-    const mergedEnv =
-      dto.env || Object.keys(databaseEnv).length > 0
-        ? { ...dto.env, ...databaseEnv }
-        : undefined;
-
-    return {
-      agentUrl,
-      argoAppName: `${toSlug(user.currentOrganization.name)}-${toSlug(project.name)}`,
-      deployAgentBody: {
-        repo: dto.repo,
-        branch: dto.branch,
-        commit: dto.commit,
-        service: dto.service,
-        env: mergedEnv,
-        projectId,
-        organizationId: user.currentOrganization.id,
-        overlayAccessControl: project.overlayAccessControl,
-      },
-      mergedEnv,
-    };
-  };
-
-  private persistSuccessfulDeployment = async (
-    projectId: string,
-    dto: CreateAgentDeploymentDto,
-    user: LogtoUserWithOrganizations,
-    prepared: PreparedDeployment,
-    result: DeployResponse,
-  ): Promise<void> => {
-    const encryptedEnv = prepared.mergedEnv
-      ? this.encryptionService.encryptRecord(prepared.mergedEnv)
-      : undefined;
-
-    await this.deployAgentRepository.upsertDeployment({
-      projectId,
-      organizationId: user.currentOrganization.id,
-      repo: dto.repo,
-      branch: dto.branch,
-      serviceName: serviceNameOf(dto.service),
-      deploymentId: result.deploymentId,
-      commit: result.commit,
-      argoAppName: prepared.argoAppName,
-      service: dto.service,
-      dbLinks: dto.dbLinks,
-      env: encryptedEnv,
-      status: AgentDeploymentStatus.DEPLOYED,
-    });
-  };
-
-  private writeSseEvent(
-    response: Response,
-    event: 'phase' | 'complete' | 'error',
-    data: unknown,
-  ): void {
-    if (response.destroyed || response.writableEnded) return;
-    response.write(`event: ${event}\n`);
-    response.write(`data: ${JSON.stringify(data)}\n\n`);
-  }
-
-  private toDeployStreamError(err: unknown): ErrorResponse {
-    const response =
-      err instanceof HttpException ? err.getResponse() : undefined;
-
-    if (
-      response &&
-      typeof response === 'object' &&
-      (response as Partial<ErrorResponse>).success === false
-    ) {
-      return response as ErrorResponse;
-    }
-
-    return {
-      success: false,
-      error: {
-        code: AgentErrorCode.DEPLOY_ERROR,
-        message:
-          err instanceof Error ? err.message : 'Failed to stream deployment',
-      },
-      duration: 0,
-    };
+    this.previewDomain = `preview.${configService.get('DEPLOY_AGENT').K8S_BASE_DOMAIN}`;
   }
 
   getArgoAppName = async (
     projectId: string,
     user: LogtoUserWithOrganizations,
   ): Promise<string> => {
-    await this.verifyProjectOwnership(projectId, user);
-    const stored =
-      await this.deployAgentRepository.findArgoAppNameByProject(projectId);
-    if (stored) return stored;
-    const project = await this.projectsService.findProjectById(projectId);
-    return `${toSlug(user.currentOrganization.name)}-${toSlug(project.name)}`;
+    await this.projectsService.assertProjectAccess(projectId, user);
+    return projectNamespace(projectId);
   };
+
+  isAgentHealthy = (projectId: string): Promise<boolean> =>
+    this.deployAgentRequests.health(projectId);
 
   listRepos = async (
     projectId: string,
     user: LogtoUserWithOrganizations,
   ): Promise<GetRepoDto[]> => {
-    await this.verifyProjectOwnership(projectId, user);
+    await this.projectsService.assertProjectAccess(projectId, user);
     return this.deployAgentRepository
       .findReposByProject(projectId)
       .then((docs) => docs.map(this.deployAgentMapper.toRepoDto));
   };
-
-  listDeployments = async (
-    projectId: string,
-    user: LogtoUserWithOrganizations,
-    repo?: string,
-  ): Promise<GetAgentDeploymentDto[]> => {
-    await this.verifyProjectOwnership(projectId, user);
-    const agentUrl = await this.getAgentUrl(
-      projectId,
-      user.currentOrganization.name,
-    );
-    return this.deployAgentRequests
-      .listDeployments(agentUrl, repo)
-      .then((items) => items.map(this.deployAgentMapper.toAgentDeploymentDto));
-  };
-
-  listDatabases = async (
-    projectId: string,
-    engine: DatabaseType,
-    user: LogtoUserWithOrganizations,
-  ): Promise<GetDatabaseDto[]> => {
-    await this.verifyProjectOwnership(projectId, user);
-    const project = await this.projectsService.findProjectById(projectId);
-
-    if (
-      !project.databaseConfigurations?.some(
-        (configuration) =>
-          configuration.type === engine && configuration.enabled,
-      )
-    ) {
-      throw this.exceptions.DATABASE_NOT_ENABLED;
-    }
-
-    const agentUrl = this.buildAgentUrl(
-      user.currentOrganization.name,
-      project.name,
-    );
-
-    return this.deployAgentRequests.listDatabases(agentUrl, engine);
-  };
-
-  getLogs = async (
-    projectId: string,
-    deploymentId: string,
-    user: LogtoUserWithOrganizations,
-  ): Promise<GetLogsDto> => {
-    await this.verifyProjectOwnership(projectId, user);
-    const agentUrl = await this.getAgentUrl(
-      projectId,
-      user.currentOrganization.name,
-    );
-    return this.deployAgentRequests.getLogs(agentUrl, deploymentId);
-  };
-
-  private controlProcess = async (
-    projectId: string,
-    dto: ControlPm2ProcessDto,
-    user: LogtoUserWithOrganizations,
-    action: 'start' | 'stop' | 'restart',
-  ): Promise<ControlPm2ProcessResultDto> => {
-    await this.verifyProjectOwnership(projectId, user);
-    const agentUrl = await this.getAgentUrl(
-      projectId,
-      user.currentOrganization.name,
-    );
-    return this.deployAgentRequests[`${action}Process`](agentUrl, dto.name);
-  };
-
-  startProcess = (
-    projectId: string,
-    dto: ControlPm2ProcessDto,
-    user: LogtoUserWithOrganizations,
-  ) => this.controlProcess(projectId, dto, user, 'start');
-
-  stopProcess = (
-    projectId: string,
-    dto: ControlPm2ProcessDto,
-    user: LogtoUserWithOrganizations,
-  ) => this.controlProcess(projectId, dto, user, 'stop');
-
-  restartProcess = (
-    projectId: string,
-    dto: ControlPm2ProcessDto,
-    user: LogtoUserWithOrganizations,
-  ) => this.controlProcess(projectId, dto, user, 'restart');
 
   createRepo = async (
     projectId: string,
     dto: CreateRepoDto,
     user: LogtoUserWithOrganizations,
   ): Promise<GetRepoDto> => {
-    await this.verifyProjectOwnership(projectId, user);
-    const agentUrl = await this.getAgentUrl(
-      projectId,
-      user.currentOrganization.name,
-    );
-    const agentRepo = await this.deployAgentRequests.createRepo(agentUrl, {
-      name: dto.name,
-      baseUrl: agentUrl,
-    });
-
+    const project = await this.assertCanPush(projectId, user);
+    await this.deployAgentRequests.putRepo(projectId, dto.name);
     return this.deployAgentRepository
       .createRepo({
         projectId,
-        organizationId: user.currentOrganization.id,
-        name: agentRepo.name,
-        pushUrl: agentRepo.pushUrl,
-        sshPushUrl: agentRepo.sshPushUrl,
+        organizationId: project.organizationId,
+        name: dto.name,
       })
       .then(this.deployAgentMapper.toRepoDto);
   };
@@ -333,95 +92,63 @@ export class DeployAgentService {
     name: string,
     user: LogtoUserWithOrganizations,
   ): Promise<void> => {
-    await this.verifyProjectOwnership(projectId, user);
+    await this.projectsService.assertProjectAccess(projectId, user);
     await this.deployAgentRepository.findRepo(projectId, name);
-    const agentUrl = await this.getAgentUrl(
+    await this.deployAgentRequests.deleteRepo(projectId, name);
+    const deployments = await this.deployAgentRepository.findDeployments({
       projectId,
-      user.currentOrganization.name,
+      repo: name,
+    });
+    await Promise.all(
+      deployments.map((d) =>
+        this.vault.delete(vaultPaths.deployment(projectId, d.deploymentId)),
+      ),
     );
-    await this.deployAgentRequests.deleteRepo(agentUrl, name);
-    await this.deployAgentRepository.markDeploymentsByRepoRemoved(
+    await this.deployAgentRepository.deleteDeployments({
       projectId,
-      name,
-    );
+      repo: name,
+    });
     await this.deployAgentRepository.deleteRepo(projectId, name);
   };
 
-  deploy = async (
+  listDeployments = async (
     projectId: string,
-    dto: CreateAgentDeploymentDto,
     user: LogtoUserWithOrganizations,
-  ): Promise<GetAgentDeploymentDto> => {
-    const prepared = await this.prepareDeployment(projectId, dto, user);
-    const result = await this.deployAgentRequests.deploy(
-      prepared.agentUrl,
-      prepared.deployAgentBody,
-    );
-
-    if (!result.success) {
-      throw new BadRequestException(result);
-    }
-
-    await this.persistSuccessfulDeployment(
-      projectId,
-      dto,
-      user,
-      prepared,
-      result,
-    );
-
-    return this.deployAgentMapper.toAgentDeploymentDto(result);
+    repo?: string,
+  ): Promise<GetAgentDeploymentDto[]> => {
+    await this.projectsService.assertProjectAccess(projectId, user);
+    const [statuses, docs] = await Promise.all([
+      this.deployAgentRequests.listDeployments(projectId),
+      this.deployAgentRepository.findDeployments({ projectId }),
+    ]);
+    const byId = new Map(docs.map((doc) => [doc.deploymentId, doc]));
+    return statuses
+      .filter((status) => !repo || status.repo === repo)
+      .map((status) =>
+        this.deployAgentMapper.toAgentDeploymentDto(
+          status,
+          byId.get(status.id),
+        ),
+      );
   };
 
-  deployStream = async (
+  getLogs = async (
     projectId: string,
-    dto: CreateAgentDeploymentDto,
+    deploymentId: string,
     user: LogtoUserWithOrganizations,
-    response: Response,
+  ): Promise<string> => {
+    await this.projectsService.assertProjectAccess(projectId, user);
+    return this.deployAgentRequests.getLogs(projectId, deploymentId, LOGS_TAIL);
+  };
+
+  control = async (
+    projectId: string,
+    deploymentId: string,
+    action: DeploymentAction,
+    user: LogtoUserWithOrganizations,
   ): Promise<void> => {
-    const prepared = await this.prepareDeployment(projectId, dto, user);
-    const abortController = new AbortController();
-
-    response.on('close', () => {
-      abortController.abort();
-    });
-
-    response.status(200);
-    response.setHeader('Content-Type', 'text/event-stream');
-    response.setHeader('Cache-Control', 'no-cache, no-transform');
-    response.setHeader('Connection', 'keep-alive');
-    response.setHeader('X-Accel-Buffering', 'no');
-    response.flushHeaders();
-
-    try {
-      await this.deployAgentRequests.deployStream(
-        prepared.agentUrl,
-        prepared.deployAgentBody,
-        {
-          onPhase: (event) => this.writeSseEvent(response, 'phase', event),
-          onComplete: async (event) => {
-            await this.persistSuccessfulDeployment(
-              projectId,
-              dto,
-              user,
-              prepared,
-              event,
-            );
-            this.writeSseEvent(response, 'complete', event);
-          },
-          onError: (event) => this.writeSseEvent(response, 'error', event),
-        },
-        abortController.signal,
-      );
-    } catch (err) {
-      if (!response.destroyed && !response.writableEnded) {
-        this.writeSseEvent(response, 'error', this.toDeployStreamError(err));
-      }
-    } finally {
-      if (!response.destroyed && !response.writableEnded) {
-        response.end();
-      }
-    }
+    await this.assertCanPush(projectId, user);
+    await this.deployAgentRequests.control(projectId, deploymentId, action);
   };
 
   removeDeployment = async (
@@ -429,98 +156,146 @@ export class DeployAgentService {
     deploymentId: string,
     user: LogtoUserWithOrganizations,
   ): Promise<void> => {
-    await this.verifyProjectOwnership(projectId, user);
-    const agentUrl = await this.getAgentUrl(
-      projectId,
-      user.currentOrganization.name,
-    );
-    await this.deployAgentRequests.removeDeployment(agentUrl, deploymentId);
-    await this.deployAgentRepository.markDeploymentRemovedByDeploymentId(
-      projectId,
-      deploymentId,
-    );
+    await this.assertCanPush(projectId, user);
+    await this.deployAgentRequests.deleteDeployment(projectId, deploymentId);
+    await this.vault.delete(vaultPaths.deployment(projectId, deploymentId));
+    await this.deployAgentRepository.deleteDeployment(projectId, deploymentId);
   };
 
-  restoreState = async (
+  /**
+   * Streams the agent's SSE (`phase`, then `done` or `failed`) to the client
+   * unchanged. Errors before the agent's 200 surface as JSON 4xx/5xx. The
+   * desired state is saved only on `done`, so a failed redeploy leaves the
+   * previous one as what reconciliation replays. The upstream is read to the
+   * end even if the client leaves, so a finished deploy is always recorded.
+   */
+  deploy = async (
     projectId: string,
+    dto: CreateAgentDeploymentDto,
     user: LogtoUserWithOrganizations,
-  ): Promise<RestoreResultDto> => {
-    await this.verifyProjectOwnership(projectId, user);
-    const project = await this.projectsService.findProjectById(projectId);
-    const agentUrl = this.buildAgentUrl(
-      user.currentOrganization.name,
-      project.name,
-    );
-    let restoredRepos = 0;
-    let restoredDeployments = 0;
+    response: Response,
+  ): Promise<void> => {
+    const project = await this.assertCanPush(projectId, user);
+    await this.deployAgentRepository.findRepo(projectId, dto.repo);
 
-    const repos =
-      await this.deployAgentRepository.findReposByProject(projectId);
-    await Promise.all(
-      repos.map((repo) =>
-        this.deployAgentRequests
-          .createRepo(agentUrl, { name: repo.name, baseUrl: agentUrl })
-          .then(() => {
-            restoredRepos += 1;
-          })
-          .catch((err: unknown) => {
-            this.logger.warn(
-              `Failed to restore repo "${repo.name}": ${err instanceof Error ? err.message : String(err)}`,
-            );
-          }),
-      ),
+    const serviceName = serviceNameOf(dto.service);
+    const { id, host } = deploymentIdentity(
+      projectId,
+      dto.repo,
+      dto.branch,
+      serviceName,
+      this.previewDomain,
+    );
+    const env = {
+      ...dto.env,
+      ...(dto.dbLinks?.length
+        ? await this.projectsService.resolveDatabaseLinks(project, dto.dbLinks)
+        : {}),
+    };
+
+    const upstream = await this.deployAgentRequests.putDeployment(
+      projectId,
+      id,
+      {
+        repo: dto.repo,
+        ref: dto.commit ?? dto.branch,
+        host,
+        service: dto.service[serviceName] ?? {},
+        env,
+      },
     );
 
-    const deployments =
-      await this.deployAgentRepository.findDeploymentsByProject(
-        projectId,
-        AgentDeploymentStatus.DEPLOYED,
-      );
-    for (let i = 0; i < deployments.length; i += RESTORE_CONCURRENCY) {
-      await Promise.all(
-        deployments
-          .slice(i, i + RESTORE_CONCURRENCY)
-          .map((dep) =>
-            this.restoreDeployment(agentUrl, projectId, user, project, dep),
-          )
-          .map((restored) =>
-            restored.then((ok) => {
-              if (ok) restoredDeployments += 1;
-            }),
-          ),
+    response.status(200);
+    response.setHeader('Content-Type', 'text/event-stream');
+    response.setHeader('Cache-Control', 'no-cache, no-transform');
+    response.setHeader('X-Accel-Buffering', 'no');
+    response.flushHeaders();
+
+    const send = (chunk: string | Uint8Array) => {
+      if (!response.destroyed && !response.writableEnded) response.write(chunk);
+    };
+
+    let tail = '';
+    try {
+      const decoder = new TextDecoder();
+      for await (const chunk of upstream.body as unknown as AsyncIterable<Uint8Array>) {
+        send(chunk);
+        tail = (tail + decoder.decode(chunk, { stream: true })).slice(-65_536);
+      }
+    } catch (err) {
+      send(
+        `event: failed\ndata: ${JSON.stringify({ code: 'AGENT_STREAM_ERROR', message: err instanceof Error ? err.message : 'Deploy agent stream broke' })}\n\n`,
       );
     }
 
-    return { restoredRepos, restoredDeployments };
+    const last = lastSseEvent(tail);
+    if (last?.event === 'done') {
+      const status = last.data as DeploymentStatus;
+      await this.vault.write(vaultPaths.deployment(projectId, id), env);
+      await this.deployAgentRepository.upsertDeployment({
+        projectId,
+        organizationId: project.organizationId,
+        repo: dto.repo,
+        branch: dto.branch,
+        serviceName,
+        deploymentId: id,
+        host,
+        commit: status.commit,
+        service: dto.service,
+        dbLinks: dto.dbLinks,
+      });
+    }
+    if (!response.writableEnded) response.end();
   };
 
-  private restoreDeployment = (
-    agentUrl: string,
+  /** Desired state the agent replays at boot, pinned to the commits that were deployed. */
+  listDesiredDeployments = async (
+    projectId: string,
+  ): Promise<ReconcileItem[]> => {
+    const docs = await this.deployAgentRepository.findDeployments({
+      projectId,
+    });
+    return Promise.all(
+      docs.map(async (doc) => ({
+        id: doc.deploymentId,
+        repo: doc.repo,
+        ref: doc.commit,
+        host: doc.host,
+        service: doc.service[doc.serviceName] ?? {},
+        env:
+          (await this.vault.read(
+            vaultPaths.deployment(projectId, doc.deploymentId),
+          )) ?? {},
+      })),
+    );
+  };
+
+  /** Called when a project goes away: its namespace (and agent) is deleted with it. */
+  deleteProjectState = async (projectId: string): Promise<void> => {
+    const deployments = await this.deployAgentRepository.findDeployments({
+      projectId,
+    });
+    await Promise.all(
+      deployments.map((d) =>
+        this.vault.delete(vaultPaths.deployment(projectId, d.deploymentId)),
+      ),
+    );
+    await this.deployAgentRepository.deleteDeployments({ projectId });
+    await this.deployAgentRepository.deleteRepos({ projectId });
+  };
+
+  private assertCanPush = async (
     projectId: string,
     user: LogtoUserWithOrganizations,
-    project: { overlayAccessControl: DeployRequest['overlayAccessControl'] },
-    dep: DeploymentLean,
-  ): Promise<boolean> => {
-    const plainEnv = dep.env
-      ? this.encryptionService.decryptRecord(dep.env)
-      : undefined;
-    return this.deployAgentRequests
-      .deploy(agentUrl, {
-        repo: dep.repo,
-        branch: dep.branch,
-        commit: dep.commit,
-        service: dep.service,
-        env: plainEnv,
-        projectId,
-        organizationId: user.currentOrganization.id,
-        overlayAccessControl: project.overlayAccessControl,
-      })
-      .then((result) => result.success)
-      .catch((err: unknown) => {
-        this.logger.warn(
-          `Failed to restore deployment "${dep.deploymentId}": ${err instanceof Error ? err.message : String(err)}`,
-        );
-        return false;
-      });
+  ): Promise<ProjectDocument> => {
+    const project = await this.projectsService.assertProjectAccess(
+      projectId,
+      user,
+    );
+    const roles = user.selectedOrganizationRoles.map((role) => role.roleName);
+    if (!ProjectDomain.from(project).canPush(user.id, roles)) {
+      throw new ForbiddenException('PUSH_NOT_ALLOWED');
+    }
+    return project;
   };
 }
