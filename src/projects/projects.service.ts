@@ -76,8 +76,8 @@ export class ProjectsService {
     if (mongo) {
       await this.vault
         .write(vaultPaths.mongo(projectId), {
-          rootUsername: mongo.username,
-          rootPassword: mongo.password,
+          username: mongo.username,
+          password: mongo.password,
         })
         .catch(async (error: unknown) => {
           await this.projectsRepository.deleteById(projectId);
@@ -401,8 +401,8 @@ export class ProjectsService {
     if (!credentials) throw this.exceptions.DATABASE_NOT_ENABLED;
     return this.mongoProvider.buildConnectionString(
       projectId,
-      credentials.rootUsername,
-      credentials.rootPassword,
+      credentials.username,
+      credentials.password,
       database,
     );
   }

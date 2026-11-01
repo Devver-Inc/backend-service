@@ -10,9 +10,11 @@ export const agentUrl = (projectId: string): string =>
 export const agentToken = (masterSecret: string, projectId: string): string =>
   createHmac('sha256', masterSecret).update(projectId).digest('hex');
 
+// Relative to kubernetes-cluster/<org>/<env>/ (infra convention). app is synced by
+// ESO into the agent pod; deployments/* is read only by the backend.
 export const vaultPaths = {
-  agent: (projectId: string) => `projects/${projectNamespace(projectId)}/agent`,
-  mongo: (projectId: string) => `projects/${projectNamespace(projectId)}/mongo`,
+  agent: (projectId: string) => `clients/${projectNamespace(projectId)}/app`,
+  mongo: (projectId: string) => `clients/${projectNamespace(projectId)}/mongo`,
   deployment: (projectId: string, deploymentId: string) =>
-    `projects/${projectNamespace(projectId)}/deployments/${deploymentId}`,
+    `clients/${projectNamespace(projectId)}/deployments/${deploymentId}`,
 };

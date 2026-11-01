@@ -100,6 +100,10 @@ export class GitHubConfig {
 
   @IsString()
   GITHUB_BRANCH: string;
+
+  // Cluster folder in the manifests repo (<org>-<env>); empty = repo root.
+  @IsString()
+  GITHUB_PATH_PREFIX: string;
 }
 export class DeployAgentConfig {
   /** Master key: each project's agent token is HMAC(DEPLOY_AGENT_SECRET, projectId). */
@@ -136,6 +140,10 @@ export class VaultConfig {
 
   @IsString()
   VAULT_KV_MOUNT: string;
+
+  // <org>/<env> of this cluster: every path is under kubernetes-cluster/<org>/<env>/.
+  @IsString()
+  VAULT_KV_PREFIX: string;
 
   @IsString()
   VAULT_AUTH_MOUNT: string;
@@ -227,6 +235,7 @@ export function validateEnv(config: Record<string, unknown>) {
       GITHUB_OWNER: config.GITHUB_OWNER,
       GITHUB_REPO: config.GITHUB_REPO,
       GITHUB_BRANCH: config.GITHUB_BRANCH,
+      GITHUB_PATH_PREFIX: config.GITHUB_PATH_PREFIX ?? '',
     },
     DEPLOY_AGENT: {
       DEPLOY_AGENT_SECRET: config.DEPLOY_AGENT_SECRET,
@@ -237,9 +246,10 @@ export function validateEnv(config: Record<string, unknown>) {
     },
     VAULT: {
       VAULT_ADDR: config.VAULT_ADDR,
-      VAULT_KV_MOUNT: config.VAULT_KV_MOUNT ?? 'devver_K8s',
-      VAULT_AUTH_MOUNT: config.VAULT_AUTH_MOUNT ?? 'devver_k8s_prod',
-      VAULT_ROLE: config.VAULT_ROLE ?? 'backend-service',
+      VAULT_KV_MOUNT: config.VAULT_KV_MOUNT ?? 'kubernetes-cluster',
+      VAULT_KV_PREFIX: config.VAULT_KV_PREFIX,
+      VAULT_AUTH_MOUNT: config.VAULT_AUTH_MOUNT,
+      VAULT_ROLE: config.VAULT_ROLE ?? 'backend',
       VAULT_TOKEN: config.VAULT_TOKEN,
     },
     ARGOCD: {

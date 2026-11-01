@@ -11,6 +11,7 @@ export class GitHubService {
   private readonly owner: string;
   private readonly repo: string;
   private readonly branch: string;
+  private readonly pathPrefix: string;
 
   constructor(
     private readonly configService: ConfigService<EnvironmentVariables, true>,
@@ -42,6 +43,7 @@ export class GitHubService {
     this.owner = githubConfig.GITHUB_OWNER;
     this.repo = githubConfig.GITHUB_REPO;
     this.branch = githubConfig.GITHUB_BRANCH;
+    this.pathPrefix = githubConfig.GITHUB_PATH_PREFIX;
 
     this.octokit = new Octokit({
       auth: token,
@@ -107,9 +109,13 @@ export class GitHubService {
     }
   }
 
+  // One folder per cluster (GITHUB_PATH_PREFIX = <org>-<env>), read by its ApplicationSets.
+  private folder = (projectId: string): string =>
+    [this.pathPrefix, projectNamespace(projectId)].filter(Boolean).join('/');
+
   async pushValuesYaml(projectId: string, yamlContent: string): Promise<void> {
     await this.createOrUpdateFile(
-      `${projectNamespace(projectId)}/values.yaml`,
+      `${this.folder(projectId)}/values.yaml`,
       yamlContent,
       `Deploy project ${projectId}`,
     );
@@ -121,7 +127,7 @@ export class GitHubService {
     yamlContent: string,
   ): Promise<void> {
     await this.createOrUpdateFile(
-      `${projectNamespace(projectId)}/values-${databaseName}.yaml`,
+      `${this.folder(projectId)}/values-${databaseName}.yaml`,
       yamlContent,
       `Deploy ${databaseName} for project ${projectId}`,
     );
@@ -186,7 +192,7 @@ export class GitHubService {
   /** Deleting values.yaml also removes the folder, and with it the Argo app and namespace. */
   async deleteValuesYaml(projectId: string): Promise<void> {
     await this.deleteFile(
-      `${projectNamespace(projectId)}/values.yaml`,
+      `${this.folder(projectId)}/values.yaml`,
       `Remove project ${projectId}`,
     );
   }
@@ -196,7 +202,7 @@ export class GitHubService {
     databaseName: string,
   ): Promise<void> {
     await this.deleteFile(
-      `${projectNamespace(projectId)}/values-${databaseName}.yaml`,
+      `${this.folder(projectId)}/values-${databaseName}.yaml`,
       `Remove ${databaseName} for project ${projectId}`,
     );
   }

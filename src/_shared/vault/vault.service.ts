@@ -19,24 +19,22 @@ export class VaultService {
   }
 
   write = async (path: string, data: Record<string, string>): Promise<void> => {
-    await this.call('POST', `${this.config.VAULT_KV_MOUNT}/data/${path}`, {
-      data,
-    });
+    await this.call('POST', this.kvPath('data', path), { data });
   };
 
   read = async (path: string): Promise<Record<string, string> | undefined> => {
-    const res = await this.call(
-      'GET',
-      `${this.config.VAULT_KV_MOUNT}/data/${path}`,
-    );
+    const res = await this.call('GET', this.kvPath('data', path));
     if (!res) return undefined;
     return (res as { data: { data: Record<string, string> } }).data.data;
   };
 
   /** Deletes every version and the metadata, so nothing is left to recover. */
   delete = async (path: string): Promise<void> => {
-    await this.call('DELETE', `${this.config.VAULT_KV_MOUNT}/metadata/${path}`);
+    await this.call('DELETE', this.kvPath('metadata', path));
   };
+
+  private kvPath = (kind: 'data' | 'metadata', path: string): string =>
+    `${this.config.VAULT_KV_MOUNT}/${kind}/${this.config.VAULT_KV_PREFIX}/${path}`;
 
   private async call(
     method: string,
