@@ -361,7 +361,6 @@ export class ProjectsService {
           organization,
           {
             previewDomain: `preview.${deployAgentConfig.K8S_BASE_DOMAIN}`,
-            sshHost: deployAgentConfig.GIT_SSH_HOST,
             backendUrl: deployAgentConfig.BACKEND_INTERNAL_URL,
           },
         ),

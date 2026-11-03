@@ -5,7 +5,6 @@ import { DEFAULT_STORAGE_CLASS } from './deployment.constants';
 
 export interface AgentValuesConfig {
   previewDomain: string;
-  sshHost: string;
   backendUrl: string;
 }
 
@@ -46,7 +45,6 @@ export class ProjectValuesYamlGenerator {
           DEVVER_PREVIEW_DOMAIN: config.previewDomain,
           DEVVER_WIDGET_URL:
             'https://cdn.jsdelivr.net/gh/Devver-Inc/overlay@dev/public/devver-overlay.iife.js', // TODO: change to main when ready
-          DEVVER_GIT_SSH_HOST: config.sshHost,
           DEVVER_BACKEND_URL: config.backendUrl,
         },
       },

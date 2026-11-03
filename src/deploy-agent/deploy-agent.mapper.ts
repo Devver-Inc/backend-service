@@ -10,6 +10,10 @@ import { Deployment } from './schemas/deployment.schema';
 import { DeployRepo } from './schemas/repo.schema';
 import { SshKey } from './schemas/ssh-key.schema';
 
+// SSH has no SNI: wrapping it in TLS lets the shared reverse proxy pick the cluster.
+const SSH_PROXY_COMMAND =
+  'openssl s_client -quiet -verify_return_error -servername %h -connect %h:443';
+
 @Injectable()
 export class DeployAgentMapper {
   private readonly sshHost: string;
@@ -22,6 +26,7 @@ export class DeployAgentMapper {
     id: doc._id.toString(),
     name: doc.name,
     sshPushUrl: `ssh://${doc.projectId}@${this.sshHost}/app/repos/${doc.name}.git`,
+    sshProxyCommand: SSH_PROXY_COMMAND,
     projectId: doc.projectId,
     createdAt: doc.createdAt,
   });

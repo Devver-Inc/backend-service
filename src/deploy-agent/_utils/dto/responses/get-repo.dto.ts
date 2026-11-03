@@ -13,6 +13,14 @@ export class GetRepoDto {
   })
   sshPushUrl: string;
 
+  @ApiProperty({
+    description:
+      'ProxyCommand that git/ssh must use to reach sshPushUrl (SSH wrapped in TLS on 443).',
+    example:
+      'openssl s_client -quiet -verify_return_error -servername %h -connect %h:443',
+  })
+  sshProxyCommand: string;
+
   @ApiProperty({ example: '507f1f77bcf86cd799439012' })
   projectId: string;
 
