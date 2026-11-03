@@ -14,6 +14,7 @@ import {
   AgentError,
   DeploymentAction,
   DeploymentStatus,
+  PrepareRepoBody,
   PutDeploymentBody,
 } from './_utils/types/agent.types';
 
@@ -63,6 +64,13 @@ export class DeployAgentRequests {
     body: PutDeploymentBody,
   ): Promise<Response> =>
     this.call(projectId, 'PUT', `/deployments/${id}`, body, false);
+
+  prepareRepo = (
+    projectId: string,
+    name: string,
+    body: PrepareRepoBody,
+  ): Promise<Response> =>
+    this.call(projectId, 'POST', `/repos/${name}/prepare`, body, false);
 
   /**
    * Passes the agent's own status and `{ code, message, logs }` through. A
