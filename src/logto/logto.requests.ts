@@ -39,7 +39,7 @@ const CACHE_MAX_ENTRIES = 10_000;
 
 @Injectable()
 export class LogtoRequests {
-  // ponytail: per-process cache cleared wholesale when full; each replica may serve 60 s stale data after another replica's write; use Redis if that matters
+  // Per replica: another replica may serve 60 s stale data after a write.
   private readonly cache = new Map<
     string,
     { value: Promise<unknown>; expiresAt: number }
