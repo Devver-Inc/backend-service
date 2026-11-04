@@ -1,6 +1,8 @@
 // Run: npm test
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { plainToInstance } from 'class-transformer';
+import { InitProjectDto } from 'src/deploy-agent/_utils/dto/requests/init-project.dto';
 import { DeployAgentService } from 'src/deploy-agent/deploy-agent.service';
 
 const PROJECT_ID = '6650a1b2c3d4e5f6a7b8c9d0';
@@ -85,7 +87,8 @@ test('unchanged config on a known repo does not call the agent', async () => {
     install: 'npm ci',
     services: SERVICES,
   });
-  await init({ install: 'npm ci', services: { ...SERVICES } });
+  const dto = plainToInstance(InitProjectDto, { services: SERVICES });
+  await init({ install: 'npm ci', services: dto.services });
   assert.equal(agentCalls.length, 0);
 });
 

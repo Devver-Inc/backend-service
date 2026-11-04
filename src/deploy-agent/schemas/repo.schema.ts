@@ -28,7 +28,6 @@ export class DeployRepo {
   @Prop({ type: Object })
   services?: RepoServices;
 
-  /** Last dependency preparation the agent reported for this repo. */
   @Prop({ type: Object })
   lastPrepare?: PrepareReport;
 

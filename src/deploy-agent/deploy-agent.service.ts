@@ -34,6 +34,9 @@ import { DeployAgentRequests } from './deploy-agent.requests';
 
 const LOGS_TAIL = 200;
 
+const plain = (value: unknown): unknown =>
+  JSON.parse(JSON.stringify(value ?? null));
+
 @Injectable()
 export class DeployAgentService {
   private readonly previewDomain: string;
@@ -90,7 +93,8 @@ export class DeployAgentService {
         dto.install !== undefined && dto.install !== existing.install;
       const servicesChanged =
         dto.services !== undefined &&
-        !isDeepStrictEqual(dto.services, existing.services);
+        // The DTO holds class instances, the document plain objects.
+        !isDeepStrictEqual(plain(dto.services), plain(existing.services));
       if (installChanged || servicesChanged) {
         if (installChanged) existing.install = dto.install;
         if (servicesChanged) existing.services = dto.services;
