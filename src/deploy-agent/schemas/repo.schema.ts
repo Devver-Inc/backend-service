@@ -1,6 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument } from 'mongoose';
-import { PrepareReport, RepoServices } from '../_utils/types/deployment.types';
+import { PrepareReport } from '../_utils/types/deployment.types';
 
 export type DeployRepoDocument = HydratedDocument<DeployRepo>;
 
@@ -24,9 +24,6 @@ export class DeployRepo {
 
   @Prop()
   install?: string;
-
-  @Prop({ type: Object })
-  services?: RepoServices;
 
   @Prop({ type: Object })
   lastPrepare?: PrepareReport;

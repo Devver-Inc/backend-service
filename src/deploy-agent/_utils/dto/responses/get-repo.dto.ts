@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { PrepareReport, RepoServices } from '../../types/deployment.types';
+import { PrepareReport } from '../../types/deployment.types';
 
 export class GetRepoDto {
   @ApiProperty({ example: '507f1f77bcf86cd799439011' })
@@ -40,12 +40,6 @@ export class GetRepoDto {
   })
   install?: string;
 
-  @ApiPropertyOptional({
-    description: 'Per-service root and install command',
-    example: { web: { root: 'apps/web' }, api: { install: 'pnpm i' } },
-  })
-  services?: RepoServices;
-
   @ApiProperty({
     nullable: true,
     description:
@@ -55,9 +49,8 @@ export class GetRepoDto {
       commit: '9fceb02d0ae598e95dc970b74767f19372d61af8',
       startedAt: '2024-01-15T10:30:00.000Z',
       finishedAt: '2024-01-15T10:30:20.000Z',
-      services: [
+      apps: [
         {
-          service: 'web',
           root: 'apps/web',
           status: 'failed',
           durationMs: 20000,

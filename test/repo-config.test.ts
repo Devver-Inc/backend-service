@@ -1,13 +1,10 @@
 // Run: npm test
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { plainToInstance } from 'class-transformer';
-import { InitProjectDto } from 'src/deploy-agent/_utils/dto/requests/init-project.dto';
 import { DeployAgentService } from 'src/deploy-agent/deploy-agent.service';
 
 const PROJECT_ID = '6650a1b2c3d4e5f6a7b8c9d0';
 const ROOT = 'a'.repeat(40);
-const SERVICES = { web: { root: 'apps/web' }, api: { install: 'pnpm i' } };
 
 function setup(existing?: Record<string, unknown>) {
   const agentCalls: unknown[] = [];
@@ -53,42 +50,27 @@ function setup(existing?: Record<string, unknown>) {
   return { service, init, user, agentCalls, prepares, doc };
 }
 
-test('a new repo sends install and services to the agent', async () => {
+test('a new repo sends its install command to the agent', async () => {
   const { init, agentCalls } = setup();
-  const repo = await init({ install: 'npm ci', services: SERVICES });
+  const repo = await init({ install: 'npm ci' });
   assert.deepEqual(agentCalls, [
-    { name: repo.name, config: { install: 'npm ci', services: SERVICES } },
-  ]);
-  assert.deepEqual(repo.services, SERVICES);
-});
-
-test('changed services on a known repo are stored and re-sent', async () => {
-  const { init, agentCalls, doc } = setup({
-    name: 'known',
-    install: 'npm ci',
-    services: { web: { root: 'old' } },
-  });
-  await init({ services: SERVICES });
-  assert.deepEqual(doc?.services, SERVICES);
-  assert.deepEqual(agentCalls, [
-    { name: 'known', config: { install: 'npm ci', services: SERVICES } },
+    { name: repo.name, config: { install: 'npm ci' } },
   ]);
 });
 
 test('a changed install on a known repo is stored and re-sent', async () => {
-  const { init, agentCalls } = setup({ name: 'known', install: 'npm ci' });
+  const { init, agentCalls, doc } = setup({ name: 'known', install: 'npm ci' });
   await init({ install: 'pnpm i' });
-  assert.equal(agentCalls.length, 1);
+  assert.equal(doc?.install, 'pnpm i');
+  assert.deepEqual(agentCalls, [
+    { name: 'known', config: { install: 'pnpm i' } },
+  ]);
 });
 
-test('unchanged config on a known repo does not call the agent', async () => {
-  const { init, agentCalls } = setup({
-    name: 'known',
-    install: 'npm ci',
-    services: SERVICES,
-  });
-  const dto = plainToInstance(InitProjectDto, { services: SERVICES });
-  await init({ install: 'npm ci', services: dto.services });
+test('an unchanged install on a known repo does not call the agent', async () => {
+  const { init, agentCalls } = setup({ name: 'known', install: 'npm ci' });
+  await init({ install: 'npm ci' });
+  await init({});
   assert.equal(agentCalls.length, 0);
 });
 
@@ -98,7 +80,7 @@ test('the agent prepare report is stored as lastPrepare', async () => {
     status: 'done' as const,
     commit: ROOT,
     startedAt: '2024-01-15T10:30:00.000Z',
-    services: [],
+    apps: [],
   };
   await service.reportPrepare(PROJECT_ID, 'known', report);
   assert.deepEqual(prepares, [report]);

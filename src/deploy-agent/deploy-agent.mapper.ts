@@ -31,7 +31,6 @@ export class DeployAgentMapper {
     sshProxyCommand: SSH_PROXY_COMMAND,
     projectId: doc.projectId,
     install: doc.install,
-    services: doc.services,
     lastPrepare: doc.lastPrepare ?? null,
     createdAt: doc.createdAt,
   });

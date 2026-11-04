@@ -11,7 +11,6 @@ import {
   Max,
   MaxLength,
   Min,
-  ValidateIf,
   ValidateNested,
 } from 'class-validator';
 
@@ -32,11 +31,7 @@ export class PrepareErrorDto {
   logs?: string;
 }
 
-export class PrepareServiceDto {
-  @ValidateIf((_, value) => value !== null)
-  @IsIn(['web', 'api'])
-  service: 'web' | 'api' | null;
-
+export class PrepareAppDto {
   @IsString()
   @MaxLength(200)
   root: string;
@@ -76,8 +71,8 @@ export class PrepareReportDto {
   finishedAt?: string;
 
   @IsArray()
-  @ArrayMaxSize(2)
+  @ArrayMaxSize(20)
   @ValidateNested({ each: true })
-  @Type(() => PrepareServiceDto)
-  services: PrepareServiceDto[];
+  @Type(() => PrepareAppDto)
+  apps: PrepareAppDto[];
 }

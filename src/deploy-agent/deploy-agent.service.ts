@@ -6,7 +6,6 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomBytes } from 'crypto';
-import { isDeepStrictEqual } from 'util';
 import { Response } from 'express';
 import { VaultService } from 'src/_shared/vault/vault.service';
 import { EnvironmentVariables } from 'src/_utils/config/env.config';
@@ -33,9 +32,6 @@ import { DeployAgentRepository } from './deploy-agent.repository';
 import { DeployAgentRequests } from './deploy-agent.requests';
 
 const LOGS_TAIL = 200;
-
-const plain = (value: unknown): unknown =>
-  JSON.parse(JSON.stringify(value ?? null));
 
 @Injectable()
 export class DeployAgentService {
@@ -89,19 +85,11 @@ export class DeployAgentService {
       dto.rootCommit,
     );
     if (existing) {
-      const installChanged =
-        dto.install !== undefined && dto.install !== existing.install;
-      const servicesChanged =
-        dto.services !== undefined &&
-        // The DTO holds class instances, the document plain objects.
-        !isDeepStrictEqual(plain(dto.services), plain(existing.services));
-      if (installChanged || servicesChanged) {
-        if (installChanged) existing.install = dto.install;
-        if (servicesChanged) existing.services = dto.services;
+      if (dto.install !== undefined && dto.install !== existing.install) {
+        existing.install = dto.install;
         await existing.save();
         await this.deployAgentRequests.putRepo(projectId, existing.name, {
           install: existing.install,
-          services: existing.services,
         });
       }
       return this.deployAgentMapper.toRepoDto(existing);
@@ -115,7 +103,6 @@ export class DeployAgentService {
         rootCommit: dto.rootCommit,
         displayName: dto.displayName,
         install: dto.install,
-        services: dto.services,
       })
       .catch(async (error: { code?: number }) => {
         // Two inits of the same code at once: the other one created it.
@@ -129,10 +116,7 @@ export class DeployAgentService {
         return winner;
       });
     await this.deployAgentRequests
-      .putRepo(projectId, repo.name, {
-        install: repo.install,
-        services: repo.services,
-      })
+      .putRepo(projectId, repo.name, { install: repo.install })
       .catch(async (error) => {
         await this.deployAgentRepository.deleteRepo(projectId, repo.name);
         throw error;

@@ -16,7 +16,6 @@ import {
   DeploymentStatus,
   PutDeploymentBody,
 } from './_utils/types/agent.types';
-import { RepoServices } from './_utils/types/deployment.types';
 
 const REQUEST_TIMEOUT_MS = 30_000;
 
@@ -31,7 +30,7 @@ export class DeployAgentRequests {
   putRepo = (
     projectId: string,
     name: string,
-    config: { install?: string; services?: RepoServices } = {},
+    config: { install?: string } = {},
   ): Promise<void> =>
     this.call(projectId, 'POST', `/repos/${name}`, config).then(() => {});
 
