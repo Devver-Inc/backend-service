@@ -1,9 +1,11 @@
 import { Body, Controller, HttpStatus, Post, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Public } from 'src/logto/_utils/decorator/public.decorator';
 import { LogtoWebhookSignatureGuard } from './_utils/guards/logto-webhook-signature.guard';
 import { LogtoWebhookPayload } from './_utils/types/logto-webhook.types';
 import { WebhooksService } from './webhooks.service';
 
+@Public()
 @ApiTags('Webhooks')
 @Controller('webhooks')
 export class WebhooksController {

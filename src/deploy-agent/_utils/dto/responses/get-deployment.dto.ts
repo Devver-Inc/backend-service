@@ -1,91 +1,34 @@
-import { ApiProperty } from '@nestjs/swagger';
-import {
-  PM2Action,
-  PM2Process,
-  PM2ProcessStatus,
-  ServiceDeployResult,
-  ServiceName,
-} from '../../types/agent.types';
-
-export class LogEntryDto {
-  @ApiProperty({ example: 'api' })
-  service: string;
-
-  @ApiProperty({ example: 'info' })
-  level: string;
-
-  @ApiProperty({ example: 'Server started on port 3000' })
-  message: string;
-
-  @ApiProperty({ example: '2024-01-15T10:30:00.000Z' })
-  timestamp: string;
-}
-
-export class PM2ProcessDto implements PM2Process {
-  @ApiProperty({ example: 'web-myrepo-main-3000' })
-  name: string;
-
-  @ApiProperty({ example: 0 })
-  pm_id: number;
-
-  @ApiProperty({ example: 'online', enum: PM2ProcessStatus })
-  status: PM2ProcessStatus;
-
-  @ApiProperty({ example: 0 })
-  cpu: number;
-
-  @ApiProperty({ example: 10485760 })
-  memory: number;
-}
-
-export class ServiceDeployResultDto implements ServiceDeployResult {
-  @ApiProperty({ example: 3000 })
-  port: number;
-
-  @ApiProperty({ example: 'https://orgt4.projt4.devver.app/myrepo/main' })
-  url: string;
-}
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { DeploymentStatus, ServiceName } from '../../types/agent.types';
 
 export class GetAgentDeploymentDto {
-  @ApiProperty({ example: 'myrepo-main' })
+  @ApiProperty({ example: 'myrepo-main-3f9a1c' })
   deploymentId: string;
 
   @ApiProperty({ example: 'myrepo' })
   repo: string;
 
-  @ApiProperty({ example: 'main' })
-  branch: string;
+  @ApiPropertyOptional({
+    example: 'main',
+    description: 'Absent for deployments the backend has no record of',
+  })
+  branch?: string;
 
-  @ApiProperty({ example: 'a1b2c3d' })
+  @ApiPropertyOptional({ enum: ['web', 'api'] })
+  service?: ServiceName;
+
+  @ApiProperty({ example: 'a1b2c3d4e5f6' })
   commit: string;
 
-  @ApiProperty({ description: 'Deployed service results' })
-  service: Partial<Record<ServiceName, ServiceDeployResultDto>>;
+  @ApiProperty({
+    example:
+      'https://myrepo-main-3f9a1c--6650a1b2c3d4e5f6a7b8c9d0.preview.devver.app',
+  })
+  url: string;
 
-  @ApiProperty({ type: PM2ProcessDto, nullable: true })
-  process: PM2Process | null;
-}
+  @ApiProperty({ enum: ['running', 'stopped', 'failed'] })
+  status: DeploymentStatus['status'];
 
-export class GetLogsDto {
-  @ApiProperty({ type: [LogEntryDto] })
-  logs: LogEntryDto[];
-}
-
-export class RestoreResultDto {
-  @ApiProperty({ example: 3 })
-  restoredRepos: number;
-
-  @ApiProperty({ example: 5 })
-  restoredDeployments: number;
-}
-
-export class ControlPm2ProcessResultDto {
-  @ApiProperty({ example: true })
-  success: boolean;
-
-  @ApiProperty({ example: 'api' })
-  name: string;
-
-  @ApiProperty({ example: 'start', enum: PM2Action })
-  action: PM2Action;
+  @ApiProperty({ example: '2026-10-27T10:30:00.000Z' })
+  startedAt: string;
 }

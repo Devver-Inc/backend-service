@@ -11,13 +11,13 @@ export type LogtoResponseType<T> = {
 export type LogtoUser = NonNullable<
   Awaited<ReturnType<LogtoRequests['fetchUserInformations']>>
 >;
+export type LogtoOrganizationMember = LogtoUser & {
+  organizationRoles: { id: string; name: string }[];
+};
 export type LogtoOrganization = ValidatedOrganization;
 export type LogtoOrganizations = ValidatedOrganization[];
 export type LogtoOrganizationJitEmailDomain = NonNullable<
   Awaited<ReturnType<LogtoRequests['addOrganizationJitEmailDomain']>>
->;
-export type LogtoOrganizationPermissions = NonNullable<
-  Awaited<ReturnType<LogtoRequests['getCurrentUserPermissions']>>
 >;
 
 export type LogtoRoles = NonNullable<
@@ -25,9 +25,6 @@ export type LogtoRoles = NonNullable<
 >;
 export type LogtoUserRoles = NonNullable<
   Awaited<ReturnType<LogtoRequests['getUserRoles']>>
->;
-export type LogtoUserPermissions = NonNullable<
-  Awaited<ReturnType<LogtoRequests['getCurrentUserPermissions']>>
 >;
 export type LogtoOrganizationRaw =
   paths['/api/organizations']['post']['responses'][201]['content']['application/json'];

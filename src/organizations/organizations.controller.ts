@@ -1,3 +1,4 @@
+import { Public } from 'src/logto/_utils/decorator/public.decorator';
 import {
   Body,
   Controller,
@@ -207,10 +208,6 @@ export class OrganizationsController {
     description:
       'USER_NOT_IN_ORGANIZATION | CANNOT_REMOVE_OWNER_FROM_ORGANIZATION',
   })
-  @ApiResponse({
-    status: HttpStatus.FORBIDDEN,
-    description: 'NOT_ALLOWED_TO_REMOVE_USER',
-  })
   async removeUserFromOrganization(
     @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
     @Param('userId', LogtoUserByIdPipe) userToRemove: LogtoUser,
@@ -256,6 +253,7 @@ export class OrganizationsController {
     return this.organizationsService.getUserInvitations(user);
   }
 
+  @Public()
   @Get('invitations/:invitationId')
   @ApiParam({
     name: 'invitationId',

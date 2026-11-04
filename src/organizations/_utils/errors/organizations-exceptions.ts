@@ -25,9 +25,6 @@ export class OrganizationsExceptions {
   CANNOT_REMOVE_OWNER = new BadRequestException(
     'CANNOT_REMOVE_OWNER_FROM_ORGANIZATION',
   );
-  NOT_ALLOWED_TO_REMOVE_USER = new ForbiddenException(
-    'NOT_ALLOWED_TO_REMOVE_USER',
-  );
   INVITATION_NOT_FOR_CURRENT_USER = new ForbiddenException(
     'INVITATION_NOT_FOR_CURRENT_USER',
   );
