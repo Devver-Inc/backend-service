@@ -7,6 +7,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  Patch,
   Post,
   Query,
   Res,
@@ -25,6 +26,7 @@ import {
 } from './_utils/dto/requests/agent-params.dto';
 import { CreateAgentDeploymentDto } from './_utils/dto/requests/create-deployment.dto';
 import { InitProjectDto } from './_utils/dto/requests/init-project.dto';
+import { UpdateRepoDto } from './_utils/dto/requests/update-repo.dto';
 import { ListDeploymentsQueryDto } from './_utils/dto/requests/list-deployments-query.dto';
 import { GetAgentDeploymentDto } from './_utils/dto/responses/get-deployment.dto';
 import { GetRepoDto } from './_utils/dto/responses/get-repo.dto';
@@ -66,6 +68,18 @@ export class DeployAgentController {
     @Body() dto: InitProjectDto,
   ): Promise<GetRepoDto> {
     return this.deployAgentService.initProject(projectId, dto, user);
+  }
+
+  @Protect({ roles: [UserRoleEnum.ADMIN, UserRoleEnum.DEVELOPER] })
+  @Patch('repos/:name')
+  @ApiOperation({ summary: 'Rename a repo (display name only)' })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'REPO_NOT_FOUND' })
+  updateRepo(
+    @Param() { projectId, name }: RepoParamsDto,
+    @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
+    @Body() dto: UpdateRepoDto,
+  ): Promise<GetRepoDto> {
+    return this.deployAgentService.updateRepo(projectId, name, dto, user);
   }
 
   @Protect({ roles: [UserRoleEnum.ADMIN] })

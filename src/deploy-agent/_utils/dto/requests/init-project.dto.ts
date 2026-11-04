@@ -1,11 +1,14 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import {
   IsOptional,
   IsString,
   Matches,
   MaxLength,
   MinLength,
+  ValidateNested,
 } from 'class-validator';
+import { RepoServicesDto } from './repo-services.dto';
 
 export class InitProjectDto {
   @ApiProperty({
@@ -30,4 +33,13 @@ export class InitProjectDto {
   @MinLength(1)
   @MaxLength(1000)
   install?: string;
+
+  @ApiPropertyOptional({
+    type: RepoServicesDto,
+    example: { web: { root: 'apps/web' }, api: { root: 'apps/api' } },
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => RepoServicesDto)
+  services?: RepoServicesDto;
 }

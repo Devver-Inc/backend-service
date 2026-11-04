@@ -8,6 +8,36 @@ export interface CreateRepoData {
   rootCommit: string;
   displayName: string;
   install?: string;
+  services?: RepoServices;
+}
+
+export interface RepoServiceConfig {
+  root?: string;
+  install?: string;
+}
+
+export interface RepoServices {
+  web?: RepoServiceConfig;
+  api?: RepoServiceConfig;
+}
+
+export type PrepareStatus = 'running' | 'done' | 'failed';
+
+export interface PrepareServiceReport {
+  service: 'web' | 'api' | null;
+  root: string;
+  status: PrepareStatus;
+  durationMs?: number;
+  runtime?: string | null;
+  error?: { code: string; message: string; logs?: string };
+}
+
+export interface PrepareReport {
+  status: PrepareStatus;
+  commit: string;
+  startedAt: string;
+  finishedAt?: string;
+  services: PrepareServiceReport[];
 }
 
 export interface UpsertDeploymentData {

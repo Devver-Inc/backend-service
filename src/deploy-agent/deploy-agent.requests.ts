@@ -16,6 +16,7 @@ import {
   DeploymentStatus,
   PutDeploymentBody,
 } from './_utils/types/agent.types';
+import { RepoServices } from './_utils/types/deployment.types';
 
 const REQUEST_TIMEOUT_MS = 30_000;
 
@@ -27,8 +28,12 @@ export class DeployAgentRequests {
     this.secret = configService.get('DEPLOY_AGENT').DEPLOY_AGENT_SECRET;
   }
 
-  putRepo = (projectId: string, name: string): Promise<void> =>
-    this.call(projectId, 'POST', `/repos/${name}`).then(() => {});
+  putRepo = (
+    projectId: string,
+    name: string,
+    config: { install?: string; services?: RepoServices } = {},
+  ): Promise<void> =>
+    this.call(projectId, 'POST', `/repos/${name}`, config).then(() => {});
 
   deleteRepo = (projectId: string, name: string): Promise<void> =>
     this.call(projectId, 'DELETE', `/repos/${name}`).then(() => {});

@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomBytes } from 'crypto';
+import { isDeepStrictEqual } from 'util';
 import { Response } from 'express';
 import { VaultService } from 'src/_shared/vault/vault.service';
 import { EnvironmentVariables } from 'src/_utils/config/env.config';
@@ -18,6 +19,7 @@ import { ProjectDomain } from 'src/projects/project.domain';
 import { ProjectDocument } from 'src/projects/project.schema';
 import { ProjectsService } from 'src/projects/projects.service';
 import { CreateAgentDeploymentDto } from './_utils/dto/requests/create-deployment.dto';
+import { UpdateRepoDto } from './_utils/dto/requests/update-repo.dto';
 import { InitProjectDto } from './_utils/dto/requests/init-project.dto';
 import { GetAgentDeploymentDto } from './_utils/dto/responses/get-deployment.dto';
 import { GetRepoDto } from './_utils/dto/responses/get-repo.dto';
@@ -25,6 +27,7 @@ import { deploymentIdentity } from './_utils/functions/deployment-identity.funct
 import { lastSseEvent } from './_utils/functions/last-sse-event.function';
 import { serviceNameOf } from './_utils/functions/service-name-of.function';
 import { DeploymentAction, ReconcileItem } from './_utils/types/agent.types';
+import { PrepareReport } from './_utils/types/deployment.types';
 import { DeployAgentMapper } from './deploy-agent.mapper';
 import { DeployAgentRepository } from './deploy-agent.repository';
 import { DeployAgentRequests } from './deploy-agent.requests';
@@ -83,9 +86,19 @@ export class DeployAgentService {
       dto.rootCommit,
     );
     if (existing) {
-      if (dto.install !== undefined && dto.install !== existing.install) {
-        existing.install = dto.install;
+      const installChanged =
+        dto.install !== undefined && dto.install !== existing.install;
+      const servicesChanged =
+        dto.services !== undefined &&
+        !isDeepStrictEqual(dto.services, existing.services);
+      if (installChanged || servicesChanged) {
+        if (installChanged) existing.install = dto.install;
+        if (servicesChanged) existing.services = dto.services;
         await existing.save();
+        await this.deployAgentRequests.putRepo(projectId, existing.name, {
+          install: existing.install,
+          services: existing.services,
+        });
       }
       return this.deployAgentMapper.toRepoDto(existing);
     }
@@ -98,6 +111,7 @@ export class DeployAgentService {
         rootCommit: dto.rootCommit,
         displayName: dto.displayName,
         install: dto.install,
+        services: dto.services,
       })
       .catch(async (error: { code?: number }) => {
         // Two inits of the same code at once: the other one created it.
@@ -111,13 +125,36 @@ export class DeployAgentService {
         return winner;
       });
     await this.deployAgentRequests
-      .putRepo(projectId, repo.name)
+      .putRepo(projectId, repo.name, {
+        install: repo.install,
+        services: repo.services,
+      })
       .catch(async (error) => {
         await this.deployAgentRepository.deleteRepo(projectId, repo.name);
         throw error;
       });
     return this.deployAgentMapper.toRepoDto(repo);
   };
+
+  updateRepo = async (
+    projectId: string,
+    name: string,
+    dto: UpdateRepoDto,
+    user: LogtoUserWithOrganizations,
+  ): Promise<GetRepoDto> => {
+    await this.assertCanPush(projectId, user);
+    const repo = await this.deployAgentRepository.findRepo(projectId, name);
+    repo.displayName = dto.displayName;
+    await repo.save();
+    return this.deployAgentMapper.toRepoDto(repo);
+  };
+
+  reportPrepare = (
+    projectId: string,
+    name: string,
+    report: PrepareReport,
+  ): Promise<void> =>
+    this.deployAgentRepository.setLastPrepare(projectId, name, report);
 
   deleteRepo = async (
     projectId: string,
