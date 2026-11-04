@@ -14,6 +14,16 @@ export class DeployRepo {
   @Prop({ required: true })
   name: string;
 
+  /** Same in every clone of the code: what `init` matches an existing repo on. */
+  @Prop({ required: true })
+  rootCommit: string;
+
+  @Prop({ required: true })
+  displayName: string;
+
+  @Prop()
+  install?: string;
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -22,3 +32,4 @@ export const DeployRepoSchema = SchemaFactory.createForClass(DeployRepo);
 
 DeployRepoSchema.index({ organizationId: 1 });
 DeployRepoSchema.index({ projectId: 1, name: 1 }, { unique: true });
+DeployRepoSchema.index({ projectId: 1, rootCommit: 1 }, { unique: true });

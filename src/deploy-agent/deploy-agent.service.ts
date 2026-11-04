@@ -5,6 +5,7 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { randomBytes } from 'crypto';
 import { Response } from 'express';
 import { VaultService } from 'src/_shared/vault/vault.service';
 import { EnvironmentVariables } from 'src/_utils/config/env.config';
@@ -17,7 +18,7 @@ import { ProjectDomain } from 'src/projects/project.domain';
 import { ProjectDocument } from 'src/projects/project.schema';
 import { ProjectsService } from 'src/projects/projects.service';
 import { CreateAgentDeploymentDto } from './_utils/dto/requests/create-deployment.dto';
-import { CreateRepoDto } from './_utils/dto/requests/create-repo.dto';
+import { InitProjectDto } from './_utils/dto/requests/init-project.dto';
 import { GetAgentDeploymentDto } from './_utils/dto/responses/get-deployment.dto';
 import { GetRepoDto } from './_utils/dto/responses/get-repo.dto';
 import { deploymentIdentity } from './_utils/functions/deployment-identity.function';
@@ -67,20 +68,55 @@ export class DeployAgentService {
       .then((docs) => docs.map(this.deployAgentMapper.toRepoDto));
   };
 
-  createRepo = async (
+  /**
+   * `devver init`: the repo is found by the code's root commit, so a second
+   * clone or a second init lands in the same repo; its name is generated.
+   */
+  initProject = async (
     projectId: string,
-    dto: CreateRepoDto,
+    dto: InitProjectDto,
     user: LogtoUserWithOrganizations,
   ): Promise<GetRepoDto> => {
     const project = await this.assertCanPush(projectId, user);
-    await this.deployAgentRequests.putRepo(projectId, dto.name);
-    return this.deployAgentRepository
+    const existing = await this.deployAgentRepository.findRepoByRoot(
+      projectId,
+      dto.rootCommit,
+    );
+    if (existing) {
+      if (dto.install !== undefined && dto.install !== existing.install) {
+        existing.install = dto.install;
+        await existing.save();
+      }
+      return this.deployAgentMapper.toRepoDto(existing);
+    }
+
+    const repo = await this.deployAgentRepository
       .createRepo({
         projectId,
         organizationId: project.organizationId,
-        name: dto.name,
+        name: randomBytes(5).toString('hex'),
+        rootCommit: dto.rootCommit,
+        displayName: dto.displayName,
+        install: dto.install,
       })
-      .then(this.deployAgentMapper.toRepoDto);
+      .catch(async (error: { code?: number }) => {
+        // Two inits of the same code at once: the other one created it.
+        const winner =
+          error.code === 11000 &&
+          (await this.deployAgentRepository.findRepoByRoot(
+            projectId,
+            dto.rootCommit,
+          ));
+        if (!winner) throw error;
+        return winner;
+      });
+    await this.deployAgentRequests
+      .putRepo(projectId, repo.name)
+      .catch(async (error) => {
+        await this.deployAgentRepository.deleteRepo(projectId, repo.name);
+        throw error;
+      });
+    return this.deployAgentMapper.toRepoDto(repo);
   };
 
   deleteRepo = async (

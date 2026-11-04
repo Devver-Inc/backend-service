@@ -24,7 +24,7 @@ import {
   RepoParamsDto,
 } from './_utils/dto/requests/agent-params.dto';
 import { CreateAgentDeploymentDto } from './_utils/dto/requests/create-deployment.dto';
-import { CreateRepoDto } from './_utils/dto/requests/create-repo.dto';
+import { InitProjectDto } from './_utils/dto/requests/init-project.dto';
 import { ListDeploymentsQueryDto } from './_utils/dto/requests/list-deployments-query.dto';
 import { GetAgentDeploymentDto } from './_utils/dto/responses/get-deployment.dto';
 import { GetRepoDto } from './_utils/dto/responses/get-repo.dto';
@@ -54,14 +54,18 @@ export class DeployAgentController {
   }
 
   @Protect({ roles: [UserRoleEnum.ADMIN, UserRoleEnum.DEVELOPER] })
-  @Post('repos')
-  @ApiOperation({ summary: 'Create a git repo in the deploy agent' })
-  createRepo(
+  @Post('init')
+  @ApiOperation({
+    summary: 'devver init: get the push URL for this code',
+    description:
+      'Returns the repo whose root commit matches, or creates one with a generated name.',
+  })
+  initProject(
     @Param() { projectId }: ProjectParamsDto,
     @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
-    @Body() dto: CreateRepoDto,
+    @Body() dto: InitProjectDto,
   ): Promise<GetRepoDto> {
-    return this.deployAgentService.createRepo(projectId, dto, user);
+    return this.deployAgentService.initProject(projectId, dto, user);
   }
 
   @Protect({ roles: [UserRoleEnum.ADMIN] })

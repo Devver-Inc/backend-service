@@ -5,6 +5,9 @@ export interface CreateRepoData {
   projectId: string;
   organizationId: string;
   name: string;
+  rootCommit: string;
+  displayName: string;
+  install?: string;
 }
 
 export interface UpsertDeploymentData {

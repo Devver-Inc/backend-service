@@ -25,6 +25,8 @@ export class DeployAgentMapper {
   toRepoDto = (doc: DocOrLean<DeployRepo>): GetRepoDto => ({
     id: doc._id.toString(),
     name: doc.name,
+    displayName: doc.displayName,
+    rootCommit: doc.rootCommit,
     sshPushUrl: `ssh://${doc.projectId}@${this.sshHost}/app/repos/${doc.name}.git`,
     sshProxyCommand: SSH_PROXY_COMMAND,
     projectId: doc.projectId,

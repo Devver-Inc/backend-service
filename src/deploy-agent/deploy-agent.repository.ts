@@ -22,6 +22,12 @@ export class DeployAgentRepository {
   createRepo = (data: CreateRepoData): Promise<DeployRepoDocument> =>
     this.repoModel.create(data);
 
+  findRepoByRoot = (
+    projectId: string,
+    rootCommit: string,
+  ): Promise<DeployRepoDocument | null> =>
+    this.repoModel.findOne({ projectId, rootCommit }).exec();
+
   findReposByProject = (projectId: string): Promise<DeployRepoLean[]> =>
     this.repoModel.find({ projectId }).lean().exec();
 
