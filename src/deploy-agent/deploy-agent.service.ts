@@ -18,7 +18,6 @@ import { ProjectDocument } from 'src/projects/project.schema';
 import { ProjectsService } from 'src/projects/projects.service';
 import { CreateAgentDeploymentDto } from './_utils/dto/requests/create-deployment.dto';
 import { CreateRepoDto } from './_utils/dto/requests/create-repo.dto';
-import { InitRepoDto } from './_utils/dto/requests/init-repo.dto';
 import { GetAgentDeploymentDto } from './_utils/dto/responses/get-deployment.dto';
 import { GetRepoDto } from './_utils/dto/responses/get-repo.dto';
 import { deploymentIdentity } from './_utils/functions/deployment-identity.function';
@@ -202,54 +201,6 @@ export class DeployAgentService {
       },
     );
 
-    const tail = await this.pipeSse(upstream, response);
-    if (lastSseEvent(tail)?.event === 'done') {
-      await this.vault.write(vaultPaths.deployment(projectId, id), env);
-      await this.deployAgentRepository.upsertDeployment({
-        projectId,
-        organizationId: project.organizationId,
-        repo: dto.repo,
-        branch: dto.branch,
-        serviceName,
-        deploymentId: id,
-        host,
-        service: dto.service,
-        dbLinks: dto.dbLinks,
-      });
-    }
-    if (!response.writableEnded) response.end();
-  };
-
-  /**
-   * Installs a pushed branch's dependencies on the agent ahead of its first
-   * deploy (`devver init`), streaming `phase` and then `done` (what the agent
-   * detected) or `failed`. Nothing is deployed or recorded.
-   */
-  initRepo = async (
-    projectId: string,
-    name: string,
-    dto: InitRepoDto,
-    user: LogtoUserWithOrganizations,
-    response: Response,
-  ): Promise<void> => {
-    await this.assertCanPush(projectId, user);
-    await this.deployAgentRepository.findRepo(projectId, name);
-
-    const { root, install } = dto.service[serviceNameOf(dto.service)] ?? {};
-    const upstream = await this.deployAgentRequests.prepareRepo(
-      projectId,
-      name,
-      { ref: dto.branch, service: { root, install } },
-    );
-    await this.pipeSse(upstream, response);
-    if (!response.writableEnded) response.end();
-  };
-
-  /** Returns the stream's tail; the upstream is read to the end even if the client leaves. */
-  private pipeSse = async (
-    upstream: globalThis.Response,
-    response: Response,
-  ): Promise<string> => {
     response.status(200);
     response.setHeader('Content-Type', 'text/event-stream');
     response.setHeader('Cache-Control', 'no-cache, no-transform');
@@ -272,7 +223,22 @@ export class DeployAgentService {
         `event: failed\ndata: ${JSON.stringify({ code: 'AGENT_STREAM_ERROR', message: err instanceof Error ? err.message : 'Deploy agent stream broke' })}\n\n`,
       );
     }
-    return tail;
+
+    if (lastSseEvent(tail)?.event === 'done') {
+      await this.vault.write(vaultPaths.deployment(projectId, id), env);
+      await this.deployAgentRepository.upsertDeployment({
+        projectId,
+        organizationId: project.organizationId,
+        repo: dto.repo,
+        branch: dto.branch,
+        serviceName,
+        deploymentId: id,
+        host,
+        service: dto.service,
+        dbLinks: dto.dbLinks,
+      });
+    }
+    if (!response.writableEnded) response.end();
   };
 
   /** Desired state the agent replays at boot. ref is the branch: the agent follows pushes to it. */

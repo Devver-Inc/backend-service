@@ -19,11 +19,6 @@ export interface PutDeploymentBody {
   env?: Record<string, string>;
 }
 
-export interface PrepareRepoBody {
-  ref: string;
-  service: Pick<ServiceConfig, 'root' | 'install'>;
-}
-
 export interface DeploymentStatus {
   id: string;
   repo: string;

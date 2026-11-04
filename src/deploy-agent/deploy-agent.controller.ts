@@ -25,7 +25,6 @@ import {
 } from './_utils/dto/requests/agent-params.dto';
 import { CreateAgentDeploymentDto } from './_utils/dto/requests/create-deployment.dto';
 import { CreateRepoDto } from './_utils/dto/requests/create-repo.dto';
-import { InitRepoDto } from './_utils/dto/requests/init-repo.dto';
 import { ListDeploymentsQueryDto } from './_utils/dto/requests/list-deployments-query.dto';
 import { GetAgentDeploymentDto } from './_utils/dto/responses/get-deployment.dto';
 import { GetRepoDto } from './_utils/dto/responses/get-repo.dto';
@@ -75,29 +74,6 @@ export class DeployAgentController {
     @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
   ): Promise<void> {
     return this.deployAgentService.deleteRepo(projectId, name, user);
-  }
-
-  @Protect({ roles: [UserRoleEnum.ADMIN, UserRoleEnum.DEVELOPER] })
-  @Post('repos/:name/init')
-  @ApiOperation({
-    summary: 'Install a pushed branch dependencies ahead of its first deploy',
-    description:
-      'Used by `devver init` after the push. Streams `phase` (checkout, install) and ends with `done` ({ commit, lockHash, runtime, install, start, dev }) or `failed` ({ code, message, logs? }). Nothing is deployed.',
-  })
-  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'REPO_NOT_FOUND' })
-  initRepo(
-    @Param() { projectId, name }: RepoParamsDto,
-    @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
-    @Body() dto: InitRepoDto,
-    @Res() response: Response,
-  ): Promise<void> {
-    return this.deployAgentService.initRepo(
-      projectId,
-      name,
-      dto,
-      user,
-      response,
-    );
   }
 
   @Protect({ roles: [UserRoleEnum.ADMIN, UserRoleEnum.DEVELOPER] })
