@@ -6,7 +6,6 @@ export interface CreateRepoData {
   organizationId: string;
   name: string;
   rootCommit: string;
-  displayName: string;
   install?: string;
 }
 

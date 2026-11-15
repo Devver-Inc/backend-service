@@ -7,7 +7,6 @@ import {
   HttpCode,
   HttpStatus,
   Param,
-  Patch,
   Post,
   Query,
   Res,
@@ -22,11 +21,9 @@ import {
   DeploymentActionParamsDto,
   DeploymentParamsDto,
   ProjectParamsDto,
-  RepoParamsDto,
 } from './_utils/dto/requests/agent-params.dto';
 import { CreateAgentDeploymentDto } from './_utils/dto/requests/create-deployment.dto';
 import { InitProjectDto } from './_utils/dto/requests/init-project.dto';
-import { UpdateRepoDto } from './_utils/dto/requests/update-repo.dto';
 import { ListDeploymentsQueryDto } from './_utils/dto/requests/list-deployments-query.dto';
 import { GetAgentDeploymentDto } from './_utils/dto/responses/get-deployment.dto';
 import { GetRepoDto } from './_utils/dto/responses/get-repo.dto';
@@ -45,16 +42,6 @@ import { DeployAgentService } from './deploy-agent.service';
 export class DeployAgentController {
   constructor(private readonly deployAgentService: DeployAgentService) {}
 
-  @Protect()
-  @Get('repos')
-  @ApiOperation({ summary: 'List repos for a project' })
-  listRepos(
-    @Param() { projectId }: ProjectParamsDto,
-    @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
-  ): Promise<GetRepoDto[]> {
-    return this.deployAgentService.listRepos(projectId, user);
-  }
-
   @Protect({ roles: [UserRoleEnum.ADMIN, UserRoleEnum.DEVELOPER] })
   @Post('init')
   @ApiOperation({
@@ -68,30 +55,6 @@ export class DeployAgentController {
     @Body() dto: InitProjectDto,
   ): Promise<GetRepoDto> {
     return this.deployAgentService.initProject(projectId, dto, user);
-  }
-
-  @Protect({ roles: [UserRoleEnum.ADMIN, UserRoleEnum.DEVELOPER] })
-  @Patch('repos/:name')
-  @ApiOperation({ summary: 'Rename a repo (display name only)' })
-  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'REPO_NOT_FOUND' })
-  updateRepo(
-    @Param() { projectId, name }: RepoParamsDto,
-    @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
-    @Body() dto: UpdateRepoDto,
-  ): Promise<GetRepoDto> {
-    return this.deployAgentService.updateRepo(projectId, name, dto, user);
-  }
-
-  @Protect({ roles: [UserRoleEnum.ADMIN] })
-  @Delete('repos/:name')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Delete a repo and all its deployments' })
-  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'REPO_NOT_FOUND' })
-  deleteRepo(
-    @Param() { projectId, name }: RepoParamsDto,
-    @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
-  ): Promise<void> {
-    return this.deployAgentService.deleteRepo(projectId, name, user);
   }
 
   @Protect({ roles: [UserRoleEnum.ADMIN, UserRoleEnum.DEVELOPER] })

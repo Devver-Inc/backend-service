@@ -18,7 +18,6 @@ import { ProjectDomain } from 'src/projects/project.domain';
 import { ProjectDocument } from 'src/projects/project.schema';
 import { ProjectsService } from 'src/projects/projects.service';
 import { CreateAgentDeploymentDto } from './_utils/dto/requests/create-deployment.dto';
-import { UpdateRepoDto } from './_utils/dto/requests/update-repo.dto';
 import { InitProjectDto } from './_utils/dto/requests/init-project.dto';
 import { GetAgentDeploymentDto } from './_utils/dto/responses/get-deployment.dto';
 import { GetRepoDto } from './_utils/dto/responses/get-repo.dto';
@@ -59,16 +58,6 @@ export class DeployAgentService {
   isAgentHealthy = (projectId: string): Promise<boolean> =>
     this.deployAgentRequests.health(projectId);
 
-  listRepos = async (
-    projectId: string,
-    user: LogtoUserWithOrganizations,
-  ): Promise<GetRepoDto[]> => {
-    await this.projectsService.assertProjectAccess(projectId, user);
-    return this.deployAgentRepository
-      .findReposByProject(projectId)
-      .then((docs) => docs.map(this.deployAgentMapper.toRepoDto));
-  };
-
   /**
    * `devver init`: the repo is found by the code's root commit, so a second
    * clone or a second init lands in the same repo; its name is generated.
@@ -100,7 +89,6 @@ export class DeployAgentService {
         organizationId: project.organizationId,
         name: randomBytes(5).toString('hex'),
         rootCommit: dto.rootCommit,
-        displayName: dto.displayName,
         install: dto.install,
       })
       .catch(async (error: { code?: number }) => {
@@ -121,43 +109,6 @@ export class DeployAgentService {
         throw error;
       });
     return this.deployAgentMapper.toRepoDto(repo);
-  };
-
-  updateRepo = async (
-    projectId: string,
-    name: string,
-    dto: UpdateRepoDto,
-    user: LogtoUserWithOrganizations,
-  ): Promise<GetRepoDto> => {
-    await this.assertCanPush(projectId, user);
-    const repo = await this.deployAgentRepository.findRepo(projectId, name);
-    repo.displayName = dto.displayName;
-    await repo.save();
-    return this.deployAgentMapper.toRepoDto(repo);
-  };
-
-  deleteRepo = async (
-    projectId: string,
-    name: string,
-    user: LogtoUserWithOrganizations,
-  ): Promise<void> => {
-    await this.projectsService.assertProjectAccess(projectId, user);
-    await this.deployAgentRepository.findRepo(projectId, name);
-    await this.deployAgentRequests.deleteRepo(projectId, name);
-    const deployments = await this.deployAgentRepository.findDeployments({
-      projectId,
-      repo: name,
-    });
-    await Promise.all(
-      deployments.map((d) =>
-        this.vault.delete(vaultPaths.deployment(projectId, d.deploymentId)),
-      ),
-    );
-    await this.deployAgentRepository.deleteDeployments({
-      projectId,
-      repo: name,
-    });
-    await this.deployAgentRepository.deleteRepo(projectId, name);
   };
 
   listDeployments = async (

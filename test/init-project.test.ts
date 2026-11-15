@@ -38,11 +38,7 @@ function setup(found: unknown[], createError?: { code: number }) {
     selectedOrganizationRoles: [{ roleName: 'admin' }],
   } as never;
   const init = () =>
-    service.initProject(
-      PROJECT_ID,
-      { rootCommit: ROOT, displayName: 'shop-web' },
-      user,
-    );
+    service.initProject(PROJECT_ID, { rootCommit: ROOT }, user);
   return { init, created, agentRepos };
 }
 

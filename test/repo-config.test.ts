@@ -39,11 +39,7 @@ function setup(existing?: Record<string, unknown>) {
     selectedOrganizationRoles: [{ roleName: 'admin' }],
   } as never;
   const init = (extra: object) =>
-    service.initProject(
-      PROJECT_ID,
-      { rootCommit: ROOT, displayName: 'shop', ...extra },
-      user,
-    );
+    service.initProject(PROJECT_ID, { rootCommit: ROOT, ...extra }, user);
   return { service, init, user, agentCalls, doc };
 }
 
@@ -69,16 +65,4 @@ test('an unchanged install on a known repo does not call the agent', async () =>
   await init({ install: 'npm ci' });
   await init({});
   assert.equal(agentCalls.length, 0);
-});
-
-test('updateRepo changes the display name', async () => {
-  const { service, user, doc } = setup({ name: 'known', displayName: 'old' });
-  const repo = await service.updateRepo(
-    PROJECT_ID,
-    'known',
-    { displayName: 'new' },
-    user,
-  );
-  assert.equal(repo.displayName, 'new');
-  assert.equal(doc?.displayName, 'new');
 });

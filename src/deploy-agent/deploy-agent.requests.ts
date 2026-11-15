@@ -34,9 +34,6 @@ export class DeployAgentRequests {
   ): Promise<void> =>
     this.call(projectId, 'POST', `/repos/${name}`, config).then(() => {});
 
-  deleteRepo = (projectId: string, name: string): Promise<void> =>
-    this.call(projectId, 'DELETE', `/repos/${name}`).then(() => {});
-
   listDeployments = (projectId: string): Promise<DeploymentStatus[]> =>
     this.call(projectId, 'GET', '/deployments').then((res) => res.json());
 

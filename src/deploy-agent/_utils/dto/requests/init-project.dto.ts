@@ -15,15 +15,6 @@ export class InitProjectDto {
   @Matches(/^([0-9a-f]{40}|[0-9a-f]{64})$/, { message: 'INVALID_ROOT_COMMIT' })
   rootCommit: string;
 
-  @ApiProperty({
-    description: 'git remote name, else the manifest name, else the folder',
-    example: 'shop-web',
-  })
-  @IsString()
-  @MinLength(1)
-  @MaxLength(100)
-  displayName: string;
-
   @ApiPropertyOptional({ example: 'npm ci' })
   @IsOptional()
   @IsString()

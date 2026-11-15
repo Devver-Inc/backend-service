@@ -18,9 +18,6 @@ export class DeployRepo {
   @Prop({ required: true })
   rootCommit: string;
 
-  @Prop({ required: true })
-  displayName: string;
-
   @Prop()
   install?: string;
 

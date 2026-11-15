@@ -9,7 +9,6 @@ import { Deployment, DeploymentDocument } from './schemas/deployment.schema';
 import { DeployRepo, DeployRepoDocument } from './schemas/repo.schema';
 import { LeanWithMongoId } from 'src/_utils/types';
 
-export type DeployRepoLean = LeanWithMongoId<DeployRepo>;
 export type DeploymentLean = LeanWithMongoId<Deployment>;
 
 @Injectable()
@@ -27,9 +26,6 @@ export class DeployAgentRepository {
     rootCommit: string,
   ): Promise<DeployRepoDocument | null> =>
     this.repoModel.findOne({ projectId, rootCommit }).exec();
-
-  findReposByProject = (projectId: string): Promise<DeployRepoLean[]> =>
-    this.repoModel.find({ projectId }).lean().exec();
 
   findRepo = (projectId: string, name: string): Promise<DeployRepoDocument> =>
     this.repoModel
