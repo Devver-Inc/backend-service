@@ -1,7 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { UpsertDeploymentData } from './_utils/types/deployment.types';
+import {
+  DeploymentRecordStatus,
+  NewDeploymentData,
+} from './_utils/types/deployment.types';
 import { Deployment, DeploymentDocument } from './schemas/deployment.schema';
 import { LeanWithMongoId } from 'src/_utils/types';
 
@@ -13,21 +16,43 @@ export class DeployAgentRepository {
     @InjectModel(Deployment.name) private deploymentModel: Model<Deployment>,
   ) {}
 
-  upsertDeployment = (
-    data: UpsertDeploymentData,
-  ): Promise<DeploymentDocument> =>
+  createDeployment = (data: NewDeploymentData): Promise<DeploymentDocument> =>
+    this.deploymentModel.create({ ...data, status: 'preparing' });
+
+  markDeployment = (
+    projectId: string,
+    deploymentId: string,
+    status: DeploymentRecordStatus,
+    stage: string | null = null,
+  ): Promise<void> =>
     this.deploymentModel
-      .findOneAndUpdate(
-        { projectId: data.projectId, deploymentId: data.deploymentId },
-        { $set: data },
-        { upsert: true, returnDocument: 'after' },
-      )
-      .exec();
+      .updateOne({ projectId, deploymentId }, { $set: { status, stage } })
+      .exec()
+      .then(() => {});
+
+  renameDeployment = (
+    projectId: string,
+    deploymentId: string,
+    displayName: string,
+  ): Promise<void> =>
+    this.deploymentModel
+      .updateOne({ projectId, deploymentId }, { $set: { displayName } })
+      .orFail(new NotFoundException('DEPLOYMENT_NOT_FOUND'))
+      .exec()
+      .then(() => {});
+
+  findDeployment = (
+    projectId: string,
+    deploymentId: string,
+  ): Promise<DeploymentLean | null> =>
+    this.deploymentModel.findOne({ projectId, deploymentId }).lean().exec();
 
   findDeployments = (
-    filter: { projectId: string; repo?: string } | { organizationId: string },
+    filter:
+      | { projectId: string; repo?: string; status?: DeploymentRecordStatus }
+      | { organizationId: string },
   ): Promise<DeploymentLean[]> =>
-    this.deploymentModel.find(filter).lean().exec();
+    this.deploymentModel.find(filter).sort({ createdAt: 1 }).lean().exec();
 
   deleteDeployment = (projectId: string, deploymentId: string): Promise<void> =>
     this.deploymentModel

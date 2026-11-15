@@ -1,11 +1,15 @@
 import { ServiceName, Services } from './agent.types';
 import { DatabaseLink } from 'src/projects/project.types';
 
-export interface UpsertDeploymentData {
+export type DeploymentRecordStatus = 'preparing' | 'ready' | 'failed';
+
+export interface NewDeploymentData {
   projectId: string;
   organizationId: string;
   repo: string;
-  branch: string;
+  commit: string;
+  parentDeploymentId: string | null;
+  secondParentDeploymentId: string | null;
   serviceName: ServiceName;
   deploymentId: string;
   host: string;

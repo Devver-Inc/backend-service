@@ -65,6 +65,29 @@ export class DeployAgentRequests {
   ): Promise<Response> =>
     this.call(projectId, 'PUT', `/deployments/${id}`, body, false);
 
+  parentOf = (
+    projectId: string,
+    repo: string,
+    body: {
+      commit: string;
+      candidates: { deploymentId: string; commit: string }[];
+    },
+  ): Promise<{ parentDeploymentId: string | null }> =>
+    this.call(projectId, 'POST', `/repos/${repo}/parent`, body).then((res) =>
+      res.json(),
+    );
+
+  mergeCommits = (
+    projectId: string,
+    repo: string,
+    first: string,
+    second: string,
+  ): Promise<{ commit: string }> =>
+    this.call(projectId, 'POST', `/repos/${repo}/merge`, {
+      first,
+      second,
+    }).then((res) => res.json());
+
   /**
    * Passes the agent's own status and `{ code, message, logs }` through. A
    * 5xx or an auth failure from the agent becomes 502, so it never reads as

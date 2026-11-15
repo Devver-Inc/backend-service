@@ -8,6 +8,7 @@ import {
   HttpStatus,
   Param,
   Post,
+  Put,
   Query,
   Res,
 } from '@nestjs/common';
@@ -24,6 +25,8 @@ import {
 } from './_utils/dto/requests/agent-params.dto';
 import { CreateAgentDeploymentDto } from './_utils/dto/requests/create-deployment.dto';
 import { InitProjectDto } from './_utils/dto/requests/init-project.dto';
+import { MergeDeploymentsDto } from './_utils/dto/requests/merge-deployments.dto';
+import { RenameDeploymentDto } from './_utils/dto/requests/rename-deployment.dto';
 import { ListDeploymentsQueryDto } from './_utils/dto/requests/list-deployments-query.dto';
 import { GetAgentDeploymentDto } from './_utils/dto/responses/get-deployment.dto';
 import { InitProjectResponseDto } from './_utils/dto/responses/init-project-response.dto';
@@ -60,9 +63,9 @@ export class DeployAgentController {
   @Protect({ roles: [UserRoleEnum.ADMIN, UserRoleEnum.DEVELOPER] })
   @Post('deployments')
   @ApiOperation({
-    summary: 'Deploy a branch; streams the agent phases over SSE',
+    summary: 'Deploy a commit as a new deployment; streams over SSE',
     description:
-      'Errors before the deploy starts are JSON 4xx/5xx. Once the response is 200, the stream carries `phase` events and ends with `done` (the deployment) or `failed` ({ code, message, logs? }).',
+      'Every call creates a new deployment (as on the local server). Errors before the deploy starts are JSON 4xx/5xx. The stream starts with `deployment` ({ deploymentId, parentDeploymentId, secondParentDeploymentId, url }), then `phase` events, and ends with `done` or `failed` ({ code, message, logs? }).',
   })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -85,9 +88,49 @@ export class DeployAgentController {
     return this.deployAgentService.deploy(projectId, dto, user, response);
   }
 
+  @Protect({ roles: [UserRoleEnum.ADMIN, UserRoleEnum.DEVELOPER] })
+  @Post('deployments/merge')
+  @ApiOperation({
+    summary:
+      'Merge two ready deployments into a new one; streams like a deploy',
+    description:
+      'Rejected (400) for the same deployment, different repos, a deployment not ready or the same commit; 409 MERGE_CONFLICT or UNRELATED_HISTORIES from git. Both sources stay as they are.',
+  })
+  merge(
+    @Param() { projectId }: ProjectParamsDto,
+    @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
+    @Body() dto: MergeDeploymentsDto,
+    @Res() response: Response,
+  ): Promise<void> {
+    return this.deployAgentService.merge(projectId, dto, user, response);
+  }
+
+  @Protect({ roles: [UserRoleEnum.ADMIN, UserRoleEnum.DEVELOPER] })
+  @Put('deployments/:deploymentId/name')
+  @ApiOperation({ summary: 'Rename a deployment' })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'DEPLOYMENT_NOT_FOUND',
+  })
+  renameDeployment(
+    @Param() { projectId, deploymentId }: DeploymentParamsDto,
+    @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
+    @Body() dto: RenameDeploymentDto,
+  ): Promise<{ displayName: string }> {
+    return this.deployAgentService.renameDeployment(
+      projectId,
+      deploymentId,
+      dto.displayName,
+      user,
+    );
+  }
+
   @Protect()
   @Get('deployments')
-  @ApiOperation({ summary: 'List the deployments running on the agent' })
+  @ApiOperation({
+    summary:
+      'List every deployment of the project, oldest first, with its lineage',
+  })
   listDeployments(
     @Param() { projectId }: ProjectParamsDto,
     @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,

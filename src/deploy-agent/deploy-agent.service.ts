@@ -1,8 +1,10 @@
 import {
+  BadRequestException,
   ForbiddenException,
   forwardRef,
   Inject,
   Injectable,
+  NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Response } from 'express';
@@ -18,12 +20,15 @@ import { ProjectDocument } from 'src/projects/project.schema';
 import { ProjectsService } from 'src/projects/projects.service';
 import { CreateAgentDeploymentDto } from './_utils/dto/requests/create-deployment.dto';
 import { InitProjectDto } from './_utils/dto/requests/init-project.dto';
+import { MergeDeploymentsDto } from './_utils/dto/requests/merge-deployments.dto';
 import { GetAgentDeploymentDto } from './_utils/dto/responses/get-deployment.dto';
 import { InitProjectResponseDto } from './_utils/dto/responses/init-project-response.dto';
 import { deploymentIdentity } from './_utils/functions/deployment-identity.function';
+import { failedStage } from './_utils/functions/failed-stage.function';
 import { lastSseEvent } from './_utils/functions/last-sse-event.function';
 import { serviceNameOf } from './_utils/functions/service-name-of.function';
 import { DeploymentAction, ReconcileItem } from './_utils/types/agent.types';
+import { NewDeploymentData } from './_utils/types/deployment.types';
 import { DeployAgentMapper } from './deploy-agent.mapper';
 import { DeployAgentRepository } from './deploy-agent.repository';
 import { DeployAgentRequests } from './deploy-agent.requests';
@@ -79,19 +84,35 @@ export class DeployAgentService {
     rootCommit?: string,
   ): Promise<GetAgentDeploymentDto[]> => {
     await this.projectsService.assertProjectAccess(projectId, user);
-    const [statuses, docs] = await Promise.all([
+    const [processes, docs] = await Promise.all([
       this.deployAgentRequests.listDeployments(projectId),
-      this.deployAgentRepository.findDeployments({ projectId }),
+      this.deployAgentRepository.findDeployments({
+        projectId,
+        ...(rootCommit && { repo: rootCommit }),
+      }),
     ]);
-    const byId = new Map(docs.map((doc) => [doc.deploymentId, doc]));
-    return statuses
-      .filter((status) => !rootCommit || status.repo === rootCommit)
-      .map((status) =>
-        this.deployAgentMapper.toAgentDeploymentDto(
-          status,
-          byId.get(status.id),
-        ),
-      );
+    const byId = new Map(processes.map((p) => [p.id, p]));
+    return docs.map((doc) =>
+      this.deployAgentMapper.toAgentDeploymentDto(
+        doc,
+        byId.get(doc.deploymentId),
+      ),
+    );
+  };
+
+  renameDeployment = async (
+    projectId: string,
+    deploymentId: string,
+    displayName: string,
+    user: LogtoUserWithOrganizations,
+  ): Promise<{ displayName: string }> => {
+    await this.assertCanPush(projectId, user);
+    await this.deployAgentRepository.renameDeployment(
+      projectId,
+      deploymentId,
+      displayName,
+    );
+    return { displayName };
   };
 
   getLogs = async (
@@ -125,11 +146,10 @@ export class DeployAgentService {
   };
 
   /**
-   * Streams the agent's SSE (`phase`, then `done` or `failed`) to the client
-   * unchanged. Errors before the agent's 200 surface as JSON 4xx/5xx. The
-   * desired state is saved only on `done`, so a failed redeploy leaves the
-   * previous one as what reconciliation replays. The upstream is read to the
-   * end even if the client leaves, so a finished deploy is always recorded.
+   * Every deploy is a new deployment of one commit, as on the local server.
+   * Its parent is the nearest ready deployment on the commit's first-parent
+   * history (the agent walks the git history); the same commit deployed twice
+   * gives siblings. Streams the agent's SSE; see `launch`.
    */
   deploy = async (
     projectId: string,
@@ -138,33 +158,139 @@ export class DeployAgentService {
     response: Response,
   ): Promise<void> => {
     const project = await this.assertCanPush(projectId, user);
-
-    const serviceName = serviceNameOf(dto.service);
-    const { id, host } = deploymentIdentity(
+    const ready = await this.deployAgentRepository.findDeployments({
+      projectId,
+      repo: dto.rootCommit,
+      status: 'ready',
+    });
+    const { parentDeploymentId } = await this.deployAgentRequests.parentOf(
       projectId,
       dto.rootCommit,
-      dto.branch,
-      serviceName,
-      this.previewDomain,
+      {
+        commit: dto.commit,
+        candidates: ready.map((d) => ({
+          deploymentId: d.deploymentId,
+          commit: d.commit,
+        })),
+      },
     );
+    const serviceName = serviceNameOf(dto.service);
     const env = {
       ...dto.env,
       ...(dto.dbLinks?.length
         ? await this.projectsService.resolveDatabaseLinks(project, dto.dbLinks)
         : {}),
     };
+    await this.launch(
+      projectId,
+      project,
+      {
+        repo: dto.rootCommit,
+        commit: dto.commit,
+        parentDeploymentId,
+        secondParentDeploymentId: null,
+        serviceName,
+        service: dto.service,
+        dbLinks: dto.dbLinks,
+      },
+      env,
+      response,
+    );
+  };
 
+  /**
+   * Combines two ready deployments of one repo into a new deployment whose
+   * commit is a git merge of theirs; both stay as they are. It runs with the
+   * first one's service and env. Same commit, conflicts or unrelated
+   * histories create nothing.
+   */
+  merge = async (
+    projectId: string,
+    { firstDeploymentId, secondDeploymentId }: MergeDeploymentsDto,
+    user: LogtoUserWithOrganizations,
+    response: Response,
+  ): Promise<void> => {
+    const project = await this.assertCanPush(projectId, user);
+    if (firstDeploymentId === secondDeploymentId) {
+      throw new BadRequestException('SAME_DEPLOYMENT');
+    }
+    const [first, second] = await Promise.all([
+      this.deployAgentRepository.findDeployment(projectId, firstDeploymentId),
+      this.deployAgentRepository.findDeployment(projectId, secondDeploymentId),
+    ]);
+    if (!first || !second) throw new NotFoundException('DEPLOYMENT_NOT_FOUND');
+    if (first.repo !== second.repo) {
+      throw new BadRequestException('DIFFERENT_REPOSITORIES');
+    }
+    if (first.status !== 'ready' || second.status !== 'ready') {
+      throw new BadRequestException('DEPLOYMENT_NOT_READY');
+    }
+    if (first.commit === second.commit) {
+      throw new BadRequestException('SAME_REVISION');
+    }
+    const { commit } = await this.deployAgentRequests.mergeCommits(
+      projectId,
+      first.repo,
+      first.commit,
+      second.commit,
+    );
+    const env =
+      (await this.vault.read(
+        vaultPaths.deployment(projectId, first.deploymentId),
+      )) ?? {};
+    await this.launch(
+      projectId,
+      project,
+      {
+        repo: first.repo,
+        commit,
+        parentDeploymentId: first.deploymentId,
+        secondParentDeploymentId: second.deploymentId,
+        serviceName: first.serviceName,
+        service: first.service,
+        dbLinks: first.dbLinks,
+      },
+      env,
+      response,
+    );
+  };
+
+  /**
+   * Starts the agent deploy, records the deployment as preparing, and streams
+   * a `deployment` event (id, parents, url) then the agent's own phases and
+   * `done` or `failed`. Errors before the agent's 200 surface as JSON 4xx/5xx
+   * and record nothing. The upstream is read to the end even if the client
+   * leaves, so the outcome is always recorded; only `ready` ones are replayed.
+   */
+  private launch = async (
+    projectId: string,
+    project: ProjectDocument,
+    deployment: Omit<
+      NewDeploymentData,
+      'projectId' | 'organizationId' | 'deploymentId' | 'host'
+    >,
+    env: Record<string, string>,
+    response: Response,
+  ): Promise<void> => {
+    const { id, host } = deploymentIdentity(projectId, this.previewDomain);
     const upstream = await this.deployAgentRequests.putDeployment(
       projectId,
       id,
       {
-        repo: dto.rootCommit,
-        ref: dto.branch,
+        repo: deployment.repo,
+        ref: deployment.commit,
         host,
-        service: dto.service[serviceName] ?? {},
+        service: deployment.service[deployment.serviceName] ?? {},
         env,
       },
     );
+    await this.deployAgentRepository.createDeployment({
+      ...deployment,
+      projectId,
+      organizationId: project.organizationId,
+      deploymentId: id,
+      host,
+    });
 
     response.status(200);
     response.setHeader('Content-Type', 'text/event-stream');
@@ -175,6 +301,14 @@ export class DeployAgentService {
     const send = (chunk: string | Uint8Array) => {
       if (!response.destroyed && !response.writableEnded) response.write(chunk);
     };
+    send(
+      `event: deployment\ndata: ${JSON.stringify({
+        deploymentId: id,
+        parentDeploymentId: deployment.parentDeploymentId,
+        secondParentDeploymentId: deployment.secondParentDeploymentId,
+        url: `https://${host}`,
+      })}\n\n`,
+    );
 
     let tail = '';
     try {
@@ -191,33 +325,31 @@ export class DeployAgentService {
 
     if (lastSseEvent(tail)?.event === 'done') {
       await this.vault.write(vaultPaths.deployment(projectId, id), env);
-      await this.deployAgentRepository.upsertDeployment({
+      await this.deployAgentRepository.markDeployment(projectId, id, 'ready');
+    } else {
+      await this.deployAgentRepository.markDeployment(
         projectId,
-        organizationId: project.organizationId,
-        repo: dto.rootCommit,
-        branch: dto.branch,
-        serviceName,
-        deploymentId: id,
-        host,
-        service: dto.service,
-        dbLinks: dto.dbLinks,
-      });
+        id,
+        'failed',
+        failedStage(tail),
+      );
     }
     if (!response.writableEnded) response.end();
   };
 
-  /** Desired state the agent replays at boot. ref is the branch: the agent follows pushes to it. */
+  /** Desired state the agent replays at boot: every ready deployment, pinned to its commit. */
   listDesiredDeployments = async (
     projectId: string,
   ): Promise<ReconcileItem[]> => {
     const docs = await this.deployAgentRepository.findDeployments({
       projectId,
+      status: 'ready',
     });
     return Promise.all(
       docs.map(async (doc) => ({
         id: doc.deploymentId,
         repo: doc.repo,
-        ref: doc.branch,
+        ref: doc.commit,
         host: doc.host,
         service: doc.service[doc.serviceName] ?? {},
         env:

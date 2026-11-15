@@ -1,13 +1,15 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument } from 'mongoose';
 import { ServiceName, Services } from '../_utils/types/agent.types';
+import { DeploymentRecordStatus } from '../_utils/types/deployment.types';
 import { DatabaseLink } from 'src/projects/project.types';
 
 export type DeploymentDocument = HydratedDocument<Deployment>;
 
 /**
- * Desired state: one document per deployment the project's agent should run.
- * The env lives in Vault under vaultPaths.deployment(projectId, deploymentId).
+ * One immutable deployment of one commit. Only `ready` ones are replayed by
+ * the agent at boot; the env lives in Vault under
+ * vaultPaths.deployment(projectId, deploymentId).
  */
 @Schema({ timestamps: true })
 export class Deployment {
@@ -21,7 +23,26 @@ export class Deployment {
   repo: string;
 
   @Prop({ required: true })
-  branch: string;
+  commit: string;
+
+  @Prop({ type: String, default: null })
+  parentDeploymentId: string | null;
+
+  @Prop({ type: String, default: null })
+  secondParentDeploymentId: string | null;
+
+  @Prop({
+    type: String,
+    required: true,
+    enum: ['preparing', 'ready', 'failed'],
+  })
+  status: DeploymentRecordStatus;
+
+  @Prop({ type: String, default: null })
+  stage: string | null;
+
+  @Prop({ type: String, default: null })
+  displayName: string | null;
 
   @Prop({ type: String, required: true, enum: ['web', 'api'] })
   serviceName: ServiceName;
@@ -45,4 +66,5 @@ export class Deployment {
 export const DeploymentSchema = SchemaFactory.createForClass(Deployment);
 
 DeploymentSchema.index({ organizationId: 1 });
+DeploymentSchema.index({ projectId: 1, repo: 1, status: 1 });
 DeploymentSchema.index({ projectId: 1, deploymentId: 1 }, { unique: true });

@@ -2,56 +2,32 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { deploymentIdentity } from 'src/deploy-agent/_utils/functions/deployment-identity.function';
+import { failedStage } from 'src/deploy-agent/_utils/functions/failed-stage.function';
 import { lastSseEvent } from 'src/deploy-agent/_utils/functions/last-sse-event.function';
 
 const PROJECT_ID = '6650a1b2c3d4e5f6a7b8c9d0';
 const ID = /^[a-z0-9][a-z0-9-]{0,62}$/;
 
-test('ids and hosts fit the agent and DNS limits', () => {
-  const long = 'x'.repeat(120);
-  for (const [repo, branch] of [
-    ['shop', 'main'],
-    ['shop', 'feature/Login_Page'],
-    [long.slice(0, 63), long],
-  ]) {
-    for (const service of ['web', 'api'] as const) {
-      const { id, host } = deploymentIdentity(
-        PROJECT_ID,
-        repo,
-        branch,
-        service,
-        'preview.devver.app',
-      );
-      assert.match(id, ID);
-      const label = host.split('.')[0];
-      assert.ok(label.length <= 63, label);
-      assert.equal(label.split('--').length, 2, label);
-      assert.ok(label.endsWith(`--${PROJECT_ID}`));
-    }
-  }
-});
-
-test('the repo stays out of the URL but keeps ids distinct', () => {
-  const root = 'f'.repeat(40);
-  const a = deploymentIdentity(PROJECT_ID, root, 'main', 'web', 'p.d');
-  assert.equal(a.host.split('--')[0].startsWith('main-'), true, a.host);
-  assert.ok(!a.id.includes(root.slice(0, 6)));
-  assert.notEqual(
-    a.id,
-    deploymentIdentity(PROJECT_ID, 'e'.repeat(40), 'main', 'web', 'p.d').id,
-  );
-});
-
-test('branches that slug alike still get distinct ids', () => {
-  const a = deploymentIdentity(PROJECT_ID, 'shop', 'feature/x', 'web', 'p.d');
-  const b = deploymentIdentity(PROJECT_ID, 'shop', 'feature-x', 'web', 'p.d');
-  const c = deploymentIdentity(PROJECT_ID, 'shop', 'feature/x', 'api', 'p.d');
+test('every deploy gets a new id whose host fits one DNS label', () => {
+  const a = deploymentIdentity(PROJECT_ID, 'preview.devver.app');
+  const b = deploymentIdentity(PROJECT_ID, 'preview.devver.app');
   assert.notEqual(a.id, b.id);
-  assert.notEqual(a.id, c.id);
+  assert.match(a.id, ID);
+  const label = a.host.split('.')[0];
+  assert.ok(label.length <= 63, label);
+  assert.equal(label, `${a.id}--${PROJECT_ID}`);
+});
+
+test('a failure is in the phase after the last one reported', () => {
+  const phase = (p: string) =>
+    `event: phase\ndata: {"phase":"${p}","durationMs":1}\n\n`;
+  const failed = 'event: failed\ndata: {"code":"X","message":"x"}\n\n';
+  assert.equal(failedStage(phase('checkout') + failed), 'install');
   assert.equal(
-    a.id,
-    deploymentIdentity(PROJECT_ID, 'shop', 'feature/x', 'web', 'p.d').id,
+    failedStage(phase('checkout') + phase('install') + phase('build') + failed),
+    'start',
   );
+  assert.equal(failedStage(failed), 'checkout');
 });
 
 test('lastSseEvent returns the terminal event and skips a cut-off head', () => {

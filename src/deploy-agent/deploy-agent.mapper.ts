@@ -36,17 +36,31 @@ export class DeployAgentMapper {
     createdAt: doc.createdAt,
   });
 
+  /** The backend's record, with a ready one checked against the agent's process. */
   toAgentDeploymentDto = (
-    status: DeploymentStatus,
-    doc?: Pick<Deployment, 'branch' | 'serviceName'>,
-  ): GetAgentDeploymentDto => ({
-    deploymentId: status.id,
-    rootCommit: status.repo,
-    branch: doc?.branch,
-    service: doc?.serviceName,
-    commit: status.commit,
-    url: `https://${status.host}`,
-    status: status.status,
-    startedAt: status.startedAt,
-  });
+    doc: DocOrLean<Deployment>,
+    process?: DeploymentStatus,
+  ): GetAgentDeploymentDto => {
+    const status =
+      doc.status !== 'ready'
+        ? doc.status
+        : process?.status === 'running'
+          ? 'ready'
+          : process?.status === 'stopped'
+            ? 'stopped'
+            : 'degraded';
+    return {
+      deploymentId: doc.deploymentId,
+      rootCommit: doc.repo,
+      commit: doc.commit,
+      parentDeploymentId: doc.parentDeploymentId ?? null,
+      secondParentDeploymentId: doc.secondParentDeploymentId ?? null,
+      displayName: doc.displayName ?? null,
+      service: doc.serviceName,
+      status,
+      stage: doc.stage ?? null,
+      url: status === 'ready' ? `https://${doc.host}` : null,
+      createdAt: doc.createdAt,
+    };
+  };
 }
