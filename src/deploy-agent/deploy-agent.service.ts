@@ -27,7 +27,11 @@ import { deploymentIdentity } from './_utils/functions/deployment-identity.funct
 import { failedStage } from './_utils/functions/failed-stage.function';
 import { lastSseEvent } from './_utils/functions/last-sse-event.function';
 import { serviceNameOf } from './_utils/functions/service-name-of.function';
-import { DeploymentAction, ReconcileItem } from './_utils/types/agent.types';
+import {
+  DeploymentAction,
+  ReconcileItem,
+  ServiceConfig,
+} from './_utils/types/agent.types';
 import { NewDeploymentData } from './_utils/types/deployment.types';
 import { DeployAgentMapper } from './deploy-agent.mapper';
 import {
@@ -37,6 +41,12 @@ import {
 import { DeployAgentRequests } from './deploy-agent.requests';
 
 const LOGS_TAIL = 200;
+
+// Mongo stores the DTO's unset fields as null; the agent accepts only strings.
+const agentServiceSpec = (config?: ServiceConfig): ServiceConfig =>
+  Object.fromEntries(
+    Object.entries(config ?? {}).filter(([, value]) => value != null),
+  );
 
 @Injectable()
 export class DeployAgentService {
@@ -298,7 +308,7 @@ export class DeployAgentService {
         repo: deployment.repo,
         ref: deployment.commit,
         host,
-        service: deployment.service[deployment.serviceName] ?? {},
+        service: agentServiceSpec(deployment.service[deployment.serviceName]),
         env,
       },
     );
@@ -381,7 +391,7 @@ export class DeployAgentService {
         repo: doc.repo,
         ref: doc.commit,
         host: doc.host,
-        service: doc.service[doc.serviceName] ?? {},
+        service: agentServiceSpec(doc.service[doc.serviceName]),
         env:
           (await this.vault.read(
             vaultPaths.deployment(projectId, doc.deploymentId),

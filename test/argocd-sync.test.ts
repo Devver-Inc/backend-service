@@ -32,6 +32,26 @@ function setup(syncFailures: AxiosError[] = []) {
     ) => {
       calls.push(`${action} ${r.kind}/${r.resourceName}`);
     },
+    getResourceTree: async () => [
+      {
+        kind: 'Pod',
+        name: 'deploy-agent-abc-1',
+        namespace: APP,
+        parentRefs: [{ kind: 'ReplicaSet', name: 'deploy-agent-abc' }],
+      },
+      {
+        kind: 'Pod',
+        name: `${APP}-mongo-0`,
+        namespace: APP,
+        parentRefs: [{ kind: 'StatefulSet', name: `${APP}-mongo` }],
+      },
+    ],
+    deleteResource: async (
+      _: string,
+      r: { kind: string; resourceName: string },
+    ) => {
+      calls.push(`delete ${r.kind}/${r.resourceName}`);
+    },
     getResourceManifest: async () => {
       calls.push('read ExternalSecret');
       const status = { refreshTime };
@@ -59,7 +79,7 @@ test('a new project waits for its Application, then syncs it and its database', 
   ]);
 });
 
-test('changed secrets refresh the ExternalSecret, wait for ESO, then restart the agent', async () => {
+test('changed secrets refresh the ExternalSecret, wait for ESO, then recreate only the agent pod', async () => {
   const { service, calls } = setup();
   await service.apply(PROJECT_ID, {
     created: false,
@@ -71,7 +91,7 @@ test('changed secrets refresh the ExternalSecret, wait for ESO, then restart the
     'refresh ExternalSecret/deploy-agent-env',
     'read ExternalSecret',
     'read ExternalSecret',
-    'restart Deployment/deploy-agent',
+    'delete Pod/deploy-agent-abc-1',
   ]);
 });
 

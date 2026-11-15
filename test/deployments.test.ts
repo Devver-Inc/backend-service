@@ -271,3 +271,20 @@ test('a failed amend leaves the deployment on its old commit', async () => {
     0,
   );
 });
+
+test('the agent never receives the nulls Mongo stores for unset service fields', async () => {
+  const stored = {
+    web: { root: null, install: null, build: null, start: 'node .' },
+  };
+  const { service, calls, response, user } = setup([
+    { ...ready('d1', C1), service: stored },
+    ready('d2', C2),
+  ]);
+  await service.merge(
+    PROJECT_ID,
+    { firstDeploymentId: 'd1', secondDeploymentId: 'd2' },
+    user,
+    response,
+  );
+  assert.deepEqual((calls.put[0] as any).body.service, { start: 'node .' });
+});

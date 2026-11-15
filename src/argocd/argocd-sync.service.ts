@@ -19,7 +19,7 @@ export interface ProjectPublished {
  * after the backend writes Vault and commits values it forces both, through
  * the Argo API only (no Kubernetes rights): sync the Application, and when
  * an existing project's secrets changed, refresh its ExternalSecret then
- * restart the agent, which reads its env only at start.
+ * recreate the agent pod, which reads its env only at start.
  */
 @Injectable()
 export class ArgoCdSyncService {
@@ -86,17 +86,26 @@ export class ArgoCdSyncService {
       if (refreshed >= Math.floor(asked / 1000) * 1000) break;
       await this.sleep(1000);
     }
-    await this.argoCdRequests.runResourceAction(
-      app,
-      {
-        namespace,
-        resourceName: 'deploy-agent',
-        group: 'apps',
-        version: 'v1',
-        kind: 'Deployment',
-      },
-      'restart',
+    // Not the Deployment restart action: the ApplicationSet's selfHeal reverts
+    // its restartedAt annotation at once. A deleted pod is recreated by its
+    // ReplicaSet and reads the new Secret, without drifting from git.
+    const pods = (await this.argoCdRequests.getResourceTree(app)).filter(
+      (node) =>
+        node.kind === 'Pod' &&
+        node.parentRefs?.some(
+          (ref) =>
+            ref.kind === 'ReplicaSet' && ref.name.startsWith('deploy-agent-'),
+        ),
     );
+    for (const pod of pods) {
+      await this.argoCdRequests.deleteResource(app, {
+        namespace,
+        resourceName: pod.name,
+        group: '',
+        version: 'v1',
+        kind: 'Pod',
+      });
+    }
   }
 
   private sleep = (ms: number) =>

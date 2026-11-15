@@ -57,6 +57,41 @@ export class ArgoCdRequests {
       ),
     ).then(() => {});
 
+  /** Pods (with their owning ReplicaSet) and other live resources of an Application. */
+  getResourceTree = async (
+    appName: string,
+  ): Promise<
+    {
+      kind: string;
+      name: string;
+      namespace: string;
+      parentRefs?: { kind: string; name: string }[];
+    }[]
+  > => {
+    const { data } = await firstValueFrom(
+      this.httpService.get<{ nodes: [] }>(
+        `${this.baseUrl}/api/v1/applications/${encodeURIComponent(appName)}/resource-tree`,
+        { headers: this.headers },
+      ),
+    );
+    return data.nodes ?? [];
+  };
+
+  deleteResource = (
+    appName: string,
+    resource: ArgoResourceRef,
+  ): Promise<void> =>
+    firstValueFrom(
+      this.httpService.delete(
+        `${this.baseUrl}/api/v1/applications/${encodeURIComponent(appName)}/resource`,
+        {
+          // The Argo API answers 415 to a DELETE without a JSON content type.
+          headers: { ...this.headers, 'Content-Type': 'application/json' },
+          params: resource,
+        },
+      ),
+    ).then(() => {});
+
   getResourceManifest = async (
     appName: string,
     resource: ArgoResourceRef,
