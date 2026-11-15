@@ -3,7 +3,6 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import {
   CreateRepoData,
-  PrepareReport,
   UpsertDeploymentData,
 } from './_utils/types/deployment.types';
 import { Deployment, DeploymentDocument } from './schemas/deployment.schema';
@@ -37,18 +36,6 @@ export class DeployAgentRepository {
       .findOne({ projectId, name })
       .orFail(new NotFoundException('REPO_NOT_FOUND'))
       .exec();
-
-  setLastPrepare = (
-    projectId: string,
-    name: string,
-    lastPrepare: PrepareReport,
-  ): Promise<void> =>
-    this.repoModel
-      .updateOne({ projectId, name }, { $set: { lastPrepare } })
-      .exec()
-      .then(({ matchedCount }) => {
-        if (!matchedCount) throw new NotFoundException('REPO_NOT_FOUND');
-      });
 
   deleteRepo = (projectId: string, name: string): Promise<void> =>
     this.repoModel

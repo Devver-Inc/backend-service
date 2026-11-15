@@ -1,5 +1,4 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { PrepareReport } from '../../types/deployment.types';
 
 export class GetRepoDto {
   @ApiProperty({ example: '507f1f77bcf86cd799439011' })
@@ -39,32 +38,6 @@ export class GetRepoDto {
     example: 'npm ci',
   })
   install?: string;
-
-  @ApiProperty({
-    nullable: true,
-    description:
-      'Last dependency preparation reported by the agent; null when never reported',
-    example: {
-      status: 'failed',
-      commit: '9fceb02d0ae598e95dc970b74767f19372d61af8',
-      startedAt: '2024-01-15T10:30:00.000Z',
-      finishedAt: '2024-01-15T10:30:20.000Z',
-      apps: [
-        {
-          root: 'apps/web',
-          status: 'failed',
-          durationMs: 20000,
-          runtime: 'node',
-          error: {
-            code: 'INSTALL_FAILED',
-            message: 'npm ci exited with 1',
-            logs: 'npm ERR! ...',
-          },
-        },
-      ],
-    },
-  })
-  lastPrepare: PrepareReport | null;
 
   @ApiProperty({ example: '2024-01-15T10:30:00.000Z' })
   createdAt: Date;

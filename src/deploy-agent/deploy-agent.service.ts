@@ -26,7 +26,6 @@ import { deploymentIdentity } from './_utils/functions/deployment-identity.funct
 import { lastSseEvent } from './_utils/functions/last-sse-event.function';
 import { serviceNameOf } from './_utils/functions/service-name-of.function';
 import { DeploymentAction, ReconcileItem } from './_utils/types/agent.types';
-import { PrepareReport } from './_utils/types/deployment.types';
 import { DeployAgentMapper } from './deploy-agent.mapper';
 import { DeployAgentRepository } from './deploy-agent.repository';
 import { DeployAgentRequests } from './deploy-agent.requests';
@@ -136,13 +135,6 @@ export class DeployAgentService {
     await repo.save();
     return this.deployAgentMapper.toRepoDto(repo);
   };
-
-  reportPrepare = (
-    projectId: string,
-    name: string,
-    report: PrepareReport,
-  ): Promise<void> =>
-    this.deployAgentRepository.setLastPrepare(projectId, name, report);
 
   deleteRepo = async (
     projectId: string,

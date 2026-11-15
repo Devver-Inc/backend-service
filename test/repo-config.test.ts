@@ -8,7 +8,6 @@ const ROOT = 'a'.repeat(40);
 
 function setup(existing?: Record<string, unknown>) {
   const agentCalls: unknown[] = [];
-  const prepares: unknown[] = [];
   const doc: Record<string, unknown> | undefined = existing && {
     ...existing,
     save: async () => {},
@@ -18,8 +17,6 @@ function setup(existing?: Record<string, unknown>) {
     findRepo: async () => doc,
     createRepo: async (data: object) => ({ ...data, _id: 'id' }),
     deleteRepo: async () => {},
-    setLastPrepare: async (_: string, __: string, report: unknown) =>
-      void prepares.push(report),
   };
   const service = new DeployAgentService(
     repository as never,
@@ -47,7 +44,7 @@ function setup(existing?: Record<string, unknown>) {
       { rootCommit: ROOT, displayName: 'shop', ...extra },
       user,
     );
-  return { service, init, user, agentCalls, prepares, doc };
+  return { service, init, user, agentCalls, doc };
 }
 
 test('a new repo sends its install command to the agent', async () => {
@@ -72,18 +69,6 @@ test('an unchanged install on a known repo does not call the agent', async () =>
   await init({ install: 'npm ci' });
   await init({});
   assert.equal(agentCalls.length, 0);
-});
-
-test('the agent prepare report is stored as lastPrepare', async () => {
-  const { service, prepares } = setup();
-  const report = {
-    status: 'done' as const,
-    commit: ROOT,
-    startedAt: '2024-01-15T10:30:00.000Z',
-    apps: [],
-  };
-  await service.reportPrepare(PROJECT_ID, 'known', report);
-  assert.deepEqual(prepares, [report]);
 });
 
 test('updateRepo changes the display name', async () => {
