@@ -84,9 +84,6 @@ export function LogtoEntityByIdPipe<T>(
 }
 
 export const LogtoUserByIdPipe = LogtoEntityByIdPipe(LogtoEntityType.USER);
-export const LogtoOrganizationByIdPipe = LogtoEntityByIdPipe(
-  LogtoEntityType.ORGANIZATION,
-);
 export const LogtoInvitationByIdPipe = LogtoEntityByIdPipe(
   LogtoEntityType.INVITATION,
 );

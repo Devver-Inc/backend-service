@@ -21,7 +21,7 @@ import {
 import { DeployAgentService } from 'src/deploy-agent/deploy-agent.service';
 import { LogtoUserWithOrganizations } from 'src/logto/_utils/types/user-with-organization.type';
 import { ProjectsService } from 'src/projects/projects.service';
-import { toSlug } from 'src/_utils/functions/to-slug.function';
+import { projectNamespace } from 'src/_utils/functions/project-keys.function';
 import { ProjectDocument } from 'src/projects/project.schema';
 import { DatabaseType } from 'src/projects/project.types';
 
@@ -47,13 +47,9 @@ export class ArgoCdSseService {
       projectId,
       user,
     );
-    const probe = this.buildProbe(projectId, user);
+    const probe = this.buildProbe(projectId);
     const project = await this.projectsService.findProjectById(projectId);
-    return this.getCurrentStatus(
-      appName,
-      probe,
-      this.getMongoAppName(project, user),
-    );
+    return this.getCurrentStatus(appName, probe, this.getMongoAppName(project));
   }
 
   async watchStatusByProject(
@@ -64,24 +60,14 @@ export class ArgoCdSseService {
       projectId,
       user,
     );
-    const probe = this.buildProbe(projectId, user);
+    const probe = this.buildProbe(projectId);
     const project = await this.projectsService.findProjectById(projectId);
-    return this.watchStatus(
-      appName,
-      probe,
-      this.getMongoAppName(project, user),
-    );
+    return this.watchStatus(appName, probe, this.getMongoAppName(project));
   }
 
-  private buildProbe(
-    projectId: string,
-    user: LogtoUserWithOrganizations,
-  ): () => Promise<boolean> {
-    return () =>
-      this.deployAgentService
-        .listDeployments(projectId, user)
-        .then(() => true)
-        .catch(() => false);
+  // Bound to the project only: the stream is shared by every subscriber.
+  private buildProbe(projectId: string): () => Promise<boolean> {
+    return () => this.deployAgentService.isAgentHealthy(projectId);
   }
 
   private getCurrentStatus = async (
@@ -172,10 +158,7 @@ export class ArgoCdSseService {
     return stream$;
   }
 
-  private getMongoAppName(
-    project: ProjectDocument,
-    user: LogtoUserWithOrganizations,
-  ): string | undefined {
+  private getMongoAppName(project: ProjectDocument): string | undefined {
     if (
       !project.databaseConfigurations?.some(
         (database) => database.type === DatabaseType.MONGO && database.enabled,
@@ -184,7 +167,7 @@ export class ArgoCdSseService {
       return undefined;
     }
 
-    return `${toSlug(user.currentOrganization.name)}-${toSlug(project.name)}-mongo`;
+    return `${projectNamespace(project._id.toString())}-mongo`;
   }
 
   private toApplicationStatus(

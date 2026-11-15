@@ -1,91 +1,61 @@
 import { ApiProperty } from '@nestjs/swagger';
-import {
-  PM2Action,
-  PM2Process,
-  PM2ProcessStatus,
-  ServiceDeployResult,
-  ServiceName,
-} from '../../types/agent.types';
+import { ServiceName } from '../../types/agent.types';
 
-export class LogEntryDto {
-  @ApiProperty({ example: 'api' })
-  service: string;
-
-  @ApiProperty({ example: 'info' })
-  level: string;
-
-  @ApiProperty({ example: 'Server started on port 3000' })
-  message: string;
-
-  @ApiProperty({ example: '2024-01-15T10:30:00.000Z' })
-  timestamp: string;
-}
-
-export class PM2ProcessDto implements PM2Process {
-  @ApiProperty({ example: 'web-myrepo-main-3000' })
-  name: string;
-
-  @ApiProperty({ example: 0 })
-  pm_id: number;
-
-  @ApiProperty({ example: 'online', enum: PM2ProcessStatus })
-  status: PM2ProcessStatus;
-
-  @ApiProperty({ example: 0 })
-  cpu: number;
-
-  @ApiProperty({ example: 10485760 })
-  memory: number;
-}
-
-export class ServiceDeployResultDto implements ServiceDeployResult {
-  @ApiProperty({ example: 3000 })
-  port: number;
-
-  @ApiProperty({ example: 'https://orgt4.projt4.devver.app/myrepo/main' })
-  url: string;
-}
+export const DEPLOYMENT_STATUSES = [
+  'preparing',
+  'ready',
+  'stopped',
+  'failed',
+  'degraded',
+] as const;
+export type DeploymentListStatus = (typeof DEPLOYMENT_STATUSES)[number];
 
 export class GetAgentDeploymentDto {
-  @ApiProperty({ example: 'myrepo-main' })
+  @ApiProperty({ example: '0f8fad5b-d9cb-469f-a165-70867728950e' })
   deploymentId: string;
 
-  @ApiProperty({ example: 'myrepo' })
-  repo: string;
+  @ApiProperty({ example: '9fceb02d0ae598e95dc970b74767f19372d61af8' })
+  rootCommit: string;
 
-  @ApiProperty({ example: 'main' })
-  branch: string;
-
-  @ApiProperty({ example: 'a1b2c3d' })
+  @ApiProperty({ example: 'a1b2c3d4e5f60718293a4b5c6d7e8f9012345678' })
   commit: string;
 
-  @ApiProperty({ description: 'Deployed service results' })
-  service: Partial<Record<ServiceName, ServiceDeployResultDto>>;
+  @ApiProperty({
+    nullable: true,
+    description: 'Nearest ready deployment on the commit first-parent history',
+  })
+  parentDeploymentId: string | null;
 
-  @ApiProperty({ type: PM2ProcessDto, nullable: true })
-  process: PM2Process | null;
-}
+  @ApiProperty({ nullable: true, description: 'Set only for merges' })
+  secondParentDeploymentId: string | null;
 
-export class GetLogsDto {
-  @ApiProperty({ type: [LogEntryDto] })
-  logs: LogEntryDto[];
-}
+  @ApiProperty({ nullable: true, example: 'Checkout redesign' })
+  displayName: string | null;
 
-export class RestoreResultDto {
-  @ApiProperty({ example: 3 })
-  restoredRepos: number;
+  @ApiProperty({ enum: ['web', 'api'] })
+  service: ServiceName;
 
-  @ApiProperty({ example: 5 })
-  restoredDeployments: number;
-}
+  @ApiProperty({
+    enum: DEPLOYMENT_STATUSES,
+    description:
+      'degraded: was ready but its process is gone; stopped: ready, stopped on purpose',
+  })
+  status: DeploymentListStatus;
 
-export class ControlPm2ProcessResultDto {
-  @ApiProperty({ example: true })
-  success: boolean;
+  @ApiProperty({
+    nullable: true,
+    example: 'install',
+    description: 'The phase that failed',
+  })
+  stage: string | null;
 
-  @ApiProperty({ example: 'api' })
-  name: string;
+  @ApiProperty({
+    nullable: true,
+    example:
+      'https://0f8fad5b-d9cb-469f-a165-70867728950e--6650a1b2c3d4e5f6a7b8c9d0.preview.devver.app',
+  })
+  url: string | null;
 
-  @ApiProperty({ example: 'start', enum: PM2Action })
-  action: PM2Action;
+  @ApiProperty({ example: '2026-11-15T10:30:00.000Z' })
+  createdAt: Date;
 }

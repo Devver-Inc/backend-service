@@ -37,9 +37,6 @@ export const OverlayAccessControlSchema =
 
 @Schema({ _id: false })
 export class DeploymentConfig {
-  @Prop({ type: String, required: true })
-  githubPath: string;
-
   @Prop({
     type: String,
     enum: Object.values(ManifestStatus),
@@ -66,9 +63,6 @@ export class DatabaseDeploymentConfig {
   @Prop({ type: Boolean, required: true, default: false })
   enabled: boolean;
 
-  @Prop({ type: String, required: true })
-  githubPath: string;
-
   @Prop({
     type: String,
     enum: Object.values(ManifestStatus),
@@ -78,9 +72,6 @@ export class DatabaseDeploymentConfig {
 
   @Prop({ required: true })
   username: string;
-
-  @Prop({ required: true })
-  passwordEncrypted: string;
 
   @Prop({ required: true, min: 1, max: 3 })
   replicaCount: number;

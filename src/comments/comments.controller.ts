@@ -6,7 +6,6 @@ import {
   Param,
   Post,
   Query,
-  UseGuards,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -18,7 +17,7 @@ import {
 import { ApiResponseDecorator } from 'src/_utils/decorators/api-response.decorator';
 import { PaginationDto } from 'src/_utils/pagination/responses/pagination.dto';
 import { OptionalConnectedUserWithOrgs } from 'src/logto/_utils/decorator/connected-user.decorator';
-import { OptionalAccessTokenGuard } from 'src/logto/_utils/middleware/optional-access-token.guard';
+import { Public } from 'src/logto/_utils/decorator/public.decorator';
 import { LogtoUserWithOrganizations } from 'src/logto/_utils/types/user-with-organization.type';
 import { CommentsPaginatedQueryDto } from './_utils/dto/query/comments-paginated-query.dto';
 import { CreateCommentDto } from './_utils/dto/requests/create-comment.dto';
@@ -27,8 +26,9 @@ import { CommentsService } from './comments.service';
 
 @ApiBearerAuth()
 @ApiTags('Comments')
+// Public: the overlay on preview hosts reads and posts comments, logged in or not.
+@Public()
 @Controller('projects/:projectId/comments')
-@UseGuards(OptionalAccessTokenGuard)
 export class CommentsController {
   constructor(private readonly commentsService: CommentsService) {}
 

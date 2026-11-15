@@ -2,94 +2,86 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import {
-  CreateDeploymentData,
-  CreateRepoData,
-  AgentDeploymentStatus,
+  DeploymentRecordStatus,
+  NewDeploymentData,
 } from './_utils/types/deployment.types';
 import { Deployment, DeploymentDocument } from './schemas/deployment.schema';
-import { DeployRepo, DeployRepoDocument } from './schemas/repo.schema';
 import { LeanWithMongoId } from 'src/_utils/types';
-export type { CreateRepoData, CreateDeploymentData };
 
-export type DeployRepoLean = LeanWithMongoId<DeployRepo>;
 export type DeploymentLean = LeanWithMongoId<Deployment>;
 
 @Injectable()
 export class DeployAgentRepository {
-  REPO_NOT_FOUND = 'REPO_NOT_FOUND';
-  DEPLOYMENT_NOT_FOUND = 'DEPLOYMENT_NOT_FOUND';
-
   constructor(
-    @InjectModel(DeployRepo.name) private repoModel: Model<DeployRepo>,
     @InjectModel(Deployment.name) private deploymentModel: Model<Deployment>,
   ) {}
 
-  createRepo = (data: CreateRepoData): Promise<DeployRepoDocument> =>
-    this.repoModel.create(data);
+  createDeployment = (data: NewDeploymentData): Promise<DeploymentDocument> =>
+    this.deploymentModel.create({ ...data, status: 'preparing' });
 
-  findReposByProject = (projectId: string): Promise<DeployRepoLean[]> =>
-    this.repoModel.find({ projectId }).lean().exec();
-
-  findRepo = (projectId: string, name: string): Promise<DeployRepoDocument> =>
-    this.repoModel
-      .findOne({ projectId, name })
-      .orFail(new NotFoundException(this.REPO_NOT_FOUND))
-      .exec();
-
-  deleteRepo = (projectId: string, name: string): Promise<void> =>
-    this.repoModel
-      .deleteOne({ projectId, name })
+  markDeployment = (
+    projectId: string,
+    deploymentId: string,
+    status: DeploymentRecordStatus,
+    stage: string | null = null,
+  ): Promise<void> =>
+    this.deploymentModel
+      .updateOne({ projectId, deploymentId }, { $set: { status, stage } })
       .exec()
       .then(() => {});
 
-  upsertDeployment = (
-    data: CreateDeploymentData & { status: AgentDeploymentStatus },
-  ): Promise<DeploymentDocument> =>
-    this.deploymentModel
-      .findOneAndUpdate(
-        { projectId: data.projectId, repo: data.repo, branch: data.branch },
-        { $set: { ...data } },
-        { upsert: true, returnDocument: 'after' },
-      )
-      .exec();
-
-  findDeploymentsByProject = async (
+  amendDeployment = (
     projectId: string,
-    status?: AgentDeploymentStatus,
-  ): Promise<DeploymentLean[]> => {
-    const filter: Record<string, unknown> = { projectId };
-    if (status) filter.status = status;
-    return this.deploymentModel.find(filter).lean().exec();
-  };
-
-  markDeploymentRemovedByDeploymentId = async (
     deploymentId: string,
-  ): Promise<void> => {
-    await this.deploymentModel
-      .updateOne(
-        { deploymentId },
-        { $set: { status: AgentDeploymentStatus.REMOVED } },
-      )
-      .orFail(new NotFoundException(this.DEPLOYMENT_NOT_FOUND))
-      .exec();
-  };
-
-  findArgoAppNameByProject = (projectId: string): Promise<string | undefined> =>
-    this.deploymentModel
-      .findOne({ projectId, argoAppName: { $exists: true, $ne: null } })
-      .lean()
-      .exec()
-      .then((doc) => doc?.argoAppName ?? undefined);
-
-  markDeploymentsByRepoRemoved = (
-    projectId: string,
-    repo: string,
+    code: Pick<
+      NewDeploymentData,
+      'commit' | 'serviceName' | 'service' | 'dbLinks'
+    >,
   ): Promise<void> =>
     this.deploymentModel
-      .updateMany(
-        { projectId, repo },
-        { $set: { status: AgentDeploymentStatus.REMOVED } },
+      .updateOne(
+        { projectId, deploymentId },
+        { $set: { ...code, status: 'ready', stage: null } },
       )
+      .exec()
+      .then(() => {});
+
+  renameDeployment = (
+    projectId: string,
+    deploymentId: string,
+    displayName: string,
+  ): Promise<void> =>
+    this.deploymentModel
+      .updateOne({ projectId, deploymentId }, { $set: { displayName } })
+      .orFail(new NotFoundException('DEPLOYMENT_NOT_FOUND'))
+      .exec()
+      .then(() => {});
+
+  findDeployment = (
+    projectId: string,
+    deploymentId: string,
+  ): Promise<DeploymentLean | null> =>
+    this.deploymentModel.findOne({ projectId, deploymentId }).lean().exec();
+
+  findDeployments = (
+    filter:
+      | { projectId: string; repo?: string; status?: DeploymentRecordStatus }
+      | { organizationId: string },
+  ): Promise<DeploymentLean[]> =>
+    this.deploymentModel.find(filter).sort({ createdAt: 1 }).lean().exec();
+
+  deleteDeployment = (projectId: string, deploymentId: string): Promise<void> =>
+    this.deploymentModel
+      .deleteOne({ projectId, deploymentId })
+      .orFail(new NotFoundException('DEPLOYMENT_NOT_FOUND'))
+      .exec()
+      .then(() => {});
+
+  deleteDeployments = (
+    filter: { projectId: string; repo?: string } | { organizationId: string },
+  ): Promise<void> =>
+    this.deploymentModel
+      .deleteMany(filter)
       .exec()
       .then(() => {});
 }

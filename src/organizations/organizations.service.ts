@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { forwardRef, Inject, Injectable } from '@nestjs/common';
+import { ProjectsService } from 'src/projects/projects.service';
 import { toPaginatedDto } from 'src/_utils/pagination/pagination.mapper';
 import { PaginationDto } from 'src/_utils/pagination/responses/pagination.dto';
 import { UserRoleEnum } from 'src/logto/_utils/enums/permissions.enum';
@@ -43,6 +44,8 @@ export class OrganizationsService {
     private readonly storageMapper: StorageMapper,
     private readonly storageService: StorageService,
     private readonly exceptions: OrganizationsExceptions,
+    @Inject(forwardRef(() => ProjectsService))
+    private readonly projectsService: ProjectsService,
   ) {}
 
   async createOrganization(
@@ -54,7 +57,6 @@ export class OrganizationsService {
       description: createOrganizationDto.description,
       customData: this.organizationsMapper.toOrganizationCustomDataType(
         user.id,
-        [],
       ),
     });
 
@@ -207,7 +209,7 @@ export class OrganizationsService {
   }
 
   async deleteOrganization(user: LogtoUserWithOrganizations): Promise<void> {
-    const { members } = await this.logtoRequests.getOrganizationMembers(
+    const members = await this.logtoRequests.getAllOrganizationMembers(
       user.currentOrganization.id,
     );
 
@@ -220,6 +222,9 @@ export class OrganizationsService {
       throw this.exceptions.CANNOT_DELETE_WITH_MULTIPLE_MEMBERS;
     }
 
+    await this.projectsService.deleteOrganizationProjects(
+      user.currentOrganization.id,
+    );
     await this.logtoRequests.deleteOrganization(user.currentOrganization.id);
   }
 
@@ -234,7 +239,7 @@ export class OrganizationsService {
   async getOrganizationDetails(
     user: LogtoUserWithOrganizations,
   ): Promise<GetOrganizationDetailsDto> {
-    const { members } = await this.logtoRequests.getOrganizationMembers(
+    const members = await this.logtoRequests.getAllOrganizationMembers(
       user.currentOrganization.id,
     );
 
@@ -242,13 +247,12 @@ export class OrganizationsService {
       user.currentOrganization,
       members,
     );
-    const { owner, admins } = domain.classifyMembers(members);
 
     return this.organizationsMapper.toOrganizationDetailsDto(
       user.currentOrganization,
       members,
-      owner,
-      admins,
+      domain.owner(),
+      domain.admins(),
     );
   }
 
@@ -275,35 +279,18 @@ export class OrganizationsService {
       );
     }
 
-    const { members } = await this.logtoRequests.getOrganizationMembers(
-      user.currentOrganization.id,
+    const search = paginatedQueryDto.search?.toLowerCase();
+    const filteredMembers = (
+      await this.logtoRequests.getAllOrganizationMembers(
+        user.currentOrganization.id,
+      )
+    ).filter(
+      (member) =>
+        (!search || member.name?.toLowerCase().includes(search)) &&
+        member.organizationRoles.some((role) =>
+          paginatedQueryDto.rolesFilter?.includes(role.name as UserRoleEnum),
+        ),
     );
-
-    const filterResults = await Promise.all(
-      members.map(async (member) => {
-        if (paginatedQueryDto.search) {
-          const matchesSearch = member.name
-            ?.toLowerCase()
-            .includes(paginatedQueryDto.search.toLowerCase());
-          if (!matchesSearch) return false;
-        }
-
-        if (paginatedQueryDto.rolesFilter?.length) {
-          const roles = await this.logtoRequests.getUserRoles(
-            member.id,
-            user.currentOrganization.id,
-          );
-          const matchesRole = paginatedQueryDto.rolesFilter.some((role) =>
-            roles.some((r) => r.name === role),
-          );
-          if (!matchesRole) return false;
-        }
-
-        return true;
-      }),
-    );
-
-    const filteredMembers = members.filter((_, index) => filterResults[index]);
 
     return toPaginatedDto(
       filteredMembers,
@@ -366,20 +353,22 @@ export class OrganizationsService {
       await this.logtoRequests.getUserInvitations(user.primaryEmail)
     ).filter((i) => i.status === InvitationStatusEnum.PENDING);
 
-    const invitationsWithOrgNames = await Promise.all(
-      invitations.map(async (invitation) => {
-        const organization =
-          await this.logtoRequests.fetchOrganizationInformations(
-            invitation.organizationId,
-          );
-        return this.organizationsMapper.toInvitationDto(
-          invitation,
-          organization.name,
-        );
-      }),
+    const organizationIds = [
+      ...new Set(invitations.map((invitation) => invitation.organizationId)),
+    ];
+    const organizations = await Promise.all(
+      organizationIds.map((id) =>
+        this.logtoRequests.fetchOrganizationInformations(id),
+      ),
     );
+    const names = new Map(organizations.map((org) => [org.id, org.name]));
 
-    return invitationsWithOrgNames;
+    return invitations.map((invitation) =>
+      this.organizationsMapper.toInvitationDto(
+        invitation,
+        names.get(invitation.organizationId) ?? '',
+      ),
+    );
   }
 
   async updateInvitationStatus(
@@ -417,7 +406,9 @@ export class OrganizationsService {
   ): Promise<LogtoOrganization> {
     const domain = OrganizationDomain.fromLogtoOrganization(
       user.currentOrganization,
-      [],
+      await this.logtoRequests.getAllOrganizationMembers(
+        user.currentOrganization.id,
+      ),
     );
 
     if (domain.isOwner(newOwner.id)) {
@@ -427,8 +418,6 @@ export class OrganizationsService {
     if (!domain.isAdmin(newOwner.id)) {
       throw this.exceptions.NEW_OWNER_NOT_ADMIN;
     }
-
-    domain.withNewOwner(newOwner.id);
 
     return this.logtoRequests.updateOrganization(user.currentOrganization.id, {
       customData: {
@@ -442,15 +431,8 @@ export class OrganizationsService {
     user: LogtoUserWithOrganizations,
     userToRemove: LogtoUser,
   ): Promise<LogtoOrganization> {
-    const currentUserRoles = await this.logtoRequests.getUserRoles(
-      user.id,
-      user.currentOrganization.id,
-    );
-    const requesterIsAdmin = currentUserRoles.some(
-      (role) => role.name === UserRoleEnum.ADMIN,
-    );
-
-    const { members } = await this.logtoRequests.getOrganizationMembers(
+    // The route requires the admin role, so any member may be removed but the owner.
+    const members = await this.logtoRequests.getAllOrganizationMembers(
       user.currentOrganization.id,
     );
 
@@ -463,25 +445,14 @@ export class OrganizationsService {
       throw this.exceptions.CANNOT_REMOVE_OWNER;
     }
 
-    if (!domain.canRemoveMember(user.id, userToRemove.id, requesterIsAdmin)) {
-      throw this.exceptions.NOT_ALLOWED_TO_REMOVE_USER;
-    }
-
     if (members.length === 1) {
+      await this.projectsService.deleteOrganizationProjects(
+        user.currentOrganization.id,
+      );
       await this.logtoRequests.deleteOrganization(user.currentOrganization.id);
       return user.currentOrganization;
     }
 
-    if (domain.isAdmin(userToRemove.id)) {
-      await this.logtoRequests.updateOrganization(user.currentOrganization.id, {
-        customData: {
-          ...user.currentOrganization.customData,
-          adminIds: user.currentOrganization.customData.adminIds.filter(
-            (id) => id !== userToRemove.id,
-          ),
-        },
-      });
-    }
     await this.logtoRequests.removeUserFromOrganization(
       user.currentOrganization.id,
       userToRemove.id,

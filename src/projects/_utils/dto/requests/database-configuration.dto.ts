@@ -1,7 +1,7 @@
 import {
   IsEnum,
   IsInt,
-  IsNotEmpty,
+  Matches,
   IsNumber,
   IsString,
   Max,
@@ -13,12 +13,13 @@ export class DatabaseConfigurationDto {
   @IsEnum(DatabaseType)
   type: DatabaseType;
 
+  // Inserted as-is in the connection string built by the Mongo chart.
   @IsString()
-  @IsNotEmpty()
+  @Matches(/^[A-Za-z0-9]+$/, { message: 'USERNAME_MUST_BE_ALPHANUMERIC' })
   username: string;
 
   @IsString()
-  @IsNotEmpty()
+  @Matches(/^[A-Za-z0-9]+$/, { message: 'PASSWORD_MUST_BE_ALPHANUMERIC' })
   password: string;
 
   @IsInt()

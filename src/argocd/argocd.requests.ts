@@ -34,4 +34,82 @@ export class ArgoCdRequests {
     );
     return data;
   }
+
+  sync = (appName: string): Promise<void> =>
+    firstValueFrom(
+      this.httpService.post(
+        `${this.baseUrl}/api/v1/applications/${encodeURIComponent(appName)}/sync`,
+        {},
+        { headers: this.headers },
+      ),
+    ).then(() => {});
+
+  runResourceAction = (
+    appName: string,
+    resource: ArgoResourceRef,
+    action: string,
+  ): Promise<void> =>
+    firstValueFrom(
+      this.httpService.post(
+        `${this.baseUrl}/api/v1/applications/${encodeURIComponent(appName)}/resource/actions/v2`,
+        { name: appName, ...resource, action },
+        { headers: this.headers },
+      ),
+    ).then(() => {});
+
+  /** Pods (with their owning ReplicaSet) and other live resources of an Application. */
+  getResourceTree = async (
+    appName: string,
+  ): Promise<
+    {
+      kind: string;
+      name: string;
+      namespace: string;
+      parentRefs?: { kind: string; name: string }[];
+    }[]
+  > => {
+    const { data } = await firstValueFrom(
+      this.httpService.get<{ nodes: [] }>(
+        `${this.baseUrl}/api/v1/applications/${encodeURIComponent(appName)}/resource-tree`,
+        { headers: this.headers },
+      ),
+    );
+    return data.nodes ?? [];
+  };
+
+  deleteResource = (
+    appName: string,
+    resource: ArgoResourceRef,
+  ): Promise<void> =>
+    firstValueFrom(
+      this.httpService.delete(
+        `${this.baseUrl}/api/v1/applications/${encodeURIComponent(appName)}/resource`,
+        {
+          // The Argo API answers 415 to a DELETE without a JSON content type.
+          headers: { ...this.headers, 'Content-Type': 'application/json' },
+          params: resource,
+        },
+      ),
+    ).then(() => {});
+
+  getResourceManifest = async (
+    appName: string,
+    resource: ArgoResourceRef,
+  ): Promise<Record<string, any>> => {
+    const { data } = await firstValueFrom(
+      this.httpService.get<{ manifest: string }>(
+        `${this.baseUrl}/api/v1/applications/${encodeURIComponent(appName)}/resource`,
+        { headers: this.headers, params: resource },
+      ),
+    );
+    return JSON.parse(data.manifest);
+  };
+}
+
+export interface ArgoResourceRef {
+  namespace: string;
+  resourceName: string;
+  group: string;
+  version: string;
+  kind: string;
 }

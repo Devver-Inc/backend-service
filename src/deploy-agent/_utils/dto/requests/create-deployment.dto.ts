@@ -14,9 +14,8 @@ import {
 } from 'class-validator';
 import { DatabaseLink, DatabaseType } from 'src/projects/project.types';
 import {
-  BRANCH_PATTERN,
   COMMIT_PATTERN,
-  REPO_NAME_PATTERN,
+  ROOT_COMMIT_PATTERN,
 } from '../../constants/validation-patterns';
 import { ServiceConfig, Services } from '../../types/agent.types';
 import { ExactlyOneService } from '../../validators/exactly-one-service.validator';
@@ -32,11 +31,6 @@ export class ServiceConfigDto implements ServiceConfig {
   @IsOptional()
   @IsString()
   install?: string;
-
-  @ApiPropertyOptional({ example: true })
-  @IsOptional()
-  @IsBoolean()
-  skipInstall?: boolean;
 
   @ApiPropertyOptional({ example: 'npm run build' })
   @IsOptional()
@@ -82,21 +76,26 @@ export class DatabaseLinkDto implements DatabaseLink {
 }
 
 export class CreateAgentDeploymentDto {
-  @ApiProperty({ example: 'my-repo' })
+  @ApiProperty({ example: '9fceb02d0ae598e95dc970b74767f19372d61af8' })
   @IsString()
-  @Matches(REPO_NAME_PATTERN, { message: 'INVALID_REPO_NAME' })
-  repo: string;
+  @Matches(ROOT_COMMIT_PATTERN, { message: 'INVALID_ROOT_COMMIT' })
+  rootCommit: string;
 
-  @ApiProperty({ example: 'feature/new-feature' })
+  @ApiProperty({
+    description: 'Full commit to deploy; it must have been pushed',
+    example: 'a1b2c3d4e5f60718293a4b5c6d7e8f9012345678',
+  })
   @IsString()
-  @Matches(BRANCH_PATTERN, { message: 'INVALID_BRANCH_NAME' })
-  branch: string;
+  @Matches(COMMIT_PATTERN, { message: 'INVALID_COMMIT' })
+  commit: string;
 
-  @ApiPropertyOptional({ example: 'a1b2c3d' })
+  @ApiPropertyOptional({
+    description:
+      'Replace the nearest deployed ancestor of the same service instead of creating a new deployment; with none, it is a new one',
+  })
   @IsOptional()
-  @IsString()
-  @Matches(COMMIT_PATTERN, { message: 'INVALID_COMMIT_HASH' })
-  commit?: string;
+  @IsBoolean()
+  amend?: boolean;
 
   @ApiProperty({ type: () => ServicesDto })
   @ExactlyOneService()

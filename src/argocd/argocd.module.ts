@@ -1,14 +1,13 @@
 import { Module } from '@nestjs/common';
-import { HttpModule } from '@nestjs/axios';
 import { DeployAgentModule } from 'src/deploy-agent/deploy-agent.module';
 import { ProjectsModule } from 'src/projects/projects.module';
-import { ArgoCdRequests } from './argocd.requests';
+import { ArgoCdApiModule } from './argocd-api.module';
 import { ArgoCdSseService } from './argocd-sse.service';
 import { ArgocdController } from './argocd.controller';
 
 @Module({
-  imports: [HttpModule, DeployAgentModule, ProjectsModule],
+  imports: [ArgoCdApiModule, DeployAgentModule, ProjectsModule],
   controllers: [ArgocdController],
-  providers: [ArgoCdRequests, ArgoCdSseService],
+  providers: [ArgoCdSseService],
 })
 export class ArgocdModule {}
