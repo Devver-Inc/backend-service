@@ -30,6 +30,22 @@ export class DeployAgentRepository {
       .exec()
       .then(() => {});
 
+  amendDeployment = (
+    projectId: string,
+    deploymentId: string,
+    code: Pick<
+      NewDeploymentData,
+      'commit' | 'serviceName' | 'service' | 'dbLinks'
+    >,
+  ): Promise<void> =>
+    this.deploymentModel
+      .updateOne(
+        { projectId, deploymentId },
+        { $set: { ...code, status: 'ready', stage: null } },
+      )
+      .exec()
+      .then(() => {});
+
   renameDeployment = (
     projectId: string,
     deploymentId: string,

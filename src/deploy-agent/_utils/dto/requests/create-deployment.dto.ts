@@ -2,6 +2,7 @@ import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   ArrayUnique,
+  IsBoolean,
   IsArray,
   IsEnum,
   IsNotEmpty,
@@ -87,6 +88,14 @@ export class CreateAgentDeploymentDto {
   @IsString()
   @Matches(COMMIT_PATTERN, { message: 'INVALID_COMMIT' })
   commit: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Replace the nearest deployed ancestor of the same service instead of creating a new deployment; with none, it is a new one',
+  })
+  @IsOptional()
+  @IsBoolean()
+  amend?: boolean;
 
   @ApiProperty({ type: () => ServicesDto })
   @ExactlyOneService()

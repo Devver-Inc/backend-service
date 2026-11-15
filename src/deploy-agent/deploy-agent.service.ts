@@ -30,7 +30,10 @@ import { serviceNameOf } from './_utils/functions/service-name-of.function';
 import { DeploymentAction, ReconcileItem } from './_utils/types/agent.types';
 import { NewDeploymentData } from './_utils/types/deployment.types';
 import { DeployAgentMapper } from './deploy-agent.mapper';
-import { DeployAgentRepository } from './deploy-agent.repository';
+import {
+  DeployAgentRepository,
+  DeploymentLean,
+} from './deploy-agent.repository';
 import { DeployAgentRequests } from './deploy-agent.requests';
 
 const LOGS_TAIL = 200;
@@ -149,7 +152,9 @@ export class DeployAgentService {
    * Every deploy is a new deployment of one commit, as on the local server.
    * Its parent is the nearest ready deployment on the commit's first-parent
    * history (the agent walks the git history); the same commit deployed twice
-   * gives siblings. Streams the agent's SSE; see `launch`.
+   * gives siblings. `amend` swaps that would-be parent (of the same service)
+   * to the new commit instead, keeping its id, URL and lineage; with no such
+   * ancestor it is an ordinary deploy. Streams the agent's SSE; see `launch`.
    */
   deploy = async (
     projectId: string,
@@ -158,23 +163,28 @@ export class DeployAgentService {
     response: Response,
   ): Promise<void> => {
     const project = await this.assertCanPush(projectId, user);
+    const serviceName = serviceNameOf(dto.service);
     const ready = await this.deployAgentRepository.findDeployments({
       projectId,
       repo: dto.rootCommit,
       status: 'ready',
     });
-    const { parentDeploymentId } = await this.deployAgentRequests.parentOf(
-      projectId,
-      dto.rootCommit,
-      {
-        commit: dto.commit,
-        candidates: ready.map((d) => ({
-          deploymentId: d.deploymentId,
-          commit: d.commit,
-        })),
-      },
-    );
-    const serviceName = serviceNameOf(dto.service);
+    const nearest = (candidates: typeof ready) =>
+      this.deployAgentRequests
+        .parentOf(projectId, dto.rootCommit, {
+          commit: dto.commit,
+          candidates: candidates.map((d) => ({
+            deploymentId: d.deploymentId,
+            commit: d.commit,
+          })),
+        })
+        .then(({ parentDeploymentId }) =>
+          ready.find((d) => d.deploymentId === parentDeploymentId),
+        );
+    const amended = dto.amend
+      ? await nearest(ready.filter((d) => d.serviceName === serviceName))
+      : undefined;
+    const parent = amended ? undefined : await nearest(ready);
     const env = {
       ...dto.env,
       ...(dto.dbLinks?.length
@@ -187,14 +197,17 @@ export class DeployAgentService {
       {
         repo: dto.rootCommit,
         commit: dto.commit,
-        parentDeploymentId,
-        secondParentDeploymentId: null,
+        parentDeploymentId: amended
+          ? amended.parentDeploymentId
+          : (parent?.deploymentId ?? null),
+        secondParentDeploymentId: amended?.secondParentDeploymentId ?? null,
         serviceName,
         service: dto.service,
         dbLinks: dto.dbLinks,
       },
       env,
       response,
+      amended,
     );
   };
 
@@ -257,10 +270,12 @@ export class DeployAgentService {
 
   /**
    * Starts the agent deploy, records the deployment as preparing, and streams
-   * a `deployment` event (id, parents, url) then the agent's own phases and
-   * `done` or `failed`. Errors before the agent's 200 surface as JSON 4xx/5xx
-   * and record nothing. The upstream is read to the end even if the client
-   * leaves, so the outcome is always recorded; only `ready` ones are replayed.
+   * a `deployment` event (id, parents, url, amended) then the agent's own
+   * phases and `done` or `failed`. Errors before the agent's 200 surface as
+   * JSON 4xx/5xx and record nothing. The upstream is read to the end even if
+   * the client leaves, so the outcome is always recorded; only `ready` ones
+   * are replayed. An amend reuses the deployment's id: the agent swaps it
+   * blue/green and keeps the old commit running if the new one fails.
    */
   private launch = async (
     projectId: string,
@@ -271,8 +286,11 @@ export class DeployAgentService {
     >,
     env: Record<string, string>,
     response: Response,
+    amended?: DeploymentLean,
   ): Promise<void> => {
-    const { id, host } = deploymentIdentity(projectId, this.previewDomain);
+    const { id, host } = amended
+      ? { id: amended.deploymentId, host: amended.host }
+      : deploymentIdentity(projectId, this.previewDomain);
     const upstream = await this.deployAgentRequests.putDeployment(
       projectId,
       id,
@@ -284,13 +302,15 @@ export class DeployAgentService {
         env,
       },
     );
-    await this.deployAgentRepository.createDeployment({
-      ...deployment,
-      projectId,
-      organizationId: project.organizationId,
-      deploymentId: id,
-      host,
-    });
+    if (!amended) {
+      await this.deployAgentRepository.createDeployment({
+        ...deployment,
+        projectId,
+        organizationId: project.organizationId,
+        deploymentId: id,
+        host,
+      });
+    }
 
     response.status(200);
     response.setHeader('Content-Type', 'text/event-stream');
@@ -307,6 +327,7 @@ export class DeployAgentService {
         parentDeploymentId: deployment.parentDeploymentId,
         secondParentDeploymentId: deployment.secondParentDeploymentId,
         url: `https://${host}`,
+        amended: !!amended,
       })}\n\n`,
     );
 
@@ -325,8 +346,17 @@ export class DeployAgentService {
 
     if (lastSseEvent(tail)?.event === 'done') {
       await this.vault.write(vaultPaths.deployment(projectId, id), env);
-      await this.deployAgentRepository.markDeployment(projectId, id, 'ready');
-    } else {
+      if (amended) {
+        await this.deployAgentRepository.amendDeployment(projectId, id, {
+          commit: deployment.commit,
+          serviceName: deployment.serviceName,
+          service: deployment.service,
+          dbLinks: deployment.dbLinks,
+        });
+      } else {
+        await this.deployAgentRepository.markDeployment(projectId, id, 'ready');
+      }
+    } else if (!amended) {
       await this.deployAgentRepository.markDeployment(
         projectId,
         id,
