@@ -1,12 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import {
-  CreateRepoData,
-  UpsertDeploymentData,
-} from './_utils/types/deployment.types';
+import { UpsertDeploymentData } from './_utils/types/deployment.types';
 import { Deployment, DeploymentDocument } from './schemas/deployment.schema';
-import { DeployRepo, DeployRepoDocument } from './schemas/repo.schema';
 import { LeanWithMongoId } from 'src/_utils/types';
 
 export type DeploymentLean = LeanWithMongoId<Deployment>;
@@ -14,30 +10,8 @@ export type DeploymentLean = LeanWithMongoId<Deployment>;
 @Injectable()
 export class DeployAgentRepository {
   constructor(
-    @InjectModel(DeployRepo.name) private repoModel: Model<DeployRepo>,
     @InjectModel(Deployment.name) private deploymentModel: Model<Deployment>,
   ) {}
-
-  createRepo = (data: CreateRepoData): Promise<DeployRepoDocument> =>
-    this.repoModel.create(data);
-
-  findRepoByRoot = (
-    projectId: string,
-    rootCommit: string,
-  ): Promise<DeployRepoDocument | null> =>
-    this.repoModel.findOne({ projectId, rootCommit }).exec();
-
-  findRepo = (projectId: string, name: string): Promise<DeployRepoDocument> =>
-    this.repoModel
-      .findOne({ projectId, name })
-      .orFail(new NotFoundException('REPO_NOT_FOUND'))
-      .exec();
-
-  deleteRepo = (projectId: string, name: string): Promise<void> =>
-    this.repoModel
-      .deleteOne({ projectId, name })
-      .exec()
-      .then(() => {});
 
   upsertDeployment = (
     data: UpsertDeploymentData,
@@ -66,14 +40,6 @@ export class DeployAgentRepository {
     filter: { projectId: string; repo?: string } | { organizationId: string },
   ): Promise<void> =>
     this.deploymentModel
-      .deleteMany(filter)
-      .exec()
-      .then(() => {});
-
-  deleteRepos = (
-    filter: { projectId: string } | { organizationId: string },
-  ): Promise<void> =>
-    this.repoModel
       .deleteMany(filter)
       .exec()
       .then(() => {});

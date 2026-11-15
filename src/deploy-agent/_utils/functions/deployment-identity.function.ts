@@ -10,9 +10,10 @@ const cut = (slug: string, max: number): string =>
   slug.slice(0, max - HASH_LENGTH - 1).replace(/-+$/, '');
 
 /**
- * Agent deployment id and preview host for one repo/branch/service. The hash
- * keeps them unique when slugging or truncation would collide
- * (`feature/x` vs `feature-x`); toSlug never emits `--`, so the label can't
+ * Agent deployment id and preview host for one repo/branch/service. The repo
+ * (a root commit) is only hashed, so it stays out of the URL; the hash keeps
+ * ids unique across repos and when slugging collides (`feature/x` vs
+ * `feature-x`); toSlug never emits `--`, so the label can't
  * be confused with the `--<projectId>` separator.
  */
 export const deploymentIdentity = (
@@ -22,7 +23,7 @@ export const deploymentIdentity = (
   service: ServiceName,
   previewDomain: string,
 ): { id: string; host: string } => {
-  const slug = toSlug(`${repo}-${branch}${service === 'api' ? '-api' : ''}`);
+  const slug = toSlug(`${branch}${service === 'api' ? '-api' : ''}`);
   const hash = createHash('sha1')
     .update(`${repo}\0${branch}\0${service}`)
     .digest('hex')

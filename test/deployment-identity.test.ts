@@ -31,6 +31,17 @@ test('ids and hosts fit the agent and DNS limits', () => {
   }
 });
 
+test('the repo stays out of the URL but keeps ids distinct', () => {
+  const root = 'f'.repeat(40);
+  const a = deploymentIdentity(PROJECT_ID, root, 'main', 'web', 'p.d');
+  assert.equal(a.host.split('--')[0].startsWith('main-'), true, a.host);
+  assert.ok(!a.id.includes(root.slice(0, 6)));
+  assert.notEqual(
+    a.id,
+    deploymentIdentity(PROJECT_ID, 'e'.repeat(40), 'main', 'web', 'p.d').id,
+  );
+});
+
 test('branches that slug alike still get distinct ids', () => {
   const a = deploymentIdentity(PROJECT_ID, 'shop', 'feature/x', 'web', 'p.d');
   const b = deploymentIdentity(PROJECT_ID, 'shop', 'feature-x', 'web', 'p.d');

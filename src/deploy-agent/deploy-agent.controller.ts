@@ -26,7 +26,7 @@ import { CreateAgentDeploymentDto } from './_utils/dto/requests/create-deploymen
 import { InitProjectDto } from './_utils/dto/requests/init-project.dto';
 import { ListDeploymentsQueryDto } from './_utils/dto/requests/list-deployments-query.dto';
 import { GetAgentDeploymentDto } from './_utils/dto/responses/get-deployment.dto';
-import { GetRepoDto } from './_utils/dto/responses/get-repo.dto';
+import { InitProjectResponseDto } from './_utils/dto/responses/init-project-response.dto';
 import { DeployAgentService } from './deploy-agent.service';
 
 @ApiTags('Deploy Agent')
@@ -53,7 +53,7 @@ export class DeployAgentController {
     @Param() { projectId }: ProjectParamsDto,
     @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
     @Body() dto: InitProjectDto,
-  ): Promise<GetRepoDto> {
+  ): Promise<InitProjectResponseDto> {
     return this.deployAgentService.initProject(projectId, dto, user);
   }
 
@@ -93,7 +93,11 @@ export class DeployAgentController {
     @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
     @Query() query: ListDeploymentsQueryDto,
   ): Promise<GetAgentDeploymentDto[]> {
-    return this.deployAgentService.listDeployments(projectId, user, query.repo);
+    return this.deployAgentService.listDeployments(
+      projectId,
+      user,
+      query.rootCommit,
+    );
   }
 
   @Protect({ roles: [UserRoleEnum.ADMIN, UserRoleEnum.DEVELOPER] })

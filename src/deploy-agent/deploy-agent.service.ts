@@ -5,7 +5,6 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { randomBytes } from 'crypto';
 import { Response } from 'express';
 import { VaultService } from 'src/_shared/vault/vault.service';
 import { EnvironmentVariables } from 'src/_utils/config/env.config';
@@ -20,7 +19,7 @@ import { ProjectsService } from 'src/projects/projects.service';
 import { CreateAgentDeploymentDto } from './_utils/dto/requests/create-deployment.dto';
 import { InitProjectDto } from './_utils/dto/requests/init-project.dto';
 import { GetAgentDeploymentDto } from './_utils/dto/responses/get-deployment.dto';
-import { GetRepoDto } from './_utils/dto/responses/get-repo.dto';
+import { InitProjectResponseDto } from './_utils/dto/responses/init-project-response.dto';
 import { deploymentIdentity } from './_utils/functions/deployment-identity.function';
 import { lastSseEvent } from './_utils/functions/last-sse-event.function';
 import { serviceNameOf } from './_utils/functions/service-name-of.function';
@@ -59,62 +58,25 @@ export class DeployAgentService {
     this.deployAgentRequests.health(projectId);
 
   /**
-   * `devver init`: the repo is found by the code's root commit, so a second
-   * clone or a second init lands in the same repo; its name is generated.
+   * `devver init`: the repo is named after the code's root commit, so every
+   * clone and every init of the same code lands in the same repo.
    */
   initProject = async (
     projectId: string,
     dto: InitProjectDto,
     user: LogtoUserWithOrganizations,
-  ): Promise<GetRepoDto> => {
-    const project = await this.assertCanPush(projectId, user);
-    const existing = await this.deployAgentRepository.findRepoByRoot(
-      projectId,
-      dto.rootCommit,
-    );
-    if (existing) {
-      if (dto.install !== undefined && dto.install !== existing.install) {
-        existing.install = dto.install;
-        await existing.save();
-        await this.deployAgentRequests.putRepo(projectId, existing.name, {
-          install: existing.install,
-        });
-      }
-      return this.deployAgentMapper.toRepoDto(existing);
-    }
-
-    const repo = await this.deployAgentRepository
-      .createRepo({
-        projectId,
-        organizationId: project.organizationId,
-        name: randomBytes(5).toString('hex'),
-        rootCommit: dto.rootCommit,
-        install: dto.install,
-      })
-      .catch(async (error: { code?: number }) => {
-        // Two inits of the same code at once: the other one created it.
-        const winner =
-          error.code === 11000 &&
-          (await this.deployAgentRepository.findRepoByRoot(
-            projectId,
-            dto.rootCommit,
-          ));
-        if (!winner) throw error;
-        return winner;
-      });
-    await this.deployAgentRequests
-      .putRepo(projectId, repo.name, { install: repo.install })
-      .catch(async (error) => {
-        await this.deployAgentRepository.deleteRepo(projectId, repo.name);
-        throw error;
-      });
-    return this.deployAgentMapper.toRepoDto(repo);
+  ): Promise<InitProjectResponseDto> => {
+    await this.assertCanPush(projectId, user);
+    await this.deployAgentRequests.putRepo(projectId, dto.rootCommit, {
+      install: dto.install,
+    });
+    return this.deployAgentMapper.toInitResponse(projectId, dto.rootCommit);
   };
 
   listDeployments = async (
     projectId: string,
     user: LogtoUserWithOrganizations,
-    repo?: string,
+    rootCommit?: string,
   ): Promise<GetAgentDeploymentDto[]> => {
     await this.projectsService.assertProjectAccess(projectId, user);
     const [statuses, docs] = await Promise.all([
@@ -123,7 +85,7 @@ export class DeployAgentService {
     ]);
     const byId = new Map(docs.map((doc) => [doc.deploymentId, doc]));
     return statuses
-      .filter((status) => !repo || status.repo === repo)
+      .filter((status) => !rootCommit || status.repo === rootCommit)
       .map((status) =>
         this.deployAgentMapper.toAgentDeploymentDto(
           status,
@@ -176,12 +138,11 @@ export class DeployAgentService {
     response: Response,
   ): Promise<void> => {
     const project = await this.assertCanPush(projectId, user);
-    await this.deployAgentRepository.findRepo(projectId, dto.repo);
 
     const serviceName = serviceNameOf(dto.service);
     const { id, host } = deploymentIdentity(
       projectId,
-      dto.repo,
+      dto.rootCommit,
       dto.branch,
       serviceName,
       this.previewDomain,
@@ -197,7 +158,7 @@ export class DeployAgentService {
       projectId,
       id,
       {
-        repo: dto.repo,
+        repo: dto.rootCommit,
         ref: dto.branch,
         host,
         service: dto.service[serviceName] ?? {},
@@ -233,7 +194,7 @@ export class DeployAgentService {
       await this.deployAgentRepository.upsertDeployment({
         projectId,
         organizationId: project.organizationId,
-        repo: dto.repo,
+        repo: dto.rootCommit,
         branch: dto.branch,
         serviceName,
         deploymentId: id,
@@ -277,7 +238,6 @@ export class DeployAgentService {
       ),
     );
     await this.deployAgentRepository.deleteDeployments({ projectId });
-    await this.deployAgentRepository.deleteRepos({ projectId });
   };
 
   private assertCanPush = async (

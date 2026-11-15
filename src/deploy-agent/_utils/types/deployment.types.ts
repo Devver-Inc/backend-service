@@ -1,14 +1,6 @@
 import { ServiceName, Services } from './agent.types';
 import { DatabaseLink } from 'src/projects/project.types';
 
-export interface CreateRepoData {
-  projectId: string;
-  organizationId: string;
-  name: string;
-  rootCommit: string;
-  install?: string;
-}
-
 export interface UpsertDeploymentData {
   projectId: string;
   organizationId: string;

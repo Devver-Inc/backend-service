@@ -7,7 +7,6 @@ import { DeployAgentRepository } from './deploy-agent.repository';
 import { DeployAgentRequests } from './deploy-agent.requests';
 import { DeployAgentService } from './deploy-agent.service';
 import { Deployment, DeploymentSchema } from './schemas/deployment.schema';
-import { DeployRepo, DeployRepoSchema } from './schemas/repo.schema';
 import { GitAuthorizationService } from './git-authorization.service';
 import { GitGatewayController } from './git-gateway.controller';
 import { InternalController } from './internal.controller';
@@ -19,7 +18,6 @@ import { SshKeysService } from './ssh-keys.service';
 @Module({
   imports: [
     MongooseModule.forFeature([
-      { name: DeployRepo.name, schema: DeployRepoSchema },
       { name: Deployment.name, schema: DeploymentSchema },
       { name: SshKey.name, schema: SshKeySchema },
     ]),

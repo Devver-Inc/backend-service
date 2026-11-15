@@ -14,7 +14,7 @@ import {
 import { DatabaseLink, DatabaseType } from 'src/projects/project.types';
 import {
   BRANCH_PATTERN,
-  REPO_NAME_PATTERN,
+  ROOT_COMMIT_PATTERN,
 } from '../../constants/validation-patterns';
 import { ServiceConfig, Services } from '../../types/agent.types';
 import { ExactlyOneService } from '../../validators/exactly-one-service.validator';
@@ -75,10 +75,10 @@ export class DatabaseLinkDto implements DatabaseLink {
 }
 
 export class CreateAgentDeploymentDto {
-  @ApiProperty({ example: 'my-repo' })
+  @ApiProperty({ example: '9fceb02d0ae598e95dc970b74767f19372d61af8' })
   @IsString()
-  @Matches(REPO_NAME_PATTERN, { message: 'INVALID_REPO_NAME' })
-  repo: string;
+  @Matches(ROOT_COMMIT_PATTERN, { message: 'INVALID_ROOT_COMMIT' })
+  rootCommit: string;
 
   @ApiProperty({ example: 'feature/new-feature' })
   @IsString()

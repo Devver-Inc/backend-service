@@ -2,11 +2,11 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { DeploymentStatus, ServiceName } from '../../types/agent.types';
 
 export class GetAgentDeploymentDto {
-  @ApiProperty({ example: 'myrepo-main-3f9a1c' })
+  @ApiProperty({ example: 'main-3f9a1c' })
   deploymentId: string;
 
-  @ApiProperty({ example: 'myrepo' })
-  repo: string;
+  @ApiProperty({ example: '9fceb02d0ae598e95dc970b74767f19372d61af8' })
+  rootCommit: string;
 
   @ApiPropertyOptional({
     example: 'main',
@@ -21,8 +21,7 @@ export class GetAgentDeploymentDto {
   commit: string;
 
   @ApiProperty({
-    example:
-      'https://myrepo-main-3f9a1c--6650a1b2c3d4e5f6a7b8c9d0.preview.devver.app',
+    example: 'https://main-3f9a1c--6650a1b2c3d4e5f6a7b8c9d0.preview.devver.app',
   })
   url: string;
 

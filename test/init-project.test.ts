@@ -1,29 +1,27 @@
 // Run: npm test
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { DeployAgentMapper } from 'src/deploy-agent/deploy-agent.mapper';
 import { DeployAgentService } from 'src/deploy-agent/deploy-agent.service';
 
 const PROJECT_ID = '6650a1b2c3d4e5f6a7b8c9d0';
 const ROOT = 'a'.repeat(40);
 
-function setup(found: unknown[], createError?: { code: number }) {
-  const created: { name: string }[] = [];
-  const agentRepos: string[] = [];
-  const repository = {
-    findRepoByRoot: async () => found.shift() ?? null,
-    createRepo: async (data: { name: string }) => {
-      if (createError) throw createError;
-      created.push(data);
-      return { ...data, _id: 'id' };
-    },
-    deleteRepo: async () => {},
+test('init names the repo after the root commit and passes the install on', async () => {
+  const agentCalls: unknown[] = [];
+  const config = {
+    get: () => ({
+      K8S_BASE_DOMAIN: 'x.devver.app',
+      GIT_SSH_HOST: 'git.x.devver.app',
+    }),
   };
   const service = new DeployAgentService(
-    repository as never,
+    {} as never,
     {
-      putRepo: async (_: string, name: string) => void agentRepos.push(name),
+      putRepo: async (projectId: string, name: string, body: object) =>
+        void agentCalls.push({ projectId, name, body }),
     } as never,
-    { toRepoDto: (doc: { name: string }) => doc } as never,
+    new DeployAgentMapper(config as never),
     {
       assertProjectAccess: async () => ({
         organizationId: 'org',
@@ -31,34 +29,23 @@ function setup(found: unknown[], createError?: { code: number }) {
       }),
     } as never,
     {} as never,
-    { get: () => ({ K8S_BASE_DOMAIN: 'x.devver.app' }) } as never,
+    config as never,
   );
   const user = {
     id: 'u',
     selectedOrganizationRoles: [{ roleName: 'admin' }],
   } as never;
-  const init = () =>
-    service.initProject(PROJECT_ID, { rootCommit: ROOT }, user);
-  return { init, created, agentRepos };
-}
 
-test('init creates a repo with a generated name the agent accepts', async () => {
-  const { init, created, agentRepos } = setup([]);
-  const repo = await init();
-  assert.match(repo.name, /^[a-z0-9][a-z0-9-]{0,62}$/);
-  assert.deepEqual(agentRepos, [repo.name]);
-  assert.equal(created.length, 1);
-});
-
-test('init of code already known returns its repo, created nowhere', async () => {
-  const { init, created, agentRepos } = setup([
-    { name: 'known', save: async () => {} },
+  const res = await service.initProject(
+    PROJECT_ID,
+    { rootCommit: ROOT, install: 'npm ci' },
+    user,
+  );
+  assert.deepEqual(agentCalls, [
+    { projectId: PROJECT_ID, name: ROOT, body: { install: 'npm ci' } },
   ]);
-  assert.equal((await init()).name, 'known');
-  assert.equal(created.length + agentRepos.length, 0);
-});
-
-test('two inits of the same code at once end in the same repo', async () => {
-  const { init } = setup([null, { name: 'winner' }], { code: 11000 });
-  assert.equal((await init()).name, 'winner');
+  assert.equal(
+    res.sshPushUrl,
+    `ssh://${PROJECT_ID}@git.x.devver.app/app/repos/${ROOT}.git`,
+  );
 });

@@ -1,15 +1,9 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-export class GetRepoDto {
-  @ApiProperty({
-    description: 'Generated; what deployments reference as `repo`',
-    example: '3f9a1c7b2e',
-  })
-  name: string;
-
+export class InitProjectResponseDto {
   @ApiProperty({
     example:
-      'ssh://6650a1b2c3d4e5f6a7b8c9d0@git.vr27-dev.devver.app/app/repos/3f9a1c7b2e.git',
+      'ssh://6650a1b2c3d4e5f6a7b8c9d0@git.vr27-dev.devver.app/app/repos/9fceb02d0ae598e95dc970b74767f19372d61af8.git',
   })
   sshPushUrl: string;
 

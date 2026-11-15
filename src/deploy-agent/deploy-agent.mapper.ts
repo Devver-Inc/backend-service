@@ -3,11 +3,10 @@ import { ConfigService } from '@nestjs/config';
 import { EnvironmentVariables } from 'src/_utils/config/env.config';
 import { DocOrLean } from 'src/_utils/types';
 import { GetAgentDeploymentDto } from './_utils/dto/responses/get-deployment.dto';
-import { GetRepoDto } from './_utils/dto/responses/get-repo.dto';
+import { InitProjectResponseDto } from './_utils/dto/responses/init-project-response.dto';
 import { DeploymentStatus } from './_utils/types/agent.types';
 import { GetSshKeyDto } from './_utils/dto/responses/get-ssh-key.dto';
 import { Deployment } from './schemas/deployment.schema';
-import { DeployRepo } from './schemas/repo.schema';
 import { SshKey } from './schemas/ssh-key.schema';
 
 // SSH has no SNI: wrapping it in TLS lets the shared reverse proxy pick the cluster.
@@ -22,9 +21,11 @@ export class DeployAgentMapper {
     this.sshHost = configService.get('DEPLOY_AGENT').GIT_SSH_HOST;
   }
 
-  toRepoDto = (doc: DocOrLean<DeployRepo>): GetRepoDto => ({
-    name: doc.name,
-    sshPushUrl: `ssh://${doc.projectId}@${this.sshHost}/app/repos/${doc.name}.git`,
+  toInitResponse = (
+    projectId: string,
+    rootCommit: string,
+  ): InitProjectResponseDto => ({
+    sshPushUrl: `ssh://${projectId}@${this.sshHost}/app/repos/${rootCommit}.git`,
     sshProxyCommand: SSH_PROXY_COMMAND,
   });
 
@@ -40,7 +41,7 @@ export class DeployAgentMapper {
     doc?: Pick<Deployment, 'branch' | 'serviceName'>,
   ): GetAgentDeploymentDto => ({
     deploymentId: status.id,
-    repo: status.repo,
+    rootCommit: status.repo,
     branch: doc?.branch,
     service: doc?.serviceName,
     commit: status.commit,
