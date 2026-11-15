@@ -1,3 +1,5 @@
+import { isDeepStrictEqual } from 'node:util';
+import { ArgoCdSyncService } from 'src/argocd/argocd-sync.service';
 import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { toPaginatedDto } from 'src/_utils/pagination/pagination.mapper';
@@ -49,6 +51,7 @@ export class ProjectsService {
     private readonly mongoProvider: MongoDbProvider,
     @Inject(forwardRef(() => DeployAgentService))
     private readonly deployAgentService: DeployAgentService,
+    private readonly argoCdSync: ArgoCdSyncService,
   ) {}
 
   async createProject(
@@ -85,7 +88,7 @@ export class ProjectsService {
         });
     }
 
-    if (!(await this.publishProjectManifest(project, organization))) {
+    if (!(await this.publishProjectManifest(project, organization)).published) {
       for (const configuration of project.databaseConfigurations ?? []) {
         await this.projectsRepository.updateDatabaseManifestStatus(
           projectId,
@@ -124,6 +127,11 @@ export class ProjectsService {
       }
     }
 
+    this.argoCdSync.projectPublished(projectId, {
+      created: true,
+      withMongo: Boolean(mongo),
+      secretsChanged: false,
+    });
     return this.projectsMapper.toProjectLightDto(project);
   }
 
@@ -209,7 +217,17 @@ export class ProjectsService {
     const project = await this.getProjectWithAccessCheck(projectId, user);
     const updated = await this.updateAndSave(project, (d) => d.update(dto));
 
-    await this.publishProjectManifest(updated, user.currentOrganization);
+    const { published, secretsChanged } = await this.publishProjectManifest(
+      updated,
+      user.currentOrganization,
+    );
+    if (published) {
+      this.argoCdSync.projectPublished(projectId, {
+        created: false,
+        withMongo: false,
+        secretsChanged,
+      });
+    }
 
     return this.toFullProjectDto(updated);
   }
@@ -331,16 +349,17 @@ export class ProjectsService {
     }
   }
 
+  /** Vault first, then git (infra rule). `secretsChanged` tells an existing project's agent must restart. */
   private async publishProjectManifest(
     project: ProjectDocument,
     organization: { id: string; name: string },
-  ): Promise<boolean> {
+  ): Promise<{ published: boolean; secretsChanged: boolean }> {
     const projectId = project._id.toString();
     try {
       const deployAgentConfig = this.configService.get('DEPLOY_AGENT', {
         infer: true,
       });
-      await this.vault.write(vaultPaths.agent(projectId), {
+      const secrets = {
         DEVVER_SECRET: agentToken(
           deployAgentConfig.DEPLOY_AGENT_SECRET,
           projectId,
@@ -349,7 +368,9 @@ export class ProjectsService {
           [DATABASE_CONNECTION_ENV[DatabaseType.MONGO]]:
             await this.mongoConnectionString(projectId),
         }),
-      });
+      };
+      const previous = await this.vault.read(vaultPaths.agent(projectId));
+      await this.vault.write(vaultPaths.agent(projectId), secrets);
       await this.githubService.pushValuesYaml(
         projectId,
         this.yamlGenerator.generateAppValues(
@@ -370,7 +391,10 @@ export class ProjectsService {
         ManifestStatus.PUSHED,
       );
       this.logger.log(`values.yaml pushed for project ${projectId}`);
-      return true;
+      return {
+        published: true,
+        secretsChanged: !isDeepStrictEqual(previous ?? {}, secrets),
+      };
     } catch (error) {
       this.logger.error(
         `Failed to publish project ${projectId} (Vault or GitHub):`,
@@ -380,7 +404,7 @@ export class ProjectsService {
         projectId,
         ManifestStatus.FAILED,
       );
-      return false;
+      return { published: false, secretsChanged: false };
     }
   }
 

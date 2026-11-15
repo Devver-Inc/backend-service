@@ -27,11 +27,8 @@ export class ProjectValuesYamlGenerator {
     const cpu = `${Math.round(project.machineConfiguration.cpuCores * 1000)}m`;
 
     return dump({
-      organization: {
-        id: organization.id,
-        name: organization.name,
-        domain: 'devver.app',
-      },
+      // organization.domain comes from the ApplicationSet (the cluster's domain).
+      organization: { id: organization.id, name: organization.name },
       project: { id: project.id, name: project.name },
       imagePullSecrets: [{ name: 'ghcr-secret' }],
       container: {

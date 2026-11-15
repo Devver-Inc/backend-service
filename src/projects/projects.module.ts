@@ -3,6 +3,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { LogtoModule } from 'src/logto/logto.module';
 import { UsersModule } from 'src/users/users.module';
 import { DeployAgentModule } from 'src/deploy-agent/deploy-agent.module';
+import { ArgoCdApiModule } from 'src/argocd/argocd-api.module';
 import { ProjectsExceptions } from './_utils/errors/projects-exceptions';
 import { ProjectsMapper } from './project.mapper';
 import { Project, ProjectSchema } from './project.schema';
@@ -15,6 +16,7 @@ import { MongoDbProvider } from './infrastructure/database-provider/mongo.provid
 
 @Module({
   imports: [
+    ArgoCdApiModule,
     MongooseModule.forFeature([
       { name: Project.name, schema: ProjectSchema },
       { name: Comment.name, schema: CommentSchema },
