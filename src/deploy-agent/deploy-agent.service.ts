@@ -6,7 +6,6 @@ import {
   forwardRef,
   Inject,
   Injectable,
-  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -33,10 +32,10 @@ import { failedStage } from './_utils/functions/failed-stage.function';
 import { lastSseEvent } from './_utils/functions/last-sse-event.function';
 import { serviceNameOf } from './_utils/functions/service-name-of.function';
 import {
-  AliasEntry,
   DeploymentAction,
   ReconcileItem,
   ServiceConfig,
+  ServiceName,
 } from './_utils/types/agent.types';
 import { NewDeploymentData } from './_utils/types/deployment.types';
 import { DeployAgentMapper } from './deploy-agent.mapper';
@@ -60,7 +59,6 @@ const agentServiceSpec = (config?: ServiceConfig): ServiceConfig =>
 
 @Injectable()
 export class DeployAgentService {
-  private readonly logger = new Logger(DeployAgentService.name);
   private readonly previewDomain: string;
 
   constructor(
@@ -167,41 +165,42 @@ export class DeployAgentService {
     await this.deployAgentRequests.deleteDeployment(projectId, deploymentId);
     await this.vault.delete(vaultPaths.deployment(projectId, deploymentId));
     await this.deployAgentRepository.deleteDeployment(projectId, deploymentId);
-    await this.publishAliases(projectId);
   };
 
-  /** Each branch URL → the latest ready deployment of its branch and service. */
-  aliasTable = async (projectId: string): Promise<AliasEntry[]> => {
+  /**
+   * Deployment id → its branch URL, for the latest ready deployment of each
+   * branch and service. Removing that deployment leaves its URL down until
+   * the branch's next deploy.
+   */
+  branchAliases = (
+    projectId: string,
+    ready: DeploymentLean[],
+  ): Map<string, string[]> => {
     const latest = new Map<string, DeploymentLean>();
-    for (const d of await this.deployAgentRepository.findDeployments({
-      projectId,
-      status: 'ready',
-    })) {
+    for (const d of ready) {
       if (!d.branch) continue;
-      const host = branchHost(
-        d.branch,
-        d.serviceName,
-        projectId,
-        this.previewDomain,
-      );
+      const host = this.branchHostOf(projectId, d.branch, d.serviceName);
       const current = latest.get(host);
       if (!current || deployedAt(d) >= deployedAt(current)) latest.set(host, d);
     }
-    return [...latest].map(([host, d]) => ({
-      host,
-      deploymentId: d.deploymentId,
-    }));
+    return new Map([...latest].map(([host, d]) => [d.deploymentId, [host]]));
   };
 
-  /** Best effort: the deploy itself succeeded; the agent's reconcile refetches the table. */
-  private publishAliases = (projectId: string): Promise<void> =>
-    this.aliasTable(projectId)
-      .then((table) => this.deployAgentRequests.putAliases(projectId, table))
-      .catch((error: unknown) =>
-        this.logger.warn(
-          `Branch URLs of project ${projectId} not updated: ${error instanceof Error ? error.message : String(error)}`,
-        ),
-      );
+  private branchHostOf = (
+    projectId: string,
+    branch: string,
+    service: ServiceName,
+  ): string => branchHost(branch, service, projectId, this.previewDomain);
+
+  /** What the agent passes to a deployment's processes: its env plus what the platform adds. */
+  private agentEnv = (
+    projectId: string,
+    env: Record<string, string>,
+  ): Record<string, string> => ({
+    ...env,
+    // Lets an API allow every preview of its project in CORS, whatever their URLs.
+    DEVVER_PREVIEW_ORIGIN_REGEX: `^https://[a-z0-9-]+--${projectId}\\.${escapeRegex(this.previewDomain)}$`,
+  });
 
   /**
    * Every deploy is a new deployment of one commit, as on the local server.
@@ -380,6 +379,10 @@ export class DeployAgentService {
     const { id, host } = amended
       ? { id: amended.deploymentId, host: amended.host }
       : deploymentIdentity(projectId, this.previewDomain);
+    // The agent takes the branch URL from the branch's previous deployment once this one serves.
+    const branchUrlHost = deployment.branch
+      ? this.branchHostOf(projectId, deployment.branch, deployment.serviceName)
+      : null;
     const upstream = await this.deployAgentRequests.putDeployment(
       projectId,
       id,
@@ -387,12 +390,9 @@ export class DeployAgentService {
         repo: deployment.repo,
         ref: deployment.commit,
         host,
+        aliases: branchUrlHost ? [branchUrlHost] : [],
         service: agentServiceSpec(deployment.service[deployment.serviceName]),
-        env: {
-          ...env,
-          // Lets an API allow every preview of its project in CORS, whatever their URLs.
-          DEVVER_PREVIEW_ORIGIN_REGEX: `^https://[a-z0-9-]+--${projectId}\\.${escapeRegex(this.previewDomain)}$`,
-        },
+        env: this.agentEnv(projectId, env),
       },
     );
     if (!amended) {
@@ -420,9 +420,7 @@ export class DeployAgentService {
         parentDeploymentId: deployment.parentDeploymentId,
         secondParentDeploymentId: deployment.secondParentDeploymentId,
         url: `https://${host}`,
-        branchUrl: deployment.branch
-          ? `https://${branchHost(deployment.branch, deployment.serviceName, projectId, this.previewDomain)}`
-          : null,
+        branchUrl: branchUrlHost ? `https://${branchUrlHost}` : null,
         amended: !!amended,
       })}\n\n`,
     );
@@ -453,7 +451,6 @@ export class DeployAgentService {
       } else {
         await this.deployAgentRepository.markDeployment(projectId, id, 'ready');
       }
-      await this.publishAliases(projectId);
     } else if (!amended) {
       await this.deployAgentRepository.markDeployment(
         projectId,
@@ -473,17 +470,21 @@ export class DeployAgentService {
       projectId,
       status: 'ready',
     });
+    const aliases = this.branchAliases(projectId, docs);
     return Promise.all(
       docs.map(async (doc) => ({
         id: doc.deploymentId,
         repo: doc.repo,
         ref: doc.commit,
         host: doc.host,
+        aliases: aliases.get(doc.deploymentId) ?? [],
         service: agentServiceSpec(doc.service[doc.serviceName]),
-        env:
+        env: this.agentEnv(
+          projectId,
           (await this.vault.read(
             vaultPaths.deployment(projectId, doc.deploymentId),
           )) ?? {},
+        ),
       })),
     );
   };

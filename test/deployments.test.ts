@@ -30,7 +30,6 @@ function setup(
     created: [] as any[],
     marked: [] as unknown[],
     merged: [] as unknown[],
-    aliases: [] as unknown[],
     amended: [] as unknown[],
   };
   const repository = {
@@ -53,8 +52,6 @@ function setup(
       calls.parentOf.push(body),
       { parentDeploymentId: parentId }
     ),
-    putAliases: async (_: string, table: unknown) =>
-      void calls.aliases.push(table),
     mergeCommits: async (...a: unknown[]) => (
       calls.merged.push(a.slice(1)),
       { commit: 'f'.repeat(40) }
@@ -390,7 +387,7 @@ test('another branch on the same commit gets its own deployment', async () => {
   assert.equal(calls.created[0].branch, 'feat/x');
 });
 
-test('each branch URL goes to the latest ready deployment of its branch and service', async () => {
+test('reconcile gives each branch URL to the latest ready deployment of its branch and service', async () => {
   const at = (iso: string) => new Date(iso);
   const docs = [
     { ...ready('old', C1), branch: 'main', deployedAt: at('2026-01-01') },
@@ -398,6 +395,7 @@ test('each branch URL goes to the latest ready deployment of its branch and serv
     {
       ...ready('api', C1),
       serviceName: 'api',
+      service: { api: {} },
       branch: 'main',
       deployedAt: at('2026-01-01'),
     },
@@ -410,19 +408,19 @@ test('each branch URL goes to the latest ready deployment of its branch and serv
   ];
   const { service } = setup(docs);
   const host = (h: string) => `${h}--${PROJECT_ID}.preview.x.devver.app`;
-  assert.deepEqual(
-    (await service.aliasTable(PROJECT_ID)).sort((a, b) =>
-      a.host.localeCompare(b.host),
-    ),
-    [
-      { host: host('feat-login--web'), deploymentId: 'feat' },
-      { host: host('main--api'), deploymentId: 'api' },
-      { host: host('main--web'), deploymentId: 'new' },
-    ],
-  );
+  const items = await service.listDesiredDeployments(PROJECT_ID);
+  assert.deepEqual(Object.fromEntries(items.map((i) => [i.id, i.aliases])), {
+    old: [],
+    new: [host('main--web')],
+    api: [host('main--api')],
+    feat: [host('feat-login--web')],
+    nobranch: [],
+  });
+  // Same env as a deploy, or the agent would restart every deployment on reconcile.
+  assert.ok(items.every((i) => i.env?.DEVVER_PREVIEW_ORIGIN_REGEX));
 });
 
-test('a successful deploy publishes the branch URLs and announces its own', async () => {
+test('a deploy asks the agent for its branch URL and announces it', async () => {
   const { service, calls, response, user, written } = setup([]);
   await service.deploy(
     PROJECT_ID,
@@ -435,9 +433,10 @@ test('a successful deploy publishes the branch URLs and announces its own', asyn
     user,
     response,
   );
-  assert.equal(calls.aliases.length, 1);
+  const url = `main--web--${PROJECT_ID}.preview.x.devver.app`;
+  assert.deepEqual((calls.put[0] as any).body.aliases, [url]);
   assert.match(
     written[0],
-    new RegExp(`"branchUrl":"https://main--web--${PROJECT_ID}\\.preview`),
+    new RegExp(`"branchUrl":"https://${url.replace(/\./g, '\\.')}"`),
   );
 });
