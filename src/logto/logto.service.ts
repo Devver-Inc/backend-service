@@ -90,10 +90,18 @@ export class LogtoService {
     );
 
     if (!user.customData?.personalOrganizationId) {
+      const displayName =
+        user.name ||
+        [user.profile?.givenName, user.profile?.familyName]
+          .filter(Boolean)
+          .join(' ') ||
+        user.username ||
+        user.primaryEmail ||
+        user.id;
       const personal = await this.createOrganizationWithAdmin(
         user,
-        `${user.id}'s Organization`,
-        `${user.id}'s personal Organization`,
+        displayName,
+        `${displayName}'s personal organization`,
         adminRoleId,
       );
       await this.logtoRequests.updateUserCustomData(user.id, {
@@ -108,13 +116,14 @@ export class LogtoService {
     );
     if (
       professionalDomain &&
-      !(await this.logtoRequests.findOrganizationByName(professionalDomain))
+      !(await this.logtoRequests.findWorkOrganization(professionalDomain))
     ) {
       const work = await this.createOrganizationWithAdmin(
         user,
         professionalDomain,
         `${professionalDomain} professional Organization`,
         adminRoleId,
+        professionalDomain,
       );
       await this.logtoRequests.addOrganizationJitEmailDomain(
         work.id,
@@ -131,12 +140,15 @@ export class LogtoService {
     name: string,
     description: string,
     adminRoleId: string,
+    workDomain?: string,
   ) {
     const organization = await this.logtoRequests.createOrganization({
       name,
       description,
       customData: this.organizationsMapper.toOrganizationCustomDataType(
         user.id,
+        '',
+        workDomain,
       ),
     });
     await this.logtoRequests.addUsersToOrganization(organization.id, [user.id]);

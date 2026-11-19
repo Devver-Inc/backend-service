@@ -585,10 +585,20 @@ export class LogtoRequests {
     }
   };
 
-  /** Exact-name lookup across the whole tenant (Logto's `q` is a fuzzy search). */
-  findOrganizationByName = (name: string) =>
-    this.getOrganizations({ q: name, page_size: 100 }).then((orgs) =>
-      orgs.find((org) => org.name === name),
+  /**
+   * The work org of an email domain, marked by customData.workDomain: its
+   * name is free, any org may be renamed to the domain. Orgs created before
+   * the mark are recognised by the name and description they were given.
+   */
+  findWorkOrganization = (domain: string) =>
+    this.getOrganizations({ q: domain, page_size: 100 }).then((orgs) =>
+      orgs.find(
+        (org) =>
+          org.customData.workDomain === domain ||
+          (!org.customData.workDomain &&
+            org.name === domain &&
+            org.description === `${domain} professional Organization`),
+      ),
     );
 
   updateUserCustomData = (

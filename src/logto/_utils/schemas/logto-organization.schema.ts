@@ -1,10 +1,11 @@
 import { Schema as S } from 'effect';
 import { LogtoOrganizationRaw } from '../types/responses/responses.type';
 
-/** Admins are whoever holds Logto's `admin` role; customData only adds the owner and logo. */
+/** Admins are whoever holds Logto's `admin` role; customData only adds the owner, logo and, on a work org, its email domain. */
 export const OrganizationCustomDataSchema = S.Struct({
   ownerId: S.optionalWith(S.String, { default: () => '' }),
   logoUrl: S.optionalWith(S.String, { default: () => '' }),
+  workDomain: S.optional(S.String),
 });
 
 export type OrganizationCustomData = S.Schema.Type<
