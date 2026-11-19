@@ -231,6 +231,40 @@ test('amend swaps the nearest deployed ancestor of the same service to the new c
   );
 });
 
+test('a commit already deployed for the service creates nothing, amend or not', async () => {
+  for (const amend of [false, true]) {
+    const { service, calls, response, user } = setup([
+      { ...ready('d1', C1), host: 'd1--p.preview' },
+    ]);
+    await assert.rejects(
+      service.deploy(
+        PROJECT_ID,
+        { rootCommit: ROOT, commit: C1, service: { web: {} }, amend } as never,
+        user,
+        response,
+      ),
+      (e: any) =>
+        e.status === 409 &&
+        e.response.code === 'ALREADY_DEPLOYED' &&
+        e.response.url === 'https://d1--p.preview',
+    );
+    assert.equal(calls.put.length, 0);
+  }
+});
+
+test('the same commit on another service is a new deployment', async () => {
+  const { service, calls, response, user } = setup([
+    { ...ready('d1', C1), serviceName: 'api' },
+  ]);
+  await service.deploy(
+    PROJECT_ID,
+    { rootCommit: ROOT, commit: C1, service: { web: {} } } as never,
+    user,
+    response,
+  );
+  assert.equal(calls.created.length, 1);
+});
+
 test('amend with no deployed ancestor is an ordinary new deployment', async () => {
   const { service, calls, response, user } = setup([], undefined, null);
   await service.deploy(

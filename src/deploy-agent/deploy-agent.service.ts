@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   forwardRef,
   Inject,
@@ -161,10 +162,11 @@ export class DeployAgentService {
   /**
    * Every deploy is a new deployment of one commit, as on the local server.
    * Its parent is the nearest ready deployment on the commit's first-parent
-   * history (the agent walks the git history); the same commit deployed twice
-   * gives siblings. `amend` swaps that would-be parent (of the same service)
-   * to the new commit instead, keeping its id, URL and lineage; with no such
-   * ancestor it is an ordinary deploy. Streams the agent's SSE; see `launch`.
+   * history (the agent walks the git history). A commit already deployed for
+   * the service creates nothing: 409 with that deployment. `amend` swaps that
+   * would-be parent (of the same service) to the new commit instead, keeping
+   * its id, URL and lineage; with no such ancestor it is an ordinary deploy.
+   * Streams the agent's SSE; see `launch`.
    */
   deploy = async (
     projectId: string,
@@ -179,6 +181,17 @@ export class DeployAgentService {
       repo: dto.rootCommit,
       status: 'ready',
     });
+    const deployed = ready.find(
+      (d) => d.serviceName === serviceName && d.commit === dto.commit,
+    );
+    if (deployed) {
+      throw new ConflictException({
+        code: 'ALREADY_DEPLOYED',
+        message: 'This commit is already deployed.',
+        deploymentId: deployed.deploymentId,
+        url: `https://${deployed.host}`,
+      });
+    }
     const nearest = (candidates: typeof ready) =>
       this.deployAgentRequests
         .parentOf(projectId, dto.rootCommit, {
