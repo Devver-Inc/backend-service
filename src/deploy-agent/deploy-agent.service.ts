@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from 'node:util';
 import {
   BadRequestException,
   ConflictException,
@@ -25,6 +26,7 @@ import { MergeDeploymentsDto } from './_utils/dto/requests/merge-deployments.dto
 import { GetAgentDeploymentDto } from './_utils/dto/responses/get-deployment.dto';
 import { InitProjectResponseDto } from './_utils/dto/responses/init-project-response.dto';
 import { deploymentIdentity } from './_utils/functions/deployment-identity.function';
+import { escapeRegex } from 'src/_utils/functions/escape-regex.function';
 import { failedStage } from './_utils/functions/failed-stage.function';
 import { lastSseEvent } from './_utils/functions/last-sse-event.function';
 import { serviceNameOf } from './_utils/functions/service-name-of.function';
@@ -163,10 +165,11 @@ export class DeployAgentService {
    * Every deploy is a new deployment of one commit, as on the local server.
    * Its parent is the nearest ready deployment on the commit's first-parent
    * history (the agent walks the git history). A commit already deployed for
-   * the service creates nothing: 409 with that deployment. `amend` swaps that
-   * would-be parent (of the same service) to the new commit instead, keeping
-   * its id, URL and lineage; with no such ancestor it is an ordinary deploy.
-   * Streams the agent's SSE; see `launch`.
+   * the service is never deployed twice: unchanged (env and service) it is a
+   * 409 with that deployment, otherwise that deployment is redeployed in
+   * place. `amend` swaps the would-be parent (of the same service) to the new
+   * commit instead, keeping its id, URL and lineage; with no such ancestor it
+   * is an ordinary deploy. Streams the agent's SSE; see `launch`.
    */
   deploy = async (
     projectId: string,
@@ -181,16 +184,35 @@ export class DeployAgentService {
       repo: dto.rootCommit,
       status: 'ready',
     });
+    const env = {
+      ...dto.env,
+      ...(dto.dbLinks?.length
+        ? await this.projectsService.resolveDatabaseLinks(project, dto.dbLinks)
+        : {}),
+    };
     const deployed = ready.find(
       (d) => d.serviceName === serviceName && d.commit === dto.commit,
     );
     if (deployed) {
-      throw new ConflictException({
-        code: 'ALREADY_DEPLOYED',
-        message: 'This commit is already deployed.',
-        deploymentId: deployed.deploymentId,
-        url: `https://${deployed.host}`,
-      });
+      const unchanged =
+        isDeepStrictEqual(
+          agentServiceSpec(deployed.service[serviceName]),
+          agentServiceSpec(dto.service[serviceName]),
+        ) &&
+        isDeepStrictEqual(
+          (await this.vault.read(
+            vaultPaths.deployment(projectId, deployed.deploymentId),
+          )) ?? {},
+          env,
+        );
+      if (unchanged) {
+        throw new ConflictException({
+          code: 'ALREADY_DEPLOYED',
+          message: 'This commit is already deployed.',
+          deploymentId: deployed.deploymentId,
+          url: `https://${deployed.host}`,
+        });
+      }
     }
     const nearest = (candidates: typeof ready) =>
       this.deployAgentRequests
@@ -204,16 +226,12 @@ export class DeployAgentService {
         .then(({ parentDeploymentId }) =>
           ready.find((d) => d.deploymentId === parentDeploymentId),
         );
-    const amended = dto.amend
-      ? await nearest(ready.filter((d) => d.serviceName === serviceName))
-      : undefined;
+    const amended =
+      deployed ??
+      (dto.amend
+        ? await nearest(ready.filter((d) => d.serviceName === serviceName))
+        : undefined);
     const parent = amended ? undefined : await nearest(ready);
-    const env = {
-      ...dto.env,
-      ...(dto.dbLinks?.length
-        ? await this.projectsService.resolveDatabaseLinks(project, dto.dbLinks)
-        : {}),
-    };
     await this.launch(
       projectId,
       project,
@@ -322,7 +340,11 @@ export class DeployAgentService {
         ref: deployment.commit,
         host,
         service: agentServiceSpec(deployment.service[deployment.serviceName]),
-        env,
+        env: {
+          ...env,
+          // Lets an API allow every preview of its project in CORS, whatever their URLs.
+          DEVVER_PREVIEW_ORIGIN_REGEX: `^https://[a-z0-9-]+--${projectId}\\.${escapeRegex(this.previewDomain)}$`,
+        },
       },
     );
     if (!amended) {

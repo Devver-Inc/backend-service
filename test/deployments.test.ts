@@ -189,7 +189,18 @@ test('merge deploys the merge commit with both parents and the first one env', a
   assert.equal(calls.created[0].commit, 'f'.repeat(40));
   assert.equal(calls.created[0].parentDeploymentId, 'd1');
   assert.equal(calls.created[0].secondParentDeploymentId, 'd2');
-  assert.deepEqual((calls.put[0] as any).body.env, { FROM_VAULT: '1' });
+  assert.deepEqual((calls.put[0] as any).body.env, {
+    FROM_VAULT: '1',
+    DEVVER_PREVIEW_ORIGIN_REGEX: `^https://[a-z0-9-]+--${PROJECT_ID}\\.preview\\.x\\.devver\\.app$`,
+  });
+  const origin = new RegExp(
+    (calls.put[0] as any).body.env.DEVVER_PREVIEW_ORIGIN_REGEX,
+  );
+  assert.ok(origin.test(`https://abc-1--${PROJECT_ID}.preview.x.devver.app`));
+  assert.ok(!origin.test('https://abc--other.preview.x.devver.app'));
+  assert.ok(
+    !origin.test(`https://abc--${PROJECT_ID}.preview.x.devver.app.evil.com`),
+  );
 });
 
 test('amend swaps the nearest deployed ancestor of the same service to the new commit', async () => {
@@ -231,7 +242,7 @@ test('amend swaps the nearest deployed ancestor of the same service to the new c
   );
 });
 
-test('a commit already deployed for the service creates nothing, amend or not', async () => {
+test('a commit already deployed for the service, unchanged, creates nothing, amend or not', async () => {
   for (const amend of [false, true]) {
     const { service, calls, response, user } = setup([
       { ...ready('d1', C1), host: 'd1--p.preview' },
@@ -239,7 +250,13 @@ test('a commit already deployed for the service creates nothing, amend or not', 
     await assert.rejects(
       service.deploy(
         PROJECT_ID,
-        { rootCommit: ROOT, commit: C1, service: { web: {} }, amend } as never,
+        {
+          rootCommit: ROOT,
+          commit: C1,
+          service: { web: {} },
+          env: { FROM_VAULT: '1' },
+          amend,
+        } as never,
         user,
         response,
       ),
@@ -250,6 +267,33 @@ test('a commit already deployed for the service creates nothing, amend or not', 
     );
     assert.equal(calls.put.length, 0);
   }
+});
+
+test('a commit already deployed with another env is redeployed in place', async () => {
+  const { service, calls, response, user, written } = setup([
+    {
+      ...ready('d1', C1),
+      host: 'd1--p.preview',
+      parentDeploymentId: 'd0',
+      secondParentDeploymentId: null,
+    },
+  ]);
+  await service.deploy(
+    PROJECT_ID,
+    {
+      rootCommit: ROOT,
+      commit: C1,
+      service: { web: {} },
+      env: { API_URL: 'https://b' },
+    } as never,
+    user,
+    response,
+  );
+  assert.equal((calls.put[0] as any).id, 'd1');
+  assert.equal((calls.put[0] as any).body.env.API_URL, 'https://b');
+  assert.equal(calls.created.length, 0);
+  assert.equal((calls.amended[0] as any)[0], 'd1');
+  assert.match(written[0], /"parentDeploymentId":"d0".*"amended":true/);
 });
 
 test('the same commit on another service is a new deployment', async () => {
