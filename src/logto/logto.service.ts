@@ -90,10 +90,18 @@ export class LogtoService {
     );
 
     if (!user.customData?.personalOrganizationId) {
+      const displayName =
+        user.name ||
+        [user.profile?.givenName, user.profile?.familyName]
+          .filter(Boolean)
+          .join(' ') ||
+        user.username ||
+        user.primaryEmail ||
+        user.id;
       const personal = await this.createOrganizationWithAdmin(
         user,
-        `${user.id}'s Organization`,
-        `${user.id}'s personal Organization`,
+        displayName,
+        `${displayName}'s personal organization`,
         adminRoleId,
       );
       await this.logtoRequests.updateUserCustomData(user.id, {
