@@ -63,6 +63,14 @@ export class GetAgentDeploymentDto {
   })
   url: string | null;
 
+  @ApiProperty({
+    nullable: true,
+    example: 'https://main--web--6650a1b2c3d4e5f6a7b8c9d0.preview.devver.app',
+    description:
+      'Set only on the deployment its branch URL serves now: the latest deployed of its branch and service',
+  })
+  branchUrl: string | null;
+
   @ApiProperty({ example: '2026-11-15T10:30:00.000Z' })
   createdAt: Date;
 }
