@@ -3,7 +3,7 @@ import { ApiExcludeController } from '@nestjs/swagger';
 import { Public } from 'src/logto/_utils/decorator/public.decorator';
 import { ProjectParamsDto } from './_utils/dto/requests/agent-params.dto';
 import { AgentTokenGuard } from './_utils/guards/agent-token.guard';
-import { AliasEntry, ReconcileItem } from './_utils/types/agent.types';
+import { ReconcileItem } from './_utils/types/agent.types';
 import { DeployAgentService } from './deploy-agent.service';
 
 @ApiExcludeController()
@@ -18,10 +18,5 @@ export class InternalController {
     @Param() { projectId }: ProjectParamsDto,
   ): Promise<ReconcileItem[]> {
     return this.deployAgentService.listDesiredDeployments(projectId);
-  }
-
-  @Get('aliases')
-  listAliases(@Param() { projectId }: ProjectParamsDto): Promise<AliasEntry[]> {
-    return this.deployAgentService.aliasTable(projectId);
   }
 }

@@ -15,6 +15,8 @@ export interface PutDeploymentBody {
   repo: string;
   ref: string;
   host: string;
+  /** Branch URLs; the agent takes them from any other deployment once this one serves. */
+  aliases?: string[];
   service: ServiceConfig;
   env?: Record<string, string>;
 }
@@ -38,9 +40,3 @@ export interface AgentError {
 export type DeploymentAction = 'start' | 'stop' | 'restart';
 
 export type ReconcileItem = PutDeploymentBody & { id: string };
-
-/** PUT /aliases replaces the agent's whole table. */
-export interface AliasEntry {
-  host: string;
-  deploymentId: string;
-}
