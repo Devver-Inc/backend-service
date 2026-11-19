@@ -56,6 +56,7 @@ export class DeployAgentMapper {
       parentDeploymentId: doc.parentDeploymentId ?? null,
       secondParentDeploymentId: doc.secondParentDeploymentId ?? null,
       displayName: doc.displayName ?? null,
+      branch: doc.branch ?? null,
       service: doc.serviceName,
       status,
       stage: doc.stage ?? null,

@@ -26,7 +26,16 @@ export class DeployAgentRepository {
     stage: string | null = null,
   ): Promise<void> =>
     this.deploymentModel
-      .updateOne({ projectId, deploymentId }, { $set: { status, stage } })
+      .updateOne(
+        { projectId, deploymentId },
+        {
+          $set: {
+            status,
+            stage,
+            ...(status === 'ready' && { deployedAt: new Date() }),
+          },
+        },
+      )
       .exec()
       .then(() => {});
 
@@ -35,13 +44,20 @@ export class DeployAgentRepository {
     deploymentId: string,
     code: Pick<
       NewDeploymentData,
-      'commit' | 'serviceName' | 'service' | 'dbLinks'
+      'commit' | 'serviceName' | 'service' | 'dbLinks' | 'branch'
     >,
   ): Promise<void> =>
     this.deploymentModel
       .updateOne(
         { projectId, deploymentId },
-        { $set: { ...code, status: 'ready', stage: null } },
+        {
+          $set: {
+            ...code,
+            status: 'ready',
+            stage: null,
+            deployedAt: new Date(),
+          },
+        },
       )
       .exec()
       .then(() => {});

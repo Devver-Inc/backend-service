@@ -59,6 +59,14 @@ export class Deployment {
   @Prop({ type: [Object] })
   dbLinks?: DatabaseLink[];
 
+  /** Git branch it was deployed from; its latest deployment of a service owns the branch URL. */
+  @Prop({ type: String, default: null })
+  branch: string | null;
+
+  /** Last deploy, amend or in-place redeploy (a rename does not count). */
+  @Prop({ type: Date, default: Date.now })
+  deployedAt: Date;
+
   createdAt: Date;
   updatedAt: Date;
 }

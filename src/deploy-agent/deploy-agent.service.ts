@@ -6,6 +6,7 @@ import {
   forwardRef,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -27,10 +28,12 @@ import { GetAgentDeploymentDto } from './_utils/dto/responses/get-deployment.dto
 import { InitProjectResponseDto } from './_utils/dto/responses/init-project-response.dto';
 import { deploymentIdentity } from './_utils/functions/deployment-identity.function';
 import { escapeRegex } from 'src/_utils/functions/escape-regex.function';
+import { branchHost } from './_utils/functions/branch-host.function';
 import { failedStage } from './_utils/functions/failed-stage.function';
 import { lastSseEvent } from './_utils/functions/last-sse-event.function';
 import { serviceNameOf } from './_utils/functions/service-name-of.function';
 import {
+  AliasEntry,
   DeploymentAction,
   ReconcileItem,
   ServiceConfig,
@@ -45,6 +48,10 @@ import { DeployAgentRequests } from './deploy-agent.requests';
 
 const LOGS_TAIL = 200;
 
+// Records from before `deployedAt` existed fall back to their creation.
+const deployedAt = (d: DeploymentLean): number =>
+  new Date(d.deployedAt ?? d.createdAt).getTime();
+
 // Mongo stores the DTO's unset fields as null; the agent accepts only strings.
 const agentServiceSpec = (config?: ServiceConfig): ServiceConfig =>
   Object.fromEntries(
@@ -53,6 +60,7 @@ const agentServiceSpec = (config?: ServiceConfig): ServiceConfig =>
 
 @Injectable()
 export class DeployAgentService {
+  private readonly logger = new Logger(DeployAgentService.name);
   private readonly previewDomain: string;
 
   constructor(
@@ -159,7 +167,41 @@ export class DeployAgentService {
     await this.deployAgentRequests.deleteDeployment(projectId, deploymentId);
     await this.vault.delete(vaultPaths.deployment(projectId, deploymentId));
     await this.deployAgentRepository.deleteDeployment(projectId, deploymentId);
+    await this.publishAliases(projectId);
   };
+
+  /** Each branch URL → the latest ready deployment of its branch and service. */
+  aliasTable = async (projectId: string): Promise<AliasEntry[]> => {
+    const latest = new Map<string, DeploymentLean>();
+    for (const d of await this.deployAgentRepository.findDeployments({
+      projectId,
+      status: 'ready',
+    })) {
+      if (!d.branch) continue;
+      const host = branchHost(
+        d.branch,
+        d.serviceName,
+        projectId,
+        this.previewDomain,
+      );
+      const current = latest.get(host);
+      if (!current || deployedAt(d) >= deployedAt(current)) latest.set(host, d);
+    }
+    return [...latest].map(([host, d]) => ({
+      host,
+      deploymentId: d.deploymentId,
+    }));
+  };
+
+  /** Best effort: the deploy itself succeeded; the agent's reconcile refetches the table. */
+  private publishAliases = (projectId: string): Promise<void> =>
+    this.aliasTable(projectId)
+      .then((table) => this.deployAgentRequests.putAliases(projectId, table))
+      .catch((error: unknown) =>
+        this.logger.warn(
+          `Branch URLs of project ${projectId} not updated: ${error instanceof Error ? error.message : String(error)}`,
+        ),
+      );
 
   /**
    * Every deploy is a new deployment of one commit, as on the local server.
@@ -190,8 +232,13 @@ export class DeployAgentService {
         ? await this.projectsService.resolveDatabaseLinks(project, dto.dbLinks)
         : {}),
     };
+    const branch = dto.branch ?? null;
+    // Another branch on the same commit gets its own deployment, so its branch URL exists.
     const deployed = ready.find(
-      (d) => d.serviceName === serviceName && d.commit === dto.commit,
+      (d) =>
+        d.serviceName === serviceName &&
+        d.commit === dto.commit &&
+        (d.branch ?? null) === branch,
     );
     if (deployed) {
       const unchanged =
@@ -245,6 +292,7 @@ export class DeployAgentService {
         serviceName,
         service: dto.service,
         dbLinks: dto.dbLinks,
+        branch,
       },
       env,
       response,
@@ -372,6 +420,9 @@ export class DeployAgentService {
         parentDeploymentId: deployment.parentDeploymentId,
         secondParentDeploymentId: deployment.secondParentDeploymentId,
         url: `https://${host}`,
+        branchUrl: deployment.branch
+          ? `https://${branchHost(deployment.branch, deployment.serviceName, projectId, this.previewDomain)}`
+          : null,
         amended: !!amended,
       })}\n\n`,
     );
@@ -397,10 +448,12 @@ export class DeployAgentService {
           serviceName: deployment.serviceName,
           service: deployment.service,
           dbLinks: deployment.dbLinks,
+          branch: deployment.branch,
         });
       } else {
         await this.deployAgentRepository.markDeployment(projectId, id, 'ready');
       }
+      await this.publishAliases(projectId);
     } else if (!amended) {
       await this.deployAgentRepository.markDeployment(
         projectId,

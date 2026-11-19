@@ -15,4 +15,5 @@ export interface NewDeploymentData {
   host: string;
   service: Services;
   dbLinks?: DatabaseLink[];
+  branch?: string | null;
 }

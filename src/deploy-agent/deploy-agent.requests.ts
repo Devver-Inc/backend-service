@@ -12,6 +12,7 @@ import {
 } from 'src/_utils/functions/project-keys.function';
 import {
   AgentError,
+  AliasEntry,
   DeploymentAction,
   DeploymentStatus,
   PutDeploymentBody,
@@ -87,6 +88,9 @@ export class DeployAgentRequests {
       first,
       second,
     }).then((res) => res.json());
+
+  putAliases = (projectId: string, table: AliasEntry[]): Promise<void> =>
+    this.call(projectId, 'PUT', '/aliases', table).then(() => {});
 
   /**
    * Passes the agent's own status and `{ code, message, logs }` through. A
