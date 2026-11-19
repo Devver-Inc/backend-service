@@ -108,18 +108,22 @@ export class DeployAgentService {
     await this.projectsService.assertProjectAccess(projectId, user);
     const [processes, docs] = await Promise.all([
       this.deployAgentRequests.listDeployments(projectId),
-      this.deployAgentRepository.findDeployments({
-        projectId,
-        ...(rootCommit && { repo: rootCommit }),
-      }),
+      this.deployAgentRepository.findDeployments({ projectId }),
     ]);
     const byId = new Map(processes.map((p) => [p.id, p]));
-    return docs.map((doc) =>
-      this.deployAgentMapper.toAgentDeploymentDto(
-        doc,
-        byId.get(doc.deploymentId),
-      ),
+    const aliases = this.branchAliases(
+      projectId,
+      docs.filter((d) => d.status === 'ready'),
     );
+    return docs
+      .filter((doc) => !rootCommit || doc.repo === rootCommit)
+      .map((doc) =>
+        this.deployAgentMapper.toAgentDeploymentDto(
+          doc,
+          byId.get(doc.deploymentId),
+          aliases.get(doc.deploymentId)?.[0],
+        ),
+      );
   };
 
   renameDeployment = async (
@@ -208,7 +212,8 @@ export class DeployAgentService {
    * history (the agent walks the git history). A commit already deployed for
    * the service is never deployed twice: unchanged (env and service) it is a
    * 409 with that deployment, otherwise that deployment is redeployed in
-   * place. `amend` swaps the would-be parent (of the same service) to the new
+   * place. An older deployment of the branch, unchanged, takes the branch URL
+   * back instead of the 409 (a rollback; the agent only moves the route). `amend` swaps the would-be parent (of the same service) to the new
    * commit instead, keeping its id, URL and lineage; with no such ancestor it
    * is an ordinary deploy. Streams the agent's SSE; see `launch`.
    */
@@ -251,7 +256,11 @@ export class DeployAgentService {
           )) ?? {},
           env,
         );
-      if (unchanged) {
+      // An older deployment of the branch takes its branch URL back: a rollback.
+      const holdsBranchUrl =
+        !branch ||
+        this.branchAliases(projectId, ready).has(deployed.deploymentId);
+      if (unchanged && holdsBranchUrl) {
         throw new ConflictException({
           code: 'ALREADY_DEPLOYED',
           message: 'This commit is already deployed.',

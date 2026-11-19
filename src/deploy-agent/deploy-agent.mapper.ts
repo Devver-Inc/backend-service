@@ -40,6 +40,7 @@ export class DeployAgentMapper {
   toAgentDeploymentDto = (
     doc: DocOrLean<Deployment>,
     process?: DeploymentStatus,
+    branchUrlHost?: string,
   ): GetAgentDeploymentDto => {
     const status =
       doc.status !== 'ready'
@@ -61,6 +62,7 @@ export class DeployAgentMapper {
       status,
       stage: doc.stage ?? null,
       url: status === 'ready' ? `https://${doc.host}` : null,
+      branchUrl: branchUrlHost ? `https://${branchUrlHost}` : null,
       createdAt: doc.createdAt,
     };
   };

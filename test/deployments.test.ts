@@ -1,6 +1,7 @@
 // Run: npm test
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { DeployAgentMapper } from 'src/deploy-agent/deploy-agent.mapper';
 import { DeployAgentService } from 'src/deploy-agent/deploy-agent.service';
 
 const PROJECT_ID = '6650a1b2c3d4e5f6a7b8c9d0';
@@ -418,6 +419,74 @@ test('reconcile gives each branch URL to the latest ready deployment of its bran
   });
   // Same env as a deploy, or the agent would restart every deployment on reconcile.
   assert.ok(items.every((i) => i.env?.DEVVER_PREVIEW_ORIGIN_REGEX));
+});
+
+test('an older deployment of the branch, redeployed unchanged, takes the branch URL back', async () => {
+  const at = (iso: string) => new Date(iso);
+  const docs = [
+    {
+      ...ready('old', C1),
+      host: 'old--p.preview',
+      branch: 'main',
+      deployedAt: at('2026-01-01'),
+    },
+    { ...ready('new', C2), branch: 'main', deployedAt: at('2026-01-02') },
+  ];
+  const deployOld = (s: ReturnType<typeof setup>) =>
+    s.service.deploy(
+      PROJECT_ID,
+      {
+        rootCommit: ROOT,
+        commit: C1,
+        branch: 'main',
+        service: { web: {} },
+        env: { FROM_VAULT: '1' },
+      } as never,
+      s.user,
+      s.response,
+    );
+  const rollback = setup(docs);
+  await deployOld(rollback);
+  const url = `main--web--${PROJECT_ID}.preview.x.devver.app`;
+  assert.equal((rollback.calls.put[0] as any).id, 'old');
+  assert.deepEqual((rollback.calls.put[0] as any).body.aliases, [url]);
+  assert.equal(rollback.calls.created.length, 0);
+  assert.equal((rollback.calls.amended[0] as any)[0], 'old');
+
+  // Once it holds the URL again, the same deploy is a 409.
+  const again = setup([docs[0], { ...docs[1], deployedAt: at('2025-12-31') }]);
+  await assert.rejects(deployOld(again), /already deployed/);
+  assert.equal(again.calls.put.length, 0);
+});
+
+test('the list marks the deployment each branch URL serves', async () => {
+  const at = (iso: string) => new Date(iso);
+  const s = setup([
+    {
+      ...ready('old', C1),
+      branch: 'main',
+      host: 'h',
+      deployedAt: at('2026-01-01'),
+    },
+    {
+      ...ready('new', C2),
+      branch: 'main',
+      host: 'h',
+      deployedAt: at('2026-01-02'),
+    },
+  ]);
+  (s.service as any).deployAgentRequests.listDeployments = async () => [];
+  (s.service as any).deployAgentMapper = new DeployAgentMapper({
+    get: () => ({ GIT_SSH_HOST: 'g' }),
+  } as never);
+  const list = await s.service.listDeployments(PROJECT_ID, s.user);
+  assert.deepEqual(
+    list.map((d) => [d.deploymentId, d.branchUrl]),
+    [
+      ['old', null],
+      ['new', `https://main--web--${PROJECT_ID}.preview.x.devver.app`],
+    ],
+  );
 });
 
 test('a deploy asks the agent for its branch URL and announces it', async () => {

@@ -65,7 +65,7 @@ export class DeployAgentController {
   @ApiOperation({
     summary: 'Deploy a commit as a new deployment; streams over SSE',
     description:
-      'Every call creates a new deployment (as on the local server), unless the commit is already deployed for the service: unchanged (env and service) it is a 409 ALREADY_DEPLOYED with its { deploymentId, url }, otherwise that deployment is redeployed in place (same id and URL). Every process gets DEVVER_PREVIEW_ORIGIN_REGEX, matching every preview origin of the project (for CORS). Errors before the deploy starts are JSON 4xx/5xx. The stream starts with `deployment` ({ deploymentId, parentDeploymentId, secondParentDeploymentId, url }), then `phase` events, and ends with `done` or `failed` ({ code, message, logs? }).',
+      'Every call creates a new deployment (as on the local server), unless the commit is already deployed for the service: unchanged (env and service) it is a 409 ALREADY_DEPLOYED with its { deploymentId, url }, otherwise that deployment is redeployed in place (same id and URL). With a `branch` whose URL now serves a newer deployment, the unchanged one takes the branch URL back instead of the 409 (rollback, no restart). Every process gets DEVVER_PREVIEW_ORIGIN_REGEX, matching every preview origin of the project (for CORS). Errors before the deploy starts are JSON 4xx/5xx. The stream starts with `deployment` ({ deploymentId, parentDeploymentId, secondParentDeploymentId, url, branchUrl, amended }), then `phase` events, and ends with `done` or `failed` ({ code, message, logs? }).',
   })
   @ApiResponse({
     status: HttpStatus.OK,
