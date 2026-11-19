@@ -32,6 +32,13 @@ export class GetAgentDeploymentDto {
   @ApiProperty({ nullable: true, example: 'Checkout redesign' })
   displayName: string | null;
 
+  @ApiProperty({
+    nullable: true,
+    example: 'feat/login',
+    description: 'Git branch deployed from',
+  })
+  branch: string | null;
+
   @ApiProperty({ enum: ['web', 'api'] })
   service: ServiceName;
 

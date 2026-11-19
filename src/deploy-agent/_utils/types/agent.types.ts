@@ -38,3 +38,9 @@ export interface AgentError {
 export type DeploymentAction = 'start' | 'stop' | 'restart';
 
 export type ReconcileItem = PutDeploymentBody & { id: string };
+
+/** PUT /aliases replaces the agent's whole table. */
+export interface AliasEntry {
+  host: string;
+  deploymentId: string;
+}

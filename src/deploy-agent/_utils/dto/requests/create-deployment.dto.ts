@@ -14,6 +14,7 @@ import {
 } from 'class-validator';
 import { DatabaseLink, DatabaseType } from 'src/projects/project.types';
 import {
+  BRANCH_PATTERN,
   COMMIT_PATTERN,
   ROOT_COMMIT_PATTERN,
 } from '../../constants/validation-patterns';
@@ -96,6 +97,16 @@ export class CreateAgentDeploymentDto {
   @IsOptional()
   @IsBoolean()
   amend?: boolean;
+
+  @ApiPropertyOptional({
+    description:
+      "Git branch deployed from (the CLI sends the current one). The branch's latest deployment of the service is served at a stable URL, `<branch>--<service>--<projectId>.preview.<domain>`",
+    example: 'feat/login',
+  })
+  @IsOptional()
+  @IsString()
+  @Matches(BRANCH_PATTERN, { message: 'INVALID_BRANCH' })
+  branch?: string;
 
   @ApiProperty({ type: () => ServicesDto })
   @ExactlyOneService()

@@ -30,6 +30,7 @@ function setup(
     created: [] as any[],
     marked: [] as unknown[],
     merged: [] as unknown[],
+    aliases: [] as unknown[],
     amended: [] as unknown[],
   };
   const repository = {
@@ -52,6 +53,8 @@ function setup(
       calls.parentOf.push(body),
       { parentDeploymentId: parentId }
     ),
+    putAliases: async (_: string, table: unknown) =>
+      void calls.aliases.push(table),
     mergeCommits: async (...a: unknown[]) => (
       calls.merged.push(a.slice(1)),
       { commit: 'f'.repeat(40) }
@@ -189,7 +192,18 @@ test('merge deploys the merge commit with both parents and the first one env', a
   assert.equal(calls.created[0].commit, 'f'.repeat(40));
   assert.equal(calls.created[0].parentDeploymentId, 'd1');
   assert.equal(calls.created[0].secondParentDeploymentId, 'd2');
-  assert.deepEqual((calls.put[0] as any).body.env, { FROM_VAULT: '1' });
+  assert.deepEqual((calls.put[0] as any).body.env, {
+    FROM_VAULT: '1',
+    DEVVER_PREVIEW_ORIGIN_REGEX: `^https://[a-z0-9-]+--${PROJECT_ID}\\.preview\\.x\\.devver\\.app$`,
+  });
+  const origin = new RegExp(
+    (calls.put[0] as any).body.env.DEVVER_PREVIEW_ORIGIN_REGEX,
+  );
+  assert.ok(origin.test(`https://abc-1--${PROJECT_ID}.preview.x.devver.app`));
+  assert.ok(!origin.test('https://abc--other.preview.x.devver.app'));
+  assert.ok(
+    !origin.test(`https://abc--${PROJECT_ID}.preview.x.devver.app.evil.com`),
+  );
 });
 
 test('amend swaps the nearest deployed ancestor of the same service to the new commit', async () => {
@@ -229,6 +243,73 @@ test('amend swaps the nearest deployed ancestor of the same service to the new c
     written[0],
     /"deploymentId":"d1".*"parentDeploymentId":"d0".*"amended":true/,
   );
+});
+
+test('a commit already deployed for the service, unchanged, creates nothing, amend or not', async () => {
+  for (const amend of [false, true]) {
+    const { service, calls, response, user } = setup([
+      { ...ready('d1', C1), host: 'd1--p.preview' },
+    ]);
+    await assert.rejects(
+      service.deploy(
+        PROJECT_ID,
+        {
+          rootCommit: ROOT,
+          commit: C1,
+          service: { web: {} },
+          env: { FROM_VAULT: '1' },
+          amend,
+        } as never,
+        user,
+        response,
+      ),
+      (e: any) =>
+        e.status === 409 &&
+        e.response.code === 'ALREADY_DEPLOYED' &&
+        e.response.url === 'https://d1--p.preview',
+    );
+    assert.equal(calls.put.length, 0);
+  }
+});
+
+test('a commit already deployed with another env is redeployed in place', async () => {
+  const { service, calls, response, user, written } = setup([
+    {
+      ...ready('d1', C1),
+      host: 'd1--p.preview',
+      parentDeploymentId: 'd0',
+      secondParentDeploymentId: null,
+    },
+  ]);
+  await service.deploy(
+    PROJECT_ID,
+    {
+      rootCommit: ROOT,
+      commit: C1,
+      service: { web: {} },
+      env: { API_URL: 'https://b' },
+    } as never,
+    user,
+    response,
+  );
+  assert.equal((calls.put[0] as any).id, 'd1');
+  assert.equal((calls.put[0] as any).body.env.API_URL, 'https://b');
+  assert.equal(calls.created.length, 0);
+  assert.equal((calls.amended[0] as any)[0], 'd1');
+  assert.match(written[0], /"parentDeploymentId":"d0".*"amended":true/);
+});
+
+test('the same commit on another service is a new deployment', async () => {
+  const { service, calls, response, user } = setup([
+    { ...ready('d1', C1), serviceName: 'api' },
+  ]);
+  await service.deploy(
+    PROJECT_ID,
+    { rootCommit: ROOT, commit: C1, service: { web: {} } } as never,
+    user,
+    response,
+  );
+  assert.equal(calls.created.length, 1);
 });
 
 test('amend with no deployed ancestor is an ordinary new deployment', async () => {
@@ -287,4 +368,76 @@ test('the agent never receives the nulls Mongo stores for unset service fields',
     response,
   );
   assert.deepEqual((calls.put[0] as any).body.service, { start: 'node .' });
+});
+
+test('another branch on the same commit gets its own deployment', async () => {
+  const { service, calls, response, user } = setup([
+    { ...ready('d1', C1), branch: 'main' },
+  ]);
+  await service.deploy(
+    PROJECT_ID,
+    {
+      rootCommit: ROOT,
+      commit: C1,
+      branch: 'feat/x',
+      service: { web: {} },
+      env: { FROM_VAULT: '1' },
+    } as never,
+    user,
+    response,
+  );
+  assert.equal(calls.created.length, 1);
+  assert.equal(calls.created[0].branch, 'feat/x');
+});
+
+test('each branch URL goes to the latest ready deployment of its branch and service', async () => {
+  const at = (iso: string) => new Date(iso);
+  const docs = [
+    { ...ready('old', C1), branch: 'main', deployedAt: at('2026-01-01') },
+    { ...ready('new', C2), branch: 'main', deployedAt: at('2026-01-02') },
+    {
+      ...ready('api', C1),
+      serviceName: 'api',
+      branch: 'main',
+      deployedAt: at('2026-01-01'),
+    },
+    {
+      ...ready('feat', C1),
+      branch: 'feat/Login',
+      deployedAt: at('2026-01-01'),
+    },
+    { ...ready('nobranch', C2), deployedAt: at('2026-01-03') },
+  ];
+  const { service } = setup(docs);
+  const host = (h: string) => `${h}--${PROJECT_ID}.preview.x.devver.app`;
+  assert.deepEqual(
+    (await service.aliasTable(PROJECT_ID)).sort((a, b) =>
+      a.host.localeCompare(b.host),
+    ),
+    [
+      { host: host('feat-login--web'), deploymentId: 'feat' },
+      { host: host('main--api'), deploymentId: 'api' },
+      { host: host('main--web'), deploymentId: 'new' },
+    ],
+  );
+});
+
+test('a successful deploy publishes the branch URLs and announces its own', async () => {
+  const { service, calls, response, user, written } = setup([]);
+  await service.deploy(
+    PROJECT_ID,
+    {
+      rootCommit: ROOT,
+      commit: C1,
+      branch: 'main',
+      service: { web: {} },
+    } as never,
+    user,
+    response,
+  );
+  assert.equal(calls.aliases.length, 1);
+  assert.match(
+    written[0],
+    new RegExp(`"branchUrl":"https://main--web--${PROJECT_ID}\\.preview`),
+  );
 });
