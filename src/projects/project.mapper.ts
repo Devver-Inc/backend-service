@@ -4,6 +4,7 @@ import { LogtoUser } from 'src/logto/_utils/types/responses/responses.type';
 import { UsersMapper } from 'src/users/user.mapper';
 import { GetProjectDto } from './_utils/dto/responses/get-project.dto';
 import { GetProjectLightDto } from './_utils/dto/responses/get-project-light.dto';
+import { isDeprecatedVersion } from './database-catalog';
 import { Project, ProjectDocument } from './project.schema';
 
 @Injectable()
@@ -42,11 +43,13 @@ export class ProjectsMapper {
         name: configuration.name,
         type: configuration.type,
         enabled: configuration.enabled,
-        username: configuration.username,
-        replicaCount: configuration.replicaCount,
-        ram: configuration.ram,
-        cpuCores: configuration.cpuCores,
-        storage: configuration.storage,
+        version: configuration.version,
+        deprecated: isDeprecatedVersion(
+          configuration.type,
+          configuration.version,
+        ),
+        size: configuration.size,
+        disk: configuration.disk,
       }),
     ),
     createdAt: project.createdAt,

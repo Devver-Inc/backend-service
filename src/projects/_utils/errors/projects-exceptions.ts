@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -16,15 +17,11 @@ export class ProjectsExceptions {
     'SOME_MEMBERS_NOT_IN_ORGANIZATION',
   );
   USER_NOT_TEAM_MEMBER = new BadRequestException('USER_NOT_TEAM_MEMBER');
-  INVALID_DATABASE_MEMORY_REQUEST = new BadRequestException(
-    'INVALID_DATABASE_MEMORY_REQUEST',
-  );
-  INVALID_DATABASE_CPU_REQUEST = new BadRequestException(
-    'INVALID_DATABASE_CPU_REQUEST',
-  );
-  DATABASE_TYPE_NOT_SUPPORTED = new BadRequestException(
-    'DATABASE_TYPE_NOT_SUPPORTED',
+  DATABASE_VERSION_NOT_SUPPORTED = new BadRequestException(
+    'DATABASE_VERSION_NOT_SUPPORTED',
   );
   DUPLICATE_DATABASE_TYPE = new BadRequestException('DUPLICATE_DATABASE_TYPE');
+  DATABASE_ALREADY_EXISTS = new ConflictException('DATABASE_ALREADY_EXISTS');
   DATABASE_NOT_ENABLED = new BadRequestException('DATABASE_NOT_ENABLED');
+  INVALID_DATABASE_NAME = new BadRequestException('INVALID_DATABASE_NAME');
 }

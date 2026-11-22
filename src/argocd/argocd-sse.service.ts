@@ -25,6 +25,11 @@ import { projectNamespace } from 'src/_utils/functions/project-keys.function';
 import { ProjectDocument } from 'src/projects/project.schema';
 import { DatabaseType } from 'src/projects/project.types';
 
+interface DatabaseApp {
+  appName: string;
+  type: DatabaseType;
+}
+
 const POLLING_INTERVAL_MS = 5_000;
 const HEARTBEAT_INTERVAL_MS = 30_000;
 
@@ -49,7 +54,7 @@ export class ArgoCdSseService {
     );
     const probe = this.buildProbe(projectId);
     const project = await this.projectsService.findProjectById(projectId);
-    return this.getCurrentStatus(appName, probe, this.getMongoAppName(project));
+    return this.getCurrentStatus(appName, probe, this.databaseApps(project));
   }
 
   async watchStatusByProject(
@@ -62,7 +67,7 @@ export class ArgoCdSseService {
     );
     const probe = this.buildProbe(projectId);
     const project = await this.projectsService.findProjectById(projectId);
-    return this.watchStatus(appName, probe, this.getMongoAppName(project));
+    return this.watchStatus(appName, probe, this.databaseApps(project));
   }
 
   // Bound to the project only: the stream is shared by every subscriber.
@@ -73,7 +78,7 @@ export class ArgoCdSseService {
   private getCurrentStatus = async (
     appName: string,
     probe?: () => Promise<boolean>,
-    mongoAppName?: string,
+    databases: DatabaseApp[] = [],
   ): Promise<ArgoDeploymentStatusEvent> => {
     const application = this.toApplicationStatus(
       await this.argoCdRequests.getApplicationStatus(appName),
@@ -81,8 +86,13 @@ export class ArgoCdSseService {
     );
     const applications = [application];
 
-    if (mongoAppName) {
-      applications.push(await this.getOptionalApplicationStatus(mongoAppName));
+    for (const database of databases) {
+      applications.push(
+        await this.getOptionalApplicationStatus(
+          database.appName,
+          database.type,
+        ),
+      );
     }
 
     const healthStatus = this.resolveHealthStatus(
@@ -114,16 +124,16 @@ export class ArgoCdSseService {
   private watchStatus(
     appName: string,
     probe?: () => Promise<boolean>,
-    mongoAppName?: string,
+    databases: DatabaseApp[] = [],
   ): Observable<MessageEvent> {
-    const streamKey = mongoAppName ? `${appName}:${mongoAppName}` : appName;
+    const streamKey = [appName, ...databases.map((d) => d.appName)].join(':');
     const existing = this.streams.get(streamKey);
     if (existing) return existing;
 
     const status$ = interval(POLLING_INTERVAL_MS).pipe(
       startWith(0),
       switchMap(() =>
-        this.getCurrentStatus(appName, probe, mongoAppName).catch((err) => {
+        this.getCurrentStatus(appName, probe, databases).catch((err) => {
           this.logger.warn(
             `Failed to fetch ArgoCD status for "${appName}": ${err instanceof Error ? err.message : String(err)}`,
           );
@@ -158,16 +168,14 @@ export class ArgoCdSseService {
     return stream$;
   }
 
-  private getMongoAppName(project: ProjectDocument): string | undefined {
-    if (
-      !project.databaseConfigurations?.some(
-        (database) => database.type === DatabaseType.MONGO && database.enabled,
-      )
-    ) {
-      return undefined;
-    }
-
-    return `${projectNamespace(project._id.toString())}-mongo`;
+  private databaseApps(project: ProjectDocument): DatabaseApp[] {
+    const namespace = projectNamespace(project._id.toString());
+    return (project.databaseConfigurations ?? [])
+      .filter((database) => database.enabled)
+      .map((database) => ({
+        appName: `${namespace}-${database.name}`,
+        type: database.type,
+      }));
   }
 
   private toApplicationStatus(
@@ -186,11 +194,12 @@ export class ArgoCdSseService {
 
   private async getOptionalApplicationStatus(
     appName: string,
+    type: DatabaseType,
   ): Promise<ArgoApplicationDeploymentStatus> {
     try {
       return this.toApplicationStatus(
         await this.argoCdRequests.getApplicationStatus(appName),
-        'mongo',
+        type,
       );
     } catch (err) {
       if (!isAxiosError(err) || err.response?.status !== HttpStatus.NOT_FOUND) {
@@ -199,7 +208,7 @@ export class ArgoCdSseService {
 
       return {
         appName,
-        type: 'mongo',
+        type,
         healthStatus: 'Unknown',
         syncStatus: 'Unknown',
         operationPhase: undefined,

@@ -28,7 +28,6 @@ export class GitHubService {
       );
     }
 
-    // Validate token format
     if (
       !token.startsWith('ghp_') &&
       !token.startsWith('github_pat_') &&
@@ -54,16 +53,12 @@ export class GitHubService {
     );
   }
 
-  /**
-   * Create or update a file in the GitHub repository
-   */
   async createOrUpdateFile(
     path: string,
     content: string,
     message: string,
   ): Promise<void> {
     try {
-      // Check if file exists
       let sha: string | undefined;
       try {
         const { data } = await this.octokit.repos.getContent({
@@ -84,10 +79,8 @@ export class GitHubService {
         ) {
           throw error;
         }
-        // File doesn't exist, which is fine for creation
       }
 
-      // Create or update the file
       const contentBase64 = Buffer.from(content).toString('base64');
 
       await this.octokit.repos.createOrUpdateFileContents({
@@ -121,24 +114,20 @@ export class GitHubService {
     );
   }
 
-  async pushDatabaseValuesYaml(
+  async pushServiceValuesYaml(
     projectId: string,
-    databaseName: string,
+    service: string,
     yamlContent: string,
   ): Promise<void> {
     await this.createOrUpdateFile(
-      `${this.folder(projectId)}/values-${databaseName}.yaml`,
+      `${this.folder(projectId)}/services/${service}/values.yaml`,
       yamlContent,
-      `Deploy ${databaseName} for project ${projectId}`,
+      `Deploy ${service} for project ${projectId}`,
     );
   }
 
-  /**
-   * Delete a file from the repository
-   */
   async deleteFile(path: string, message: string): Promise<void> {
     try {
-      // Get the file to retrieve its SHA
       let data: Awaited<
         ReturnType<typeof this.octokit.repos.getContent>
       >['data'];
@@ -197,13 +186,13 @@ export class GitHubService {
     );
   }
 
-  async deleteDatabaseValuesYaml(
+  async deleteServiceValuesYaml(
     projectId: string,
-    databaseName: string,
+    service: string,
   ): Promise<void> {
     await this.deleteFile(
-      `${this.folder(projectId)}/values-${databaseName}.yaml`,
-      `Remove ${databaseName} for project ${projectId}`,
+      `${this.folder(projectId)}/services/${service}/values.yaml`,
+      `Remove ${service} for project ${projectId}`,
     );
   }
 

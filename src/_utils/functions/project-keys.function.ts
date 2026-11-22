@@ -14,7 +14,8 @@ export const agentToken = (masterSecret: string, projectId: string): string =>
 // ESO into the agent pod; deployments/* is read only by the backend.
 export const vaultPaths = {
   agent: (projectId: string) => `clients/${projectNamespace(projectId)}/app`,
-  mongo: (projectId: string) => `clients/${projectNamespace(projectId)}/mongo`,
+  database: (projectId: string, type: string) =>
+    `clients/${projectNamespace(projectId)}/${type}`,
   deployment: (projectId: string, deploymentId: string) =>
     `clients/${projectNamespace(projectId)}/deployments/${deploymentId}`,
 };

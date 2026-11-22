@@ -88,6 +88,15 @@ export class DeployAgentRequests {
       second,
     }).then((res) => res.json());
 
+  createPostgresDatabase = (
+    projectId: string,
+    name: string,
+    url: string,
+  ): Promise<void> =>
+    this.call(projectId, 'PUT', `/databases/postgres/${name}`, { url }).then(
+      () => {},
+    );
+
   /**
    * Passes the agent's own status and `{ code, message, logs }` through. A
    * 5xx or an auth failure from the agent becomes 502, so it never reads as

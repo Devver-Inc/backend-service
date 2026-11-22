@@ -1,42 +1,33 @@
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsEnum, IsString } from 'class-validator';
+import { Optional } from 'class-validator-extended';
 import {
-  IsEnum,
-  IsInt,
-  Matches,
-  IsNumber,
-  IsString,
-  Max,
-  Min,
-} from 'class-validator';
-import { DatabaseType } from 'src/projects/project.types';
+  DatabaseRequest,
+  DatabaseSize,
+  DatabaseType,
+} from 'src/projects/project.types';
 
-export class DatabaseConfigurationDto {
+export class DatabaseConfigurationDto implements DatabaseRequest {
+  @ApiProperty({ enum: DatabaseType, example: DatabaseType.POSTGRES })
   @IsEnum(DatabaseType)
   type: DatabaseType;
 
-  // Inserted as-is in the connection string built by the Mongo chart.
+  @ApiPropertyOptional({
+    example: '18',
+    description: 'One of GET /databases/catalog; the default version if absent',
+  })
+  @Optional()
   @IsString()
-  @Matches(/^[A-Za-z0-9]+$/, { message: 'USERNAME_MUST_BE_ALPHANUMERIC' })
-  username: string;
+  version?: string;
 
-  @IsString()
-  @Matches(/^[A-Za-z0-9]+$/, { message: 'PASSWORD_MUST_BE_ALPHANUMERIC' })
-  password: string;
+  @ApiPropertyOptional({ enum: DatabaseSize, default: DatabaseSize.S })
+  @Optional()
+  @IsEnum(DatabaseSize)
+  size?: DatabaseSize;
+}
 
-  @IsInt()
-  @Min(1)
-  @Max(3)
-  replicaCount: number;
-
-  @IsNumber()
-  @Min(0.5)
-  ram: number;
-
-  @IsNumber()
-  @Min(0.1)
-  cpuCores: number;
-
-  @IsInt()
-  @Min(1)
-  @Max(5)
-  storage: number;
+export class ChangeDatabaseSizeDto {
+  @ApiProperty({ enum: DatabaseSize })
+  @IsEnum(DatabaseSize)
+  size: DatabaseSize;
 }

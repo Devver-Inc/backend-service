@@ -8,11 +8,12 @@ import { ProjectsExceptions } from './_utils/errors/projects-exceptions';
 import { ProjectsMapper } from './project.mapper';
 import { Project, ProjectSchema } from './project.schema';
 import { Comment, CommentSchema } from 'src/comments/comments.schema';
-import { ProjectsController } from './projects.controller';
+import { DatabasesController, ProjectsController } from './projects.controller';
 import { ProjectsRepository } from './projects.repository';
 import { ProjectsService } from './projects.service';
 import { ProjectValuesYamlGenerator } from './infrastructure/project-values-yaml.generator';
-import { MongoDbProvider } from './infrastructure/database-provider/mongo.provider';
+import { DatabasesService } from './databases.service';
+import { TunnelService } from './tunnel.service';
 
 @Module({
   imports: [
@@ -25,14 +26,15 @@ import { MongoDbProvider } from './infrastructure/database-provider/mongo.provid
     forwardRef(() => UsersModule),
     forwardRef(() => DeployAgentModule),
   ],
-  controllers: [ProjectsController],
+  controllers: [ProjectsController, DatabasesController],
   providers: [
     ProjectsService,
     ProjectsRepository,
     ProjectsMapper,
     ProjectsExceptions,
     ProjectValuesYamlGenerator,
-    MongoDbProvider,
+    DatabasesService,
+    TunnelService,
   ],
   exports: [ProjectsService, ProjectsMapper],
 })

@@ -51,13 +51,6 @@ export class LogtoRequests {
     private readonly organizationsMapper: OrganizationsMapper,
   ) {}
 
-  /**
-   * GET /api/users/{userId}
-   * Fetch user information by user ID.
-   * @link https://openapi.logto.io/operation/operation-getuser
-   * @param userId
-   * @returns User information
-   */
   fetchUserInformations = (userId: string) =>
     this.handleResponse(
       this.logtoClient.GET('/api/users/{userId}', {
@@ -68,12 +61,7 @@ export class LogtoRequests {
       this.exceptions.ERROR_FETCH_USER_INFORMATIONS,
     );
 
-  /**
-   * Safely fetch user information by user ID.
-   * Returns null if the user does not exist or an error occurs.
-   * @param userId
-   * @returns User information or null
-   */
+  /** Null on any error, a missing user included. */
   fetchUserSafe = async (userId: string) => {
     try {
       return await this.fetchUserInformations(userId);
@@ -82,14 +70,6 @@ export class LogtoRequests {
     }
   };
 
-  /**
-   * POST /api/users/{userId}/password/verify
-   * Verify user password.
-   * @link https://openapi.logto.io/operation/operation-verifyuserpassword
-   * @param userId
-   * @param password
-   * @returns Success response
-   */
   verifyUserPassword = (userId: string, password: string) =>
     this.handleResponse(
       this.logtoClient.POST('/api/users/{userId}/password/verify', {
@@ -103,14 +83,6 @@ export class LogtoRequests {
       this.exceptions.ERROR_VERIFY_USER_PASSWORD,
     );
 
-  /**
-   * PATCH /api/users/{userId}/password
-   * Update user password.
-   * @link https://openapi.logto.io/operation/operation-updateuserpassword
-   * @param userId
-   * @param password
-   * @returns Success response
-   */
   updateUserPassword = (userId: string, password: string) =>
     this.handleResponse(
       this.logtoClient.PATCH('/api/users/{userId}/password', {
@@ -124,13 +96,6 @@ export class LogtoRequests {
       this.exceptions.ERROR_UPDATE_USER_PASSWORD,
     );
 
-  /**
-   * GET /api/organizations
-   * Get organizations that match the given query with pagination.
-   * @link https://openapi.logto.io/operation/operation-listorganizations
-   * @param query
-   * @returns Logto user
-   */
   getOrganizations = (query?: GetOrganizationQuery) =>
     this.handleOrganizationResponse(
       this.logtoClient.GET('/api/organizations', {
@@ -140,13 +105,6 @@ export class LogtoRequests {
       }),
     );
 
-  /**
-   * POST /api/organizations
-   * Create a new organization.
-   * @link https://openapi.logto.io/operation/operation-createorganization
-   * @param params
-   * @returns Created organization
-   */
   createOrganization = (params: CreateOrganizationBody) =>
     this.handleOrganizationResponse(
       this.logtoClient.POST('/api/organizations', {
@@ -154,8 +112,7 @@ export class LogtoRequests {
           tenantId: LOGTO_TENANT_ID,
           name: params.name,
           description: params.description,
-          // Logto's generated types restrict organization custom data to Record<string, never>
-          // so we need to cast our richer structure here before sending it to the API
+          // Logto types customData as Record<string, never>.
           customData: params.customData as unknown as Record<string, never>,
           isMfaRequired: params.isMfaRequired,
           color: params.color,
@@ -167,14 +124,6 @@ export class LogtoRequests {
       this.exceptions.ERROR_CREATE_ORGANIZATION,
     );
 
-  /**
-   * PATCH /api/organizations/{id}
-   * Update an organization.
-   * @link https://openapi.logto.io/operation/operation-updateorganization
-   * @param organizationId
-   * @param params
-   * @returns Updated organization
-   */
   updateOrganization = (
     organizationId: string,
     params: UpdateOrganizationBody,
@@ -187,8 +136,6 @@ export class LogtoRequests {
           body: {
             ...params,
             ...(params.customData !== undefined && {
-              // Logto's generated types restrict organization custom data to Record<string, never>
-              // so we need to cast our richer structure here before sending it to the API
               customData: params.customData as unknown as Record<string, never>,
             }),
           } as any,
@@ -196,13 +143,6 @@ export class LogtoRequests {
       ),
     );
 
-  /**
-   * DELETE /api/organizations/{id}
-   * Delete an organization.
-   * @link https://openapi.logto.io/operation/operation-deleteorganization
-   * @param organizationId
-   * @returns void (204 status)
-   */
   deleteOrganization = (organizationId: string) =>
     this.forget(
       `org:${organizationId}`,
@@ -214,23 +154,9 @@ export class LogtoRequests {
       ),
     );
 
-  /**
-   * GET /api/organization-roles
-   * Get all organization roles.
-   * @link https://openapi.logto.io/operation/operation-listorganizationroles
-   * @returns Organization roles
-   */
   getOrganizationsRoles = () =>
     this.handleResponse(this.logtoClient.GET('/api/organization-roles'));
 
-  /**
-   * GET /api/organizations/{id}/users/{userId}/roles
-   * Get user roles in an organization.
-   * @link https://openapi.logto.io/operation/operation-getorganizationuserroles
-   * @param userId
-   * @param organizationId
-   * @returns User roles
-   */
   getUserRoles = (userId: string, organizationId: string) =>
     this.handleResponse(
       this.logtoClient.GET('/api/organizations/{id}/users/{userId}/roles', {
@@ -238,13 +164,6 @@ export class LogtoRequests {
       }),
     );
 
-  /**
-   * GET /api/users/{userId}/organizations
-   * Get organizations for a user.
-   * @link https://openapi.logto.io/operation/operation-listuserorganizations
-   * @param userId
-   * @returns User organizations
-   */
   getUserOrganizations = (userId: string) =>
     this.handleResponse(
       this.logtoClient.GET('/api/users/{userId}/organizations', {
@@ -252,13 +171,6 @@ export class LogtoRequests {
       }),
     );
 
-  /**
-   * GET /api/organization-invitations
-   * Get invitations for a specific user by email.
-   * @link https://openapi.logto.io/operation/operation-listorganizationinvitations
-   * @param email
-   * @returns User invitations
-   */
   getUserInvitations = (email: string): Promise<LogtoInvitation[]> =>
     this.handleResponse(
       this.logtoClient.GET('/api/organization-invitations', {
@@ -269,14 +181,6 @@ export class LogtoRequests {
       this.exceptions.ERROR_GET_INVITATIONS,
     );
 
-  /**
-   * POST /api/organization-invitations
-   * Create a new organization invitation.
-   * @link https://openapi.logto.io/operation/operation-createorganizationinvitation
-   * @param user
-   * @param params
-   * @returns Created invitation
-   */
   createOrganizationInvitation = (
     user: LogtoUserWithOrganizations,
     params: CreateInvitationDto,
@@ -326,13 +230,6 @@ export class LogtoRequests {
     );
   };
 
-  /**
-   * GET /api/organization-invitations/{id}
-   * Get an invitation by ID.
-   * @link https://openapi.logto.io/operation/operation-getorganizationinvitation
-   * @param invitationId
-   * @returns Invitation details
-   */
   getInvitationById = (invitationId: string): Promise<LogtoInvitation> =>
     this.handleResponse<LogtoInvitation>(
       this.logtoClient.GET('/api/organization-invitations/{id}', {
@@ -345,13 +242,6 @@ export class LogtoRequests {
       this.exceptions.ERROR_GET_INVITATIONS,
     );
 
-  /**
-   * GET /api/organization-invitations
-   * Get all invitations for an organization.
-   * @link https://openapi.logto.io/operation/operation-listorganizationinvitations
-   * @param organizationId
-   * @returns Organization invitations
-   */
   getOrganizationInvitations = (
     organizationId: string,
   ): Promise<LogtoInvitation[]> =>
@@ -364,15 +254,6 @@ export class LogtoRequests {
       this.exceptions.ERROR_GET_INVITATIONS,
     );
 
-  /**
-   * PUT /api/organization-invitations/{id}/status
-   * Update an organization invitation status (Accept or Revoke).
-   * @link https://openapi.logto.io/operation/operation-replaceorganizationinvitationstatus
-   * @param invitationId
-   * @param status
-   * @param userId
-   * @returns Success response
-   */
   updateOrganizationInvitationStatus = (
     invitationId: string,
     status: UpdateInvitationStatusEnum,
@@ -391,13 +272,6 @@ export class LogtoRequests {
       this.exceptions.ERROR_ACCEPT_INVITATION,
     );
 
-  /**
-   * GET /api/organizations/{id}
-   * Fetch organization information by organization ID.
-   * @link https://openapi.logto.io/operation/operation-getorganization
-   * @param organizationId
-   * @returns Organization information
-   */
   fetchUserCached = (userId: string) =>
     this.cached(`user:${userId}`, () => this.fetchUserInformations(userId));
 
@@ -467,27 +341,12 @@ export class LogtoRequests {
       ),
     );
 
-  /**
-   * GET /api/organizations/{id}/users
-   * Get organization members.
-   * @link https://openapi.logto.io/operation/operation-listorganizationusers
-   * @param organizationId
-   * @returns Organization members
-   */
   getOrganizationMembers = async (
     organizationId: string,
     query?: GetOrganizationMembersQuery,
   ): Promise<{ members: LogtoUser[]; totalItemsCount: number }> =>
     this.fetchOrganizationMembers(organizationId, query);
 
-  /**
-   * POST /api/organizations/{id}/users
-   * Add users to organization.
-   * @link https://openapi.logto.io/operation/operation-addorganizationusers
-   * @param organizationId
-   * @param userIds
-   * @returns Success response
-   */
   addUsersToOrganization = (organizationId: string, userIds: string[]) =>
     this.handleResponse(
       this.logtoClient.POST('/api/organizations/{id}/users', {
@@ -497,15 +356,6 @@ export class LogtoRequests {
       this.exceptions.ERROR_ADD_USERS_TO_ORGANIZATION,
     );
 
-  /**
-   * POST /api/organizations/{id}/users/roles
-   * Assign roles to organization members.
-   * @link https://openapi.logto.io/operation/operation-assignorganizationrolestousers
-   * @param organizationId
-   * @param userIds
-   * @param roleIds
-   * @returns Success response
-   */
   assignRolesToOrganizationMembers = (
     organizationId: string,
     userIds: string[],
@@ -519,14 +369,6 @@ export class LogtoRequests {
       this.exceptions.ERROR_ASSIGN_ROLES_ORGANIZATION_MEMBERS,
     );
 
-  /**
-   * POST /api/organizations/{id}/jit/roles
-   * Add JIT default roles to organization.
-   * @link https://openapi.logto.io/operation/operation-createorganizationjitrole
-   * @param organizationId
-   * @param roleIds
-   * @returns Success response
-   */
   addOrganizationJitDefaultRoles = (
     organizationId: string,
     roleIds: string[],
@@ -539,14 +381,6 @@ export class LogtoRequests {
       this.exceptions.ERROR_ADD_ORGANIZATION_JIT_DEFAULT_ROLES,
     );
 
-  /**
-   * POST /api/organizations/{id}/jit/email-domains
-   * Add JIT email domain to organization.
-   * @link https://openapi.logto.io/operation/operation-createorganizationjitemaildomain
-   * @param organizationId
-   * @param domain
-   * @returns Success response
-   */
   addOrganizationJitEmailDomain = (organizationId: string, domain: string) =>
     this.handleResponse(
       this.logtoClient.POST('/api/organizations/{id}/jit/email-domains', {
@@ -555,14 +389,6 @@ export class LogtoRequests {
       }),
     );
 
-  /**
-   * DELETE /api/organizations/{id}/users/{userId}
-   * Remove a user from an organization.
-   * @link https://openapi.logto.io/operation/operation-removeorganizationuser
-   * @param organizationId
-   * @param userId
-   * @returns Success response
-   */
   removeUserFromOrganization = (organizationId: string, userId: string) =>
     this.handleResponse(
       this.logtoClient.DELETE('/api/organizations/{id}/users/{userId}', {
@@ -610,7 +436,7 @@ export class LogtoRequests {
       this.handleResponse(
         this.logtoClient.PATCH('/api/users/{userId}/custom-data', {
           params: { path: { userId } },
-          // Logto types customData as Record<string, never>; same cast as updateOrganization.
+          // Same customData cast as createOrganization.
           body: { customData: customData as Record<string, never> },
         }),
       ),

@@ -10,7 +10,7 @@ const REFRESH_WAIT_MS = 30_000;
 
 export interface ProjectPublished {
   created: boolean;
-  withMongo: boolean;
+  services: string[];
   secretsChanged: boolean;
 }
 
@@ -39,7 +39,9 @@ export class ArgoCdSyncService {
   async apply(projectId: string, change: ProjectPublished): Promise<void> {
     const app = projectNamespace(projectId);
     await this.syncWhenReady(app);
-    if (change.withMongo) await this.syncWhenReady(`${app}-mongo`);
+    for (const service of change.services) {
+      await this.syncWhenReady(`${app}-${service}`);
+    }
     if (!change.created && change.secretsChanged) {
       await this.reloadAgentSecrets(app, projectNamespace(projectId));
     }

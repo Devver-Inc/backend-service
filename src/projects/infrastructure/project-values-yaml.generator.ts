@@ -9,8 +9,8 @@ export interface AgentValuesConfig {
 }
 
 /**
- * Non-secret values only. DEVVER_SECRET and the connection strings come from
- * Vault (vaultPaths.agent) through the chart's ExternalSecret.
+ * Non-secret values only. DEVVER_SECRET comes from Vault (vaultPaths.agent)
+ * through the chart's ExternalSecret.
  */
 @Injectable()
 export class ProjectValuesYamlGenerator {
