@@ -98,5 +98,3 @@ export const PERSONAL_EMAIL_DOMAINS = [
   'rocketmail.com',
   'rediffmail.com',
 ];
-
-// Usage example:

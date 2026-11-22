@@ -1,4 +1,3 @@
-// comment.domain.ts
 import { Position } from 'src/_utils/schemas/position.schema';
 import { CreateCommentDto } from './_utils/dto/requests/create-comment.dto';
 import { CommentDocument } from './comments.schema';

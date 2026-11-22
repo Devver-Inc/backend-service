@@ -1,14 +1,8 @@
-/**
- * Providers Tokens
- */
 export const LOGTO_CLIENT_TOKEN = 'LogtoClient';
 export const LOGTO_JWKS_TOKEN = 'LogtoJwks';
 export const LOGTO_URIS_TOKEN = 'LogtoUris';
 export const STORAGE_CLIENT_TOKEN = 'StorageClient';
 
-/**
- * Others
- */
 export const LOGTO_API_INDICATOR = 'https://default.logto.app/api';
 export const LOGTO_TENANT_ID = 'default';
 export const BEARER_PREFIX = 'Bearer ';
