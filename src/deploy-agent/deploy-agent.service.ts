@@ -167,7 +167,8 @@ export class DeployAgentService {
     deploymentId: string,
     user: LogtoUserWithOrganizations,
   ): Promise<string> => {
-    await this.projectsService.assertProjectAccess(projectId, user);
+    // An app may print its secrets: logs go to who may deploy, not viewers.
+    await this.assertCanPush(projectId, user);
     return this.deployAgentRequests.getLogs(projectId, deploymentId, LOGS_TAIL);
   };
 

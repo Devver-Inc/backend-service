@@ -182,7 +182,7 @@ export class DeployAgentController {
     );
   }
 
-  @Protect()
+  @Protect({ roles: [UserRoleEnum.ADMIN, UserRoleEnum.DEVELOPER] })
   @Get('deployments/:deploymentId/logs')
   @Header('Content-Type', 'text/plain; charset=utf-8')
   @ApiOperation({ summary: 'Last 200 log lines of a deployment' })
