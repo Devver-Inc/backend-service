@@ -7,14 +7,14 @@ export enum ManifestStatus {
 export enum DatabaseType {
   MONGO = 'mongo',
   POSTGRES = 'postgres',
-  REDIS = 'redis',
+  VALKEY = 'valkey',
 }
 
-export const DATABASE_CONNECTION_ENV: Record<DatabaseType, string> = {
-  [DatabaseType.MONGO]: 'DEVVER_MONGO_CONNECTION_STRING',
-  [DatabaseType.POSTGRES]: 'DEVVER_POSTGRES_CONNECTION_STRING',
-  [DatabaseType.REDIS]: 'DEVVER_REDIS_CONNECTION_STRING',
-};
+export enum DatabaseSize {
+  S = 's',
+  M = 'm',
+  L = 'l',
+}
 
 export interface DatabaseLink {
   env: string;
@@ -45,11 +45,18 @@ export interface DatabaseDeploymentConfig {
   type: DatabaseType;
   enabled: boolean;
   manifestStatus: ManifestStatus;
-  username: string;
-  replicaCount: number;
-  ram: number;
-  cpuCores: number;
-  storage: number;
+  version: string;
+  /** Kept with the database: a version can leave the catalog while bases still run it. */
+  tag: string;
+  size: DatabaseSize;
+  /** Set at creation: a StatefulSet's volume claim cannot change afterwards. */
+  disk: string;
+}
+
+export interface DatabaseRequest {
+  type: DatabaseType;
+  version?: string;
+  size?: DatabaseSize;
 }
 
 export interface CreateProjectData {
@@ -58,14 +65,7 @@ export interface CreateProjectData {
   machineConfiguration?: MachineConfiguration;
   teamMemberIds?: string[];
   overlayAccessControl: OverlayAccessControl;
-  databaseConfigurations?: {
-    type: DatabaseType;
-    username: string;
-    replicaCount: number;
-    ram: number;
-    cpuCores: number;
-    storage: number;
-  }[];
+  databaseConfigurations?: DatabaseRequest[];
 }
 
 export interface UpdateProjectData {

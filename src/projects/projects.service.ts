@@ -1,6 +1,12 @@
 import { isDeepStrictEqual } from 'node:util';
 import { ArgoCdSyncService } from 'src/argocd/argocd-sync.service';
-import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
+import {
+  ConflictException,
+  forwardRef,
+  Inject,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { toPaginatedDto } from 'src/_utils/pagination/pagination.mapper';
 import { PaginationDto } from 'src/_utils/pagination/responses/pagination.dto';
@@ -25,15 +31,16 @@ import { ProjectDomain } from './project.domain';
 import { ProjectsMapper } from './project.mapper';
 import { ProjectDocument } from './project.schema';
 import {
-  DATABASE_CONNECTION_ENV,
   DatabaseLink,
+  DatabaseSize,
   DatabaseType,
   ManifestStatus,
   OverlayAccessControl,
 } from './project.types';
 import { ProjectsRepository } from './projects.repository';
 import { ProjectValuesYamlGenerator } from './infrastructure/project-values-yaml.generator';
-import { MongoDbProvider } from './infrastructure/database-provider/mongo.provider';
+import { DatabasesService } from './databases.service';
+import { DatabaseConfigurationDto } from './_utils/dto/requests/database-configuration.dto';
 
 @Injectable()
 export class ProjectsService {
@@ -48,7 +55,7 @@ export class ProjectsService {
     private readonly configService: ConfigService<EnvironmentVariables, true>,
     private readonly vault: VaultService,
     private readonly yamlGenerator: ProjectValuesYamlGenerator,
-    private readonly mongoProvider: MongoDbProvider,
+    private readonly databases: DatabasesService,
     @Inject(forwardRef(() => DeployAgentService))
     private readonly deployAgentService: DeployAgentService,
     private readonly argoCdSync: ArgoCdSyncService,
@@ -71,68 +78,125 @@ export class ProjectsService {
       ProjectDomain.create(dto, organization.id, user.id),
     );
     const projectId = project._id.toString();
+    const databases = project.databaseConfigurations ?? [];
 
-    // The password exists only in this request: without Vault the project is unusable.
-    const mongo = dto.databaseConfigurations?.find(
-      (configuration) => configuration.type === DatabaseType.MONGO,
-    );
-    if (mongo) {
-      await this.vault
-        .write(vaultPaths.mongo(projectId), {
-          username: mongo.username,
-          password: mongo.password,
-        })
-        .catch(async (error: unknown) => {
-          await this.projectsRepository.deleteById(projectId);
-          throw error;
-        });
+    // Without its credentials in Vault the project is unusable.
+    try {
+      for (const database of databases) {
+        await this.databases.writeCredentials(projectId, database.type);
+      }
+    } catch (error) {
+      // Vault is likely down too: keep the original error.
+      await this.databases
+        .deleteCredentials(
+          projectId,
+          databases.map((d) => d.type),
+        )
+        .catch(() => {});
+      await this.projectsRepository.deleteById(projectId);
+      throw error;
     }
 
     if (!(await this.publishProjectManifest(project, organization)).published) {
-      for (const configuration of project.databaseConfigurations ?? []) {
+      for (const database of databases) {
         await this.projectsRepository.updateDatabaseManifestStatus(
           projectId,
-          configuration.name,
+          database.name,
           ManifestStatus.FAILED,
         );
       }
       return this.projectsMapper.toProjectLightDto(project);
     }
 
-    for (const configuration of project.databaseConfigurations ?? []) {
-      try {
-        await this.githubService.pushDatabaseValuesYaml(
-          projectId,
-          configuration.name,
-          this.mongoProvider.generateValuesYaml(
-            { id: projectId, name: project.name },
-            configuration,
-          ),
-        );
-        await this.projectsRepository.updateDatabaseManifestStatus(
-          projectId,
-          configuration.name,
-          ManifestStatus.PUSHED,
-        );
-      } catch (error) {
-        this.logger.error(
-          `Failed to push values-${configuration.name}.yaml for project ${projectId}:`,
-          error,
-        );
-        await this.projectsRepository.updateDatabaseManifestStatus(
-          projectId,
-          configuration.name,
-          ManifestStatus.FAILED,
-        );
-      }
+    for (const database of databases) {
+      await this.databases.publish(projectId, database);
     }
-
     this.argoCdSync.projectPublished(projectId, {
       created: true,
-      withMongo: Boolean(mongo),
+      services: databases.map((database) => database.name),
       secretsChanged: false,
     });
     return this.projectsMapper.toProjectLightDto(project);
+  }
+
+  async addDatabase(
+    projectId: string,
+    request: DatabaseConfigurationDto,
+    user: LogtoUserWithOrganizations,
+  ): Promise<GetProjectDto> {
+    const project = await this.getProjectWithAccessCheck(projectId, user);
+    if (project.databaseConfigurations?.some((d) => d.type === request.type)) {
+      throw this.exceptions.DATABASE_ALREADY_EXISTS;
+    }
+    this.databases.assertOffered(request);
+
+    await this.databases.writeCredentials(projectId, request.type);
+    const updated = await this.updateAndSave(project, (d) =>
+      d.addDatabase(request),
+    ).catch(async (error: unknown) => {
+      await this.databases
+        .deleteCredentials(projectId, [request.type])
+        .catch(() => {});
+      throw error;
+    });
+    await this.databases.publish(
+      projectId,
+      this.databases.databaseOf(updated, request.type),
+    );
+    this.argoCdSync.projectPublished(projectId, {
+      created: false,
+      services: [request.type],
+      secretsChanged: false,
+    });
+    return this.toFullProjectDto(updated);
+  }
+
+  async changeDatabaseSize(
+    projectId: string,
+    type: DatabaseType,
+    size: DatabaseSize,
+    user: LogtoUserWithOrganizations,
+  ): Promise<GetProjectDto> {
+    const project = await this.getProjectWithAccessCheck(projectId, user);
+    const database = this.databases.databaseOf(project, type);
+    const updated = await this.projectsRepository.updateDatabaseSize(
+      projectId,
+      database.name,
+      size,
+    );
+    await this.databases.publish(
+      projectId,
+      this.databases.databaseOf(updated, type),
+    );
+    this.argoCdSync.projectPublished(projectId, {
+      created: false,
+      services: [type],
+      secretsChanged: false,
+    });
+    return this.toFullProjectDto(updated);
+  }
+
+  async removeDatabase(
+    projectId: string,
+    type: DatabaseType,
+    user: LogtoUserWithOrganizations,
+  ): Promise<void> {
+    const project = await this.getProjectWithAccessCheck(projectId, user);
+    const database = this.databases.databaseOf(project, type);
+    const linked = await this.deployAgentService.deploymentsLinkedTo(
+      projectId,
+      type,
+    );
+    if (linked.length) {
+      throw new ConflictException({
+        code: 'DATABASE_IN_USE',
+        message: 'Ready deployments still link this database.',
+        deploymentIds: linked,
+      });
+    }
+    await this.databases.unpublish(projectId, [database]);
+    await this.databases.deleteCredentials(projectId, [type]);
+    await this.projectsRepository.removeDatabase(projectId, database.name);
   }
 
   findProjectById = (projectId: string): Promise<ProjectDocument> =>
@@ -145,27 +209,11 @@ export class ProjectsService {
         commentPermission: overlayAccessControl.commentPermission,
       }));
 
-  async resolveDatabaseLinks(
+  resolveDatabaseLinks = (
     project: ProjectDocument,
     databaseLinks: DatabaseLink[],
-  ): Promise<Record<string, string>> {
-    const resolvedLinks: Record<string, string> = {};
-
-    for (const link of databaseLinks) {
-      if (link.engine !== DatabaseType.MONGO) {
-        throw this.exceptions.DATABASE_TYPE_NOT_SUPPORTED;
-      }
-      if (!this.isMongoEnabled(project)) {
-        throw this.exceptions.DATABASE_NOT_ENABLED;
-      }
-      resolvedLinks[link.env] = await this.mongoConnectionString(
-        project._id.toString(),
-        link.database,
-      );
-    }
-
-    return resolvedLinks;
-  }
+  ): Promise<Record<string, string>> =>
+    this.databases.resolveLinks(project, databaseLinks);
 
   findByProjectAndOrganizationId = (
     projectId: string,
@@ -224,7 +272,7 @@ export class ProjectsService {
     if (published) {
       this.argoCdSync.projectPublished(projectId, {
         created: false,
-        withMongo: false,
+        services: [],
         secretsChanged,
       });
     }
@@ -246,18 +294,17 @@ export class ProjectsService {
    */
   async deleteProjectCascade(projectId: string): Promise<void> {
     const project = await this.projectsRepository.findById(projectId);
-    for (const configuration of project.databaseConfigurations ?? []) {
-      await this.githubService.deleteDatabaseValuesYaml(
-        projectId,
-        configuration.name,
-      );
-    }
+    const databases = project.databaseConfigurations ?? [];
+    await this.databases.unpublish(projectId, databases);
     await this.githubService.deleteValuesYaml(projectId);
 
     await this.deployAgentService.deleteProjectState(projectId);
     await this.projectsRepository.deleteComments(projectId);
     await this.vault.delete(vaultPaths.agent(projectId));
-    await this.vault.delete(vaultPaths.mongo(projectId));
+    await this.databases.deleteCredentials(
+      projectId,
+      databases.map((d) => d.type),
+    );
     await this.projectsRepository.deleteById(projectId);
     this.logger.log(`Project ${projectId} deleted`);
   }
@@ -359,15 +406,13 @@ export class ProjectsService {
       const deployAgentConfig = this.configService.get('DEPLOY_AGENT', {
         infer: true,
       });
+      // No connection string: the agent gets one with each /databases call,
+      // so rotating a password never restarts it.
       const secrets = {
         DEVVER_SECRET: agentToken(
           deployAgentConfig.DEPLOY_AGENT_SECRET,
           projectId,
         ),
-        ...(this.isMongoEnabled(project) && {
-          [DATABASE_CONNECTION_ENV[DatabaseType.MONGO]]:
-            await this.mongoConnectionString(projectId),
-        }),
       };
       const previous = await this.vault.read(vaultPaths.agent(projectId));
       await this.vault.write(vaultPaths.agent(projectId), secrets);
@@ -406,28 +451,6 @@ export class ProjectsService {
       );
       return { published: false, secretsChanged: false };
     }
-  }
-
-  private isMongoEnabled = (project: ProjectDocument): boolean =>
-    Boolean(
-      project.databaseConfigurations?.some(
-        (configuration) =>
-          configuration.type === DatabaseType.MONGO && configuration.enabled,
-      ),
-    );
-
-  private async mongoConnectionString(
-    projectId: string,
-    database?: string,
-  ): Promise<string> {
-    const credentials = await this.vault.read(vaultPaths.mongo(projectId));
-    if (!credentials) throw this.exceptions.DATABASE_NOT_ENABLED;
-    return this.mongoProvider.buildConnectionString(
-      projectId,
-      credentials.username,
-      credentials.password,
-      database,
-    );
   }
 
   private async updateAndSave(
@@ -470,16 +493,7 @@ export class ProjectsService {
         throw this.exceptions.DUPLICATE_DATABASE_TYPE;
       }
       types.add(configuration.type);
-
-      if (configuration.type !== DatabaseType.MONGO) {
-        throw this.exceptions.DATABASE_TYPE_NOT_SUPPORTED;
-      }
-      if (configuration.ram < 0.5) {
-        throw this.exceptions.INVALID_DATABASE_MEMORY_REQUEST;
-      }
-      if (configuration.cpuCores < 0.1) {
-        throw this.exceptions.INVALID_DATABASE_CPU_REQUEST;
-      }
+      this.databases.assertOffered(configuration);
     }
   }
 }

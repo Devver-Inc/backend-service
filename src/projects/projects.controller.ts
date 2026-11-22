@@ -6,10 +6,21 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  ParseEnumPipe,
   Patch,
   Post,
   Query,
 } from '@nestjs/common';
+import {
+  ChangeDatabaseSizeDto,
+  DatabaseConfigurationDto,
+} from './_utils/dto/requests/database-configuration.dto';
+import {
+  DatabaseCatalogResponseDto,
+  DatabaseCredentialsResponseDto,
+} from './_utils/dto/responses/database-configuration-response.dto';
+import { DatabaseType } from './project.types';
+import { DatabasesService } from './databases.service';
 import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ApiResponseDecorator } from 'src/_utils/decorators/api-response.decorator';
 import { Protect } from 'src/_utils/decorators/protect.decorator';
@@ -28,10 +39,29 @@ import { Public } from 'src/logto/_utils/decorator/public.decorator';
 import { OverlayAccessControlResponseDto } from './_utils/dto/responses/overlay-access-control-response.dto';
 import { ProjectParamsDto } from 'src/deploy-agent/_utils/dto/requests/agent-params.dto';
 
+@ApiTags('Databases')
+@Controller('databases')
+export class DatabasesController {
+  constructor(private readonly databasesService: DatabasesService) {}
+
+  @Protect()
+  @Get('catalog')
+  @ApiOperation({
+    summary: 'Database versions offered to new databases, and the sizes',
+  })
+  @ApiResponse({ status: HttpStatus.OK, type: [DatabaseCatalogResponseDto] })
+  getCatalog(): DatabaseCatalogResponseDto[] {
+    return this.databasesService.catalog();
+  }
+}
+
 @ApiTags('Projects')
 @Controller('projects')
 export class ProjectsController {
-  constructor(private readonly projectsService: ProjectsService) {}
+  constructor(
+    private readonly projectsService: ProjectsService,
+    private readonly databasesService: DatabasesService,
+  ) {}
 
   @Protect({ roles: [UserRoleEnum.ADMIN] })
   @Post()
@@ -131,6 +161,92 @@ export class ProjectsController {
     @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
   ): Promise<void> {
     return this.projectsService.deleteProject(projectId, user);
+  }
+
+  @Protect({ roles: [UserRoleEnum.ADMIN] })
+  @Post(':projectId/databases')
+  @ApiParam({ name: 'projectId', type: String })
+  @ApiOperation({
+    summary: 'Add a database (credentials generated, resources from the size)',
+  })
+  @ApiResponse({
+    status: HttpStatus.CONFLICT,
+    description: 'DATABASE_ALREADY_EXISTS',
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'DATABASE_VERSION_NOT_SUPPORTED',
+  })
+  async addDatabase(
+    @Param('projectId') projectId: string,
+    @Body() dto: DatabaseConfigurationDto,
+    @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
+  ): Promise<GetProjectDto> {
+    return this.projectsService.addDatabase(projectId, dto, user);
+  }
+
+  @Protect({ roles: [UserRoleEnum.ADMIN] })
+  @Patch(':projectId/databases/:type')
+  @ApiParam({ name: 'projectId', type: String })
+  @ApiParam({ name: 'type', enum: DatabaseType })
+  @ApiOperation({
+    summary: "Change a database's size (CPU and memory; the disk stays)",
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'DATABASE_NOT_ENABLED',
+  })
+  async changeDatabaseSize(
+    @Param('projectId') projectId: string,
+    @Param('type', new ParseEnumPipe(DatabaseType)) type: DatabaseType,
+    @Body() dto: ChangeDatabaseSizeDto,
+    @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
+  ): Promise<GetProjectDto> {
+    return this.projectsService.changeDatabaseSize(
+      projectId,
+      type,
+      dto.size,
+      user,
+    );
+  }
+
+  @Protect()
+  @Get(':projectId/databases/:type/credentials')
+  @ApiParam({ name: 'projectId', type: String })
+  @ApiParam({ name: 'type', enum: DatabaseType })
+  @ApiOperation({
+    summary:
+      'Login of a database, for a connection through the tunnel (WebSocket on .../tunnel)',
+  })
+  @ApiResponse({ status: HttpStatus.OK, type: DatabaseCredentialsResponseDto })
+  async getDatabaseCredentials(
+    @Param('projectId') projectId: string,
+    @Param('type', new ParseEnumPipe(DatabaseType)) type: DatabaseType,
+    @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
+  ): Promise<DatabaseCredentialsResponseDto> {
+    const project = await this.projectsService.assertProjectAccess(
+      projectId,
+      user,
+    );
+    return this.databasesService.login(project, type, user);
+  }
+
+  @Protect({ roles: [UserRoleEnum.ADMIN] })
+  @Delete(':projectId/databases/:type')
+  @HttpCode(204)
+  @ApiParam({ name: 'projectId', type: String })
+  @ApiParam({ name: 'type', enum: DatabaseType })
+  @ApiOperation({ summary: 'Delete a database, its data and credentials' })
+  @ApiResponse({
+    status: HttpStatus.CONFLICT,
+    description: 'DATABASE_IN_USE: ready deployments still link it',
+  })
+  async removeDatabase(
+    @Param('projectId') projectId: string,
+    @Param('type', new ParseEnumPipe(DatabaseType)) type: DatabaseType,
+    @ConnectedUserWithOrgs() user: LogtoUserWithOrganizations,
+  ): Promise<void> {
+    return this.projectsService.removeDatabase(projectId, type, user);
   }
 
   @Protect({ roles: [UserRoleEnum.ADMIN] })

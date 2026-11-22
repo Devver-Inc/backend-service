@@ -1,8 +1,10 @@
 import { UserRoleEnum } from 'src/logto/_utils/enums/permissions.enum';
+import { DATABASE_CATALOG, DEFAULT_DATABASE_SIZE } from './database-catalog';
 import {
   CommentAuthorization,
   CreateProjectData,
   DatabaseDeploymentConfig,
+  DatabaseRequest,
   DeploymentConfig,
   MachineConfiguration,
   ManifestStatus,
@@ -45,17 +47,7 @@ export class ProjectDomain {
     };
 
     const databaseConfigurations = dto.databaseConfigurations?.map(
-      (configuration) => ({
-        name: configuration.type,
-        type: configuration.type,
-        enabled: true,
-        manifestStatus: ManifestStatus.PENDING,
-        username: configuration.username,
-        replicaCount: configuration.replicaCount,
-        ram: configuration.ram,
-        cpuCores: configuration.cpuCores,
-        storage: configuration.storage,
-      }),
+      ProjectDomain.database,
     );
 
     return new ProjectDomain({
@@ -76,6 +68,32 @@ export class ProjectDomain {
 
   static from(props: ProjectDomainProps): ProjectDomain {
     return new ProjectDomain(props);
+  }
+
+  static database(request: DatabaseRequest): DatabaseDeploymentConfig {
+    const catalog = DATABASE_CATALOG[request.type];
+    const size = request.size ?? DEFAULT_DATABASE_SIZE;
+    const version = request.version ?? catalog.default;
+    return {
+      name: request.type,
+      type: request.type,
+      enabled: true,
+      manifestStatus: ManifestStatus.PENDING,
+      version,
+      tag: catalog.versions[version].tag,
+      size,
+      disk: catalog.sizes[size].disk,
+    };
+  }
+
+  addDatabase(request: DatabaseRequest): ProjectDomain {
+    return new ProjectDomain({
+      ...this,
+      databaseConfigurations: [
+        ...(this.databaseConfigurations ?? []),
+        ProjectDomain.database(request),
+      ],
+    });
   }
 
   isTeamMember(userId: string): boolean {

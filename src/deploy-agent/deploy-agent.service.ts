@@ -19,6 +19,7 @@ import {
 import { LogtoUserWithOrganizations } from 'src/logto/_utils/types/user-with-organization.type';
 import { ProjectDomain } from 'src/projects/project.domain';
 import { ProjectDocument } from 'src/projects/project.schema';
+import { DatabaseType } from 'src/projects/project.types';
 import { ProjectsService } from 'src/projects/projects.service';
 import { CreateAgentDeploymentDto } from './_utils/dto/requests/create-deployment.dto';
 import { InitProjectDto } from './_utils/dto/requests/init-project.dto';
@@ -83,6 +84,26 @@ export class DeployAgentService {
 
   isAgentHealthy = (projectId: string): Promise<boolean> =>
     this.deployAgentRequests.health(projectId);
+
+  deploymentsLinkedTo = async (
+    projectId: string,
+    engine: DatabaseType,
+  ): Promise<string[]> =>
+    (
+      await this.deployAgentRepository.findDeployments({
+        projectId,
+        status: 'ready',
+      })
+    )
+      .filter((d) => d.dbLinks?.some((link) => link.engine === engine))
+      .map((d) => d.deploymentId);
+
+  createPostgresDatabase = (
+    projectId: string,
+    name: string,
+    url: string,
+  ): Promise<void> =>
+    this.deployAgentRequests.createPostgresDatabase(projectId, name, url);
 
   /**
    * `devver init`: the repo is named after the code's root commit, so every

@@ -1,6 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument } from 'mongoose';
 import {
+  DatabaseSize,
   DatabaseType,
   ManifestStatus,
   OverlayCommentPermission,
@@ -32,8 +33,6 @@ export class OverlayAccessControl {
 
 export const OverlayAccessControlSchema =
   SchemaFactory.createForClass(OverlayAccessControl);
-
-// --- DeploymentConfig nested schemas ---
 
 @Schema({ _id: false })
 export class DeploymentConfig {
@@ -70,20 +69,17 @@ export class DatabaseDeploymentConfig {
   })
   manifestStatus: ManifestStatus;
 
-  @Prop({ required: true })
-  username: string;
+  @Prop({ type: String, required: true })
+  version: string;
 
-  @Prop({ required: true, min: 1, max: 3 })
-  replicaCount: number;
+  @Prop({ type: String, required: true })
+  tag: string;
 
-  @Prop({ required: true, min: 0.5 })
-  ram: number;
+  @Prop({ type: String, enum: Object.values(DatabaseSize), required: true })
+  size: DatabaseSize;
 
-  @Prop({ required: true, min: 0.1 })
-  cpuCores: number;
-
-  @Prop({ required: true, min: 1, max: 5 })
-  storage: number;
+  @Prop({ type: String, required: true })
+  disk: string;
 }
 
 export const DatabaseDeploymentConfigSchema = SchemaFactory.createForClass(

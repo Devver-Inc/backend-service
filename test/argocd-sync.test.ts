@@ -41,9 +41,9 @@ function setup(syncFailures: AxiosError[] = []) {
       },
       {
         kind: 'Pod',
-        name: `${APP}-mongo-0`,
+        name: `${APP}-postgres-0`,
         namespace: APP,
-        parentRefs: [{ kind: 'StatefulSet', name: `${APP}-mongo` }],
+        parentRefs: [{ kind: 'StatefulSet', name: `${APP}-postgres` }],
       },
     ],
     deleteResource: async (
@@ -68,14 +68,14 @@ test('a new project waits for its Application, then syncs it and its database', 
   const { service, calls } = setup([httpError(404), httpError(403)]);
   await service.apply(PROJECT_ID, {
     created: true,
-    withMongo: true,
+    services: ['postgres'],
     secretsChanged: false,
   });
   assert.deepEqual(calls, [
     `sync ${APP}`,
     `sync ${APP}`,
     `sync ${APP}`,
-    `sync ${APP}-mongo`,
+    `sync ${APP}-postgres`,
   ]);
 });
 
@@ -83,7 +83,7 @@ test('changed secrets refresh the ExternalSecret, wait for ESO, then recreate on
   const { service, calls } = setup();
   await service.apply(PROJECT_ID, {
     created: false,
-    withMongo: false,
+    services: [],
     secretsChanged: true,
   });
   assert.deepEqual(calls, [
@@ -101,7 +101,7 @@ test('an update without secret changes only syncs: previews keep running', async
   ]);
   await service.apply(PROJECT_ID, {
     created: false,
-    withMongo: false,
+    services: [],
     secretsChanged: false,
   });
   assert.deepEqual(calls, [`sync ${APP}`]);
@@ -112,7 +112,7 @@ test('other Argo errors are not retried', async () => {
   await assert.rejects(
     service.apply(PROJECT_ID, {
       created: true,
-      withMongo: false,
+      services: [],
       secretsChanged: false,
     }),
   );

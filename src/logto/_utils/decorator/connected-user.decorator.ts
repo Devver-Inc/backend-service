@@ -4,9 +4,25 @@ import {
   ExecutionContext,
 } from '@nestjs/common';
 import { UserRoleEnum } from '../enums/permissions.enum';
+import { AuthInfo } from '../types/auth-info.types';
 import { LogtoUser } from '../types/responses/responses.type';
 import { LogtoUserWithOrganizations } from '../types/user-with-organization.type';
-import { LogtoUserClaimOrganizationRole } from '../schemas/logto-payload.types';
+
+export const userWithOrganizations = (
+  auth: AuthInfo | null | undefined,
+): LogtoUserWithOrganizations | null => {
+  if (!auth?.user) return null;
+  const selectedOrganizationRoles = [...(auth.selectedOrganizationRoles ?? [])];
+  return {
+    ...auth.user,
+    currentOrganization: auth.selectedOrganization || null,
+    organizations: [...(auth.organizations || [])],
+    selectedOrganizationRoles,
+    isAdmin: selectedOrganizationRoles.some(
+      (r) => r.roleName === UserRoleEnum.ADMIN,
+    ),
+  } as LogtoUserWithOrganizations;
+};
 
 export const ConnectedUser = createParamDecorator(
   (_, ctx: ExecutionContext): LogtoUser => {
@@ -18,52 +34,15 @@ export const ConnectedUser = createParamDecorator(
 );
 
 export const OptionalConnectedUserWithOrgs = createParamDecorator(
-  (_, ctx: ExecutionContext): LogtoUserWithOrganizations | null => {
-    const request = ctx.switchToHttp().getRequest();
-    if (!request.auth) return null;
-
-    const user = request.auth.user;
-
-    if (!user) return null;
-
-    const currentOrganization = request.auth.selectedOrganization;
-    const organizations = request.auth.organizations;
-    const selectedOrganizationRoles: LogtoUserClaimOrganizationRole[] =
-      request.auth.selectedOrganizationRoles ?? [];
-
-    return {
-      ...user,
-      currentOrganization: currentOrganization || null,
-      organizations: organizations || [],
-      selectedOrganizationRoles,
-      isAdmin: selectedOrganizationRoles.some(
-        (r) => r.roleName === UserRoleEnum.ADMIN,
-      ),
-    };
-  },
+  (_, ctx: ExecutionContext): LogtoUserWithOrganizations | null =>
+    userWithOrganizations(ctx.switchToHttp().getRequest().auth),
 );
 
 export const ConnectedUserWithOrgs = createParamDecorator(
   (_, ctx: ExecutionContext): LogtoUserWithOrganizations => {
-    const request = ctx.switchToHttp().getRequest();
-    const user = request.auth.user;
-    const currentOrganization = request.auth.selectedOrganization;
-    const organizations = request.auth.organizations;
-
+    const user = userWithOrganizations(ctx.switchToHttp().getRequest().auth);
     if (!user)
       throw new BadRequestException('user not found in context of request');
-
-    const selectedOrganizationRoles: LogtoUserClaimOrganizationRole[] =
-      request.auth.selectedOrganizationRoles ?? [];
-
-    return {
-      ...user,
-      currentOrganization: currentOrganization || null,
-      organizations: organizations || [],
-      selectedOrganizationRoles,
-      isAdmin: selectedOrganizationRoles.some(
-        (r) => r.roleName === UserRoleEnum.ADMIN,
-      ),
-    };
+    return user;
   },
 );
